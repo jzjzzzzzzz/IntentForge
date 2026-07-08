@@ -16,6 +16,7 @@ from intentforge.features import (
 from intentforge.schemas import ParameterTable, ValidationCheck, ValidationReport
 
 SUPPORTED_FAMILY = "wall_mounted_bracket"
+L_BRACKET_FAMILY = "l_bracket"
 DEFAULT_MIN_EDGE_DISTANCE_MM = 3.0
 BOUNDING_BOX_TOLERANCE_MM = 0.1
 
@@ -702,6 +703,348 @@ def validate_wall_bracket(
     )
 
 
+def _exact_numeric(parameter_table: ParameterTable, name: str) -> tuple[float | None, str | None]:
+    try:
+        parameter = parameter_table.get(name)
+    except KeyError:
+        return None, f"missing required parameter: {name}"
+    value = parameter.value
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None, f"{name} must be numeric"
+    return float(value), None
+
+
+def _exact_bool(parameter_table: ParameterTable, name: str) -> tuple[bool | None, str | None]:
+    try:
+        parameter = parameter_table.get(name)
+    except KeyError:
+        return None, f"missing required parameter: {name}"
+    if not isinstance(parameter.value, bool):
+        return None, f"{name} must be boolean"
+    return parameter.value, None
+
+
+def _l_values(parameter_table: ParameterTable, feature_flags: dict[str, dict[str, Any]]) -> tuple[dict[str, float | bool | None], dict[str, str]]:
+    keys = ["base_leg_length", "vertical_leg_length", "bracket_width", "thickness"]
+    aliases = {
+        "base_leg_length": "base_leg_length_mm",
+        "vertical_leg_length": "vertical_leg_length_mm",
+        "bracket_width": "bracket_width_mm",
+        "thickness": "thickness_mm",
+        "hole_diameter": "hole_diameter_mm",
+        "base_hole_count": "base_hole_count",
+        "base_hole_spacing": "base_hole_spacing_mm",
+        "vertical_hole_count": "vertical_hole_count",
+        "vertical_hole_spacing": "vertical_hole_spacing_mm",
+        "inside_fillet_radius": "inside_fillet_radius_mm",
+        "outside_edge_fillet_radius": "outside_edge_fillet_radius_mm",
+        "gusset_thickness": "gusset_thickness_mm",
+        "gusset_height": "gusset_height_mm",
+    }
+    if is_feature_active(feature_flags, "base_mounting_holes"):
+        keys.extend(["hole_diameter", "base_hole_count", "base_hole_spacing"])
+    if is_feature_active(feature_flags, "vertical_mounting_holes"):
+        keys.extend(["hole_diameter", "vertical_hole_count", "vertical_hole_spacing"])
+    if is_feature_active(feature_flags, "inside_fillet"):
+        keys.append("inside_fillet_radius")
+    if is_feature_active(feature_flags, "outside_edge_fillets"):
+        keys.append("outside_edge_fillet_radius")
+    if is_feature_active(feature_flags, "triangular_gusset"):
+        keys.extend(["gusset_thickness", "gusset_height"])
+
+    values: dict[str, float | bool | None] = {}
+    errors: dict[str, str] = {}
+    for key in dict.fromkeys(keys):
+        value, error = _exact_numeric(parameter_table, aliases[key])
+        values[key] = value
+        if error:
+            errors[key] = error
+    if is_feature_active(feature_flags, "triangular_gusset"):
+        value, error = _exact_bool(parameter_table, "gusset_enabled")
+        values["gusset_enabled"] = value
+        if error:
+            errors["gusset_enabled"] = error
+    return values, errors
+
+
+def _l_parameter_range_check(values: dict[str, float | bool | None], errors: dict[str, str], feature_flags: dict[str, dict[str, Any]]) -> ValidationCheck:
+    invalid = list(errors.values())
+    positive_keys = ["base_leg_length", "vertical_leg_length", "bracket_width", "thickness"]
+    if is_feature_active(feature_flags, "base_mounting_holes"):
+        positive_keys.extend(["hole_diameter", "base_hole_spacing"])
+    if is_feature_active(feature_flags, "vertical_mounting_holes"):
+        positive_keys.extend(["hole_diameter", "vertical_hole_spacing"])
+    if is_feature_active(feature_flags, "triangular_gusset"):
+        positive_keys.extend(["gusset_thickness", "gusset_height"])
+    for key in dict.fromkeys(positive_keys):
+        value = values.get(key)
+        if isinstance(value, int | float) and value <= 0:
+            invalid.append(f"{key} must be greater than zero")
+    for key in ["inside_fillet_radius", "outside_edge_fillet_radius"]:
+        value = values.get(key)
+        if isinstance(value, int | float) and value < 0:
+            invalid.append(f"{key} cannot be negative")
+    passed = not invalid
+    return _make_check(
+        "l_parameter_range_check",
+        "Required L-bracket parameters are present and inside basic numeric ranges.",
+        passed,
+        expected="positive dimensions and non-negative radii",
+        actual="valid" if passed else "; ".join(invalid),
+        explanation="All required L-bracket parameter ranges are valid." if passed else "; ".join(invalid),
+    )
+
+
+def _l_hole_count_check(values: dict[str, float | bool | None], feature: str) -> ValidationCheck:
+    key = "base_hole_count" if feature == "base_mounting_holes" else "vertical_hole_count"
+    value = values.get(key)
+    hole_count = int(value) if isinstance(value, int | float) and not isinstance(value, bool) else None
+    passed = hole_count in {0, 2}
+    return _make_check(
+        f"{key}_check",
+        f"{key} is supported by Phase 10.",
+        passed,
+        expected="0 or 2",
+        actual=hole_count,
+        explanation=(
+            f"{key} is supported."
+            if passed
+            else f"Unsupported {key}: {hole_count}. Phase 10 supports only 0 or 2 holes per leg."
+        ),
+        related_parameters=[key],
+        related_features=[feature],
+    )
+
+
+def _l_hole_fit_check(
+    values: dict[str, float | bool | None],
+    min_edge: float,
+    *,
+    leg: str,
+) -> ValidationCheck:
+    length_key = "base_leg_length" if leg == "base" else "vertical_leg_length"
+    spacing_key = "base_hole_spacing" if leg == "base" else "vertical_hole_spacing"
+    count_key = "base_hole_count" if leg == "base" else "vertical_hole_count"
+    feature = "base_mounting_holes" if leg == "base" else "vertical_mounting_holes"
+    length = values.get(length_key)
+    spacing = values.get(spacing_key)
+    diameter = values.get("hole_diameter")
+    count = values.get(count_key)
+    if not all(isinstance(value, int | float) and not isinstance(value, bool) for value in (length, spacing, diameter, count)):
+        return _make_check(
+            f"{leg}_hole_spacing_range_check",
+            f"{leg.title()} holes fit inside the L-bracket leg with edge clearance.",
+            False,
+            expected="numeric hole spacing, diameter, and leg length",
+            actual=None,
+            explanation=f"Cannot check {leg} holes because required numeric parameters are missing or invalid.",
+            related_features=[feature],
+        )
+    if int(count) == 0:
+        return _make_check(
+            f"{leg}_hole_spacing_range_check",
+            f"{leg.title()} holes fit inside the L-bracket leg with edge clearance.",
+            True,
+            expected="no active holes",
+            actual="no active holes",
+            explanation=f"No {leg} holes are active.",
+            related_features=[feature],
+        )
+    actual = float(spacing) / 2 + float(diameter) / 2
+    limit = float(length) / 2 - min_edge
+    passed = actual <= limit
+    return _make_check(
+        f"{leg}_hole_spacing_range_check",
+        f"{leg.title()} holes fit inside the L-bracket leg with edge clearance.",
+        passed,
+        expected=f"<= {limit:.3f}",
+        actual=f"{actual:.3f}",
+        explanation=(
+            f"{leg.title()} hole spacing leaves at least {min_edge:.3f} mm edge clearance."
+            if passed
+            else f"{leg.title()} hole spacing requires {actual:.3f} mm from center but limit is {limit:.3f} mm."
+        ),
+        related_features=[feature],
+        metadata={"min_edge_distance_mm": min_edge},
+    )
+
+
+def _l_hole_diameter_check(values: dict[str, float | bool | None], min_edge: float) -> ValidationCheck:
+    diameter = values.get("hole_diameter")
+    width = values.get("bracket_width")
+    if not isinstance(diameter, int | float) or isinstance(diameter, bool):
+        return _make_check(
+            "l_hole_diameter_range_check",
+            "L-bracket hole diameter leaves material across bracket width.",
+            False,
+            expected="numeric hole_diameter_mm",
+            actual=None,
+            explanation="Cannot check L-bracket hole diameter because hole_diameter_mm is missing or invalid.",
+        )
+    if not isinstance(width, int | float) or isinstance(width, bool):
+        return _make_check(
+            "l_hole_diameter_range_check",
+            "L-bracket hole diameter leaves material across bracket width.",
+            False,
+            expected="numeric bracket_width_mm",
+            actual=None,
+            explanation="Cannot check L-bracket hole diameter because bracket_width_mm is missing or invalid.",
+        )
+    material_limit = float(width) - 2 * min_edge
+    passed = float(diameter) <= material_limit
+    return _make_check(
+        "l_hole_diameter_range_check",
+        "L-bracket hole diameter leaves material across bracket width.",
+        passed,
+        expected=f"<= {material_limit:.3f}",
+        actual=float(diameter),
+        explanation=(
+            "Hole diameter leaves material across the bracket width."
+            if passed
+            else f"Hole diameter {float(diameter):.3f} mm exceeds width material limit {material_limit:.3f} mm."
+        ),
+        metadata={"min_edge_distance_mm": min_edge},
+    )
+
+
+def _l_fillet_check(values: dict[str, float | bool | None], key: str, limit: float | None) -> ValidationCheck:
+    value = values.get(key)
+    passed = isinstance(value, int | float) and not isinstance(value, bool) and limit is not None and float(value) <= limit
+    return _make_check(
+        f"{key}_limit_check",
+        f"{key} fits within L-bracket thickness limits.",
+        passed,
+        expected=f"<= {limit:.3f}" if limit is not None else "valid thickness",
+        actual=float(value) if isinstance(value, int | float) and not isinstance(value, bool) else None,
+        explanation=(
+            f"{key} is within the allowed limit."
+            if passed
+            else f"{key} is missing, invalid, or exceeds the allowed limit."
+        ),
+        related_parameters=[f"{key}_mm"],
+    )
+
+
+def _l_gusset_check(values: dict[str, float | bool | None]) -> ValidationCheck:
+    enabled = values.get("gusset_enabled")
+    thickness = values.get("gusset_thickness")
+    height = values.get("gusset_height")
+    width = values.get("bracket_width")
+    base = values.get("base_leg_length")
+    vertical = values.get("vertical_leg_length")
+    numeric = all(isinstance(value, int | float) and not isinstance(value, bool) for value in (thickness, height, width, base, vertical))
+    passed = bool(enabled) and numeric and float(thickness) <= float(width) and float(height) < min(float(base), float(vertical))
+    return _make_check(
+        "gusset_dimensions_check",
+        "Triangular gusset dimensions fit inside the L-bracket corner.",
+        passed,
+        expected="enabled gusset with thickness <= bracket_width and height < shorter leg",
+        actual={
+            "enabled": enabled,
+            "gusset_thickness": thickness,
+            "gusset_height": height,
+        },
+        explanation=(
+            "Triangular gusset dimensions are valid."
+            if passed
+            else "Triangular gusset is disabled, missing dimensions, or too large for the L-bracket."
+        ),
+        related_features=["triangular_gusset"],
+    )
+
+
+def validate_l_bracket(
+    model: object,
+    parameter_table: ParameterTable,
+    output_paths: Any = None,
+) -> ValidationReport:
+    """Validate a generated L-bracket against named parameters."""
+
+    checks: list[ValidationCheck] = []
+    feature_flags = feature_flags_for_parameter_table(parameter_table)
+    values, errors = _l_values(parameter_table, feature_flags)
+    min_edge = _min_edge_distance(parameter_table)
+
+    family_ok = parameter_table.family == L_BRACKET_FAMILY
+    checks.append(
+        _make_check(
+            "object_family_check",
+            "Geometry validation supports l_bracket.",
+            family_ok,
+            expected=L_BRACKET_FAMILY,
+            actual=parameter_table.family,
+            explanation="Parameter table uses the L-bracket family." if family_ok else f"Unsupported family: {parameter_table.family}",
+        )
+    )
+    checks.append(_l_parameter_range_check(values, errors, feature_flags))
+
+    bbox, bbox_error = _bbox(model)
+    checks.extend(
+        [
+            _bbox_dimension_check(
+                "bounding_box_base_leg_length_check",
+                "Bounding box X length matches base_leg_length_mm.",
+                bbox.xlen if bbox is not None else None,
+                values.get("base_leg_length") if isinstance(values.get("base_leg_length"), int | float) else None,
+                "base_leg_length_mm",
+                bbox_error,
+            ),
+            _bbox_dimension_check(
+                "bounding_box_bracket_width_check",
+                "Bounding box Y length matches bracket_width_mm.",
+                bbox.ylen if bbox is not None else None,
+                values.get("bracket_width") if isinstance(values.get("bracket_width"), int | float) else None,
+                "bracket_width_mm",
+                bbox_error,
+            ),
+            _bbox_dimension_check(
+                "bounding_box_vertical_leg_length_check",
+                "Bounding box Z length matches vertical_leg_length_mm.",
+                bbox.zlen if bbox is not None else None,
+                values.get("vertical_leg_length") if isinstance(values.get("vertical_leg_length"), int | float) else None,
+                "vertical_leg_length_mm",
+                bbox_error,
+            ),
+        ]
+    )
+    if is_feature_active(feature_flags, "base_mounting_holes"):
+        checks.append(_l_hole_count_check(values, "base_mounting_holes"))
+        checks.append(_l_hole_fit_check(values, min_edge, leg="base"))
+    if is_feature_active(feature_flags, "vertical_mounting_holes"):
+        checks.append(_l_hole_count_check(values, "vertical_mounting_holes"))
+        checks.append(_l_hole_fit_check(values, min_edge, leg="vertical"))
+    if is_feature_active(feature_flags, "base_mounting_holes") or is_feature_active(feature_flags, "vertical_mounting_holes"):
+        checks.append(_l_hole_diameter_check(values, min_edge))
+    thickness = values.get("thickness")
+    thickness_value = float(thickness) if isinstance(thickness, int | float) and not isinstance(thickness, bool) else None
+    if is_feature_active(feature_flags, "inside_fillet"):
+        checks.append(_l_fillet_check(values, "inside_fillet_radius", thickness_value))
+    if is_feature_active(feature_flags, "outside_edge_fillets"):
+        checks.append(_l_fillet_check(values, "outside_edge_fillet_radius", thickness_value / 2 if thickness_value is not None else None))
+    if is_feature_active(feature_flags, "triangular_gusset"):
+        checks.append(_l_gusset_check(values))
+    if output_paths is not None:
+        checks.append(_export_files_exist_check(output_paths))
+
+    failed_count = sum(1 for check in checks if check.status == "fail")
+    warning_count = sum(1 for check in checks if check.status == "warning")
+    passed_count = sum(1 for check in checks if check.status in {"pass", "warning"})
+    summary = (
+        f"L-bracket geometry validation completed: {passed_count}/{len(checks)} checks passed, "
+        f"{failed_count} failed, {warning_count} warnings."
+    )
+    return ValidationReport(
+        family=L_BRACKET_FAMILY,
+        checks=checks,
+        summary=summary,
+        metadata={
+            "validator": "geometry",
+            "min_edge_distance_mm": min_edge,
+            "feature_flags": feature_flags,
+        },
+    )
+
+
 def write_validation_report(report: ValidationReport, path: str | Path) -> Path:
     """Write a validation report JSON file with computed summary fields."""
 
@@ -717,4 +1060,6 @@ def write_validation_report(report: ValidationReport, path: str | Path) -> Path:
 def validate_geometry(model: object, parameters: ParameterTable) -> ValidationReport:
     """Backward-compatible geometry validation wrapper."""
 
+    if parameters.family == L_BRACKET_FAMILY:
+        return validate_l_bracket(model, parameters)
     return validate_wall_bracket(model, parameters)

@@ -9,7 +9,7 @@ from pathlib import Path
 import re
 from typing import Any
 
-from intentforge.features import OPTIONAL_FEATURES, feature_flags_for_parameter_table, is_feature_active
+from intentforge.features import feature_flags_for_parameter_table, is_feature_active, optional_features_for_family
 
 MAX_PROMPT_SLUG_LENGTH = 64
 
@@ -107,8 +107,9 @@ def feature_state_names(parameter_table) -> tuple[list[str], list[str]]:
     """Return active and omitted feature names for run metadata."""
 
     flags = feature_flags_for_parameter_table(parameter_table)
-    active = [feature for feature in OPTIONAL_FEATURES if is_feature_active(flags, feature)]
-    omitted = [feature for feature in OPTIONAL_FEATURES if feature not in active]
+    features = optional_features_for_family(parameter_table.family)
+    active = [feature for feature in features if is_feature_active(flags, feature)]
+    omitted = [feature for feature in features if feature not in active]
     return active, omitted
 
 

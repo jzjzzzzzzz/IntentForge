@@ -7,7 +7,8 @@ It is not a general text-to-CAD generator. The goal is not to produce geometry t
 The current implementation is intentionally narrow:
 
 ```text
-wall_mounted_bracket / mounting plate only
+wall_mounted_bracket / mounting plate
+l_bracket / right angle bracket
 ```
 
 IntentForge currently uses Python, Pydantic schemas, CadQuery, pytest, deterministic regex parsing, and optional MCP wrappers. It does not call an LLM.
@@ -46,10 +47,16 @@ IntentForge keeps the editable model state explicit:
 
 ## Supported Scope
 
-IntentForge currently supports only `wall_mounted_bracket` and mounting-plate style prompts.
+IntentForge currently supports two deterministic model families:
+
+- `wall_mounted_bracket` / mounting plate
+- `l_bracket` / right angle bracket
 
 Supported features:
 
+- L-bracket base leg and vertical leg parameters
+- L-bracket no holes or two holes per leg
+- optional L-bracket triangular gusset
 - no mounting holes
 - two horizontal symmetric mounting holes
 - four rectangular/corner mounting holes
@@ -65,6 +72,11 @@ Unsupported by design in this phase:
 
 - arbitrary CAD objects
 - new model families
+- four-hole L-bracket patterns
+- freeform L-bracket hole placement
+- curved or adjustable L-brackets
+- sheet-metal unfold patterns
+- robust geometric inside-corner filleting for L-brackets
 - LLM parsing
 - GUI
 - SolidWorks, Fusion, or FreeCAD desktop control
@@ -114,6 +126,18 @@ Parse, build, export STEP/STL, and validate:
 python -m intentforge.cli parse-build "Make a wall-mounted bracket 120 mm wide, 60 mm tall, 8 mm thick, with two screw holes."
 ```
 
+Build an L-bracket:
+
+```bash
+python -m intentforge.cli parse-build "Make an L-bracket 100 mm base leg, 80 mm vertical leg, 40 mm wide, and 6 mm thick."
+```
+
+Build an L-bracket with holes on both legs:
+
+```bash
+python -m intentforge.cli parse-build "Make an L-bracket with two holes on the base and two holes on the vertical face."
+```
+
 Build and validate the bundled bracket example:
 
 ```bash
@@ -131,6 +155,12 @@ Parse and apply an edit to the bundled bracket example:
 
 ```bash
 python -m intentforge.cli edit-parse-apply bracket "Change it to four mounting holes."
+```
+
+Parse and apply an edit to the bundled L-bracket example:
+
+```bash
+python -m intentforge.cli edit-parse-apply l_bracket "Make the base leg 120 mm long."
 ```
 
 Rejected edits are reported without exporting new edited CAD:
@@ -163,7 +193,7 @@ Run the deterministic regression benchmark:
 python -m intentforge.cli benchmark
 ```
 
-The benchmark covers parsing, CAD generation, optional features, hole patterns, rejection behavior, natural-language edits, validation, and output traceability.
+The benchmark covers parsing, CAD generation, optional features, hole patterns, rejection behavior, natural-language edits, validation, output traceability, and family-level results for `wall_mounted_bracket` and `l_bracket`.
 
 Reports are written to:
 
@@ -204,7 +234,7 @@ License: Apache-2.0. See `LICENSE`.
 benchmark/      Deterministic benchmark corpus and runner
 demo/           Release demo script and notes
 docs/           Architecture, design intent, validation, benchmark, MCP, and roadmap docs
-examples/       Bundled bracket prompt, intent, parameters, constraints, feature plan, and edit examples
+examples/       Bundled wall-bracket and L-bracket prompt, intent, parameters, constraints, feature plan, and edit examples
 intentforge/    Core schemas, parser, planner, generator, validator, editor, workflows, and CLI
 mcp_server/     Optional MCP wrapper around core workflows
 output/         Generated artifacts
@@ -215,8 +245,7 @@ tests/          Pytest coverage
 
 Near-term roadmap:
 
-- Phase 10: add a second model family while preserving the same intent-first architecture
-- add an L-bracket family
+- Phase 10: harden the new L-bracket family while preserving the same intent-first architecture
 - add an electronics enclosure family
 - add topological feature detection for generated solids
 - add an LLM-assisted parser that emits the same structured schemas

@@ -3,8 +3,11 @@
 from intentforge.features.flags import (
     ACTIVE_STATES,
     FEATURE_PARAMETER_MAP,
+    L_BRACKET_FEATURES,
     OPTIONAL_FEATURES,
+    OPTIONAL_FEATURES_BY_FAMILY,
     SUPPORTED_HOLE_PATTERNS,
+    WALL_OPTIONAL_FEATURES,
     feature_flags_for_parameter_table,
     feature_for_parameter,
     hole_pattern_for_count,
@@ -14,13 +17,17 @@ from intentforge.features.flags import (
     mounting_hole_count_from_flags,
     mounting_hole_pattern_from_flags,
     normalize_feature_flags,
+    optional_features_for_family,
 )
 
 __all__ = [
     "ACTIVE_STATES",
     "FEATURE_PARAMETER_MAP",
+    "L_BRACKET_FEATURES",
     "OPTIONAL_FEATURES",
+    "OPTIONAL_FEATURES_BY_FAMILY",
     "SUPPORTED_HOLE_PATTERNS",
+    "WALL_OPTIONAL_FEATURES",
     "feature_flags_for_parameter_table",
     "feature_for_parameter",
     "hole_pattern_for_count",
@@ -30,4 +37,5 @@ __all__ = [
     "mounting_hole_count_from_flags",
     "mounting_hole_pattern_from_flags",
     "normalize_feature_flags",
+    "optional_features_for_family",
 ]

@@ -1,0 +1,147 @@
+{
+  "family": "l_bracket",
+  "construction_strategy": "Create perpendicular legs, union them, then cut requested holes.",
+  "steps": [
+    {
+      "id": "create_base_leg",
+      "operation": "extrude_base_leg",
+      "parameters": [
+        "base_leg_length_mm",
+        "bracket_width_mm",
+        "thickness_mm"
+      ],
+      "depends_on": [],
+      "reason": "The base leg is one required side of the L-bracket.",
+      "outputs": [
+        "base_leg_solid"
+      ],
+      "validation_refs": [
+        "base_leg_dimensions"
+      ]
+    },
+    {
+      "id": "create_vertical_leg",
+      "operation": "extrude_vertical_leg",
+      "parameters": [
+        "vertical_leg_length_mm",
+        "bracket_width_mm",
+        "thickness_mm"
+      ],
+      "depends_on": [],
+      "reason": "The vertical leg is the perpendicular side of the L-bracket.",
+      "outputs": [
+        "vertical_leg_solid"
+      ],
+      "validation_refs": [
+        "vertical_leg_dimensions"
+      ]
+    },
+    {
+      "id": "join_legs_at_right_angle",
+      "operation": "boolean_union",
+      "parameters": [
+        "thickness_mm"
+      ],
+      "depends_on": [
+        "create_base_leg",
+        "create_vertical_leg"
+      ],
+      "reason": "The two plates must share a 90-degree inside corner.",
+      "outputs": [
+        "l_bracket_solid"
+      ],
+      "validation_refs": [
+        "l_bracket_right_angle"
+      ]
+    },
+    {
+      "id": "cut_base_mounting_holes",
+      "operation": "cut_two_base_holes",
+      "parameters": [
+        "base_hole_count",
+        "hole_diameter_mm",
+        "base_hole_spacing_mm"
+      ],
+      "depends_on": [
+        "join_legs_at_right_angle"
+      ],
+      "reason": "Base leg mounting holes were requested.",
+      "outputs": [
+        "base_mounting_holes"
+      ],
+      "validation_refs": [
+        "base_holes_fit_leg"
+      ],
+      "metadata": {
+        "pattern": "symmetric_2_horizontal"
+      }
+    },
+    {
+      "id": "cut_vertical_mounting_holes",
+      "operation": "cut_two_vertical_holes",
+      "parameters": [
+        "vertical_hole_count",
+        "hole_diameter_mm",
+        "vertical_hole_spacing_mm"
+      ],
+      "depends_on": [
+        "join_legs_at_right_angle"
+      ],
+      "reason": "Vertical leg mounting holes were requested.",
+      "outputs": [
+        "vertical_mounting_holes"
+      ],
+      "validation_refs": [
+        "vertical_holes_fit_leg"
+      ],
+      "metadata": {
+        "pattern": "symmetric_2_horizontal"
+      }
+    }
+  ],
+  "assumptions": [
+    "Only 0 or 2 holes per leg are supported in Phase 10."
+  ],
+  "unknowns": [
+    "No sheet-metal unfold pattern or load rating is generated."
+  ],
+  "metadata": {
+    "phase": "phase_10_l_bracket",
+    "feature_flags": {
+      "base_leg": {
+        "state": "defaulted_by_system",
+        "reason": "Base leg is required for the L-bracket family."
+      },
+      "vertical_leg": {
+        "state": "defaulted_by_system",
+        "reason": "Vertical leg is required for the L-bracket family."
+      },
+      "base_mounting_holes": {
+        "state": "requested_by_user",
+        "feature": "base_mounting_holes",
+        "hole_count": 2,
+        "pattern": "symmetric_2_horizontal",
+        "reason": "Example prompt requests two holes on the base leg."
+      },
+      "vertical_mounting_holes": {
+        "state": "requested_by_user",
+        "feature": "vertical_mounting_holes",
+        "hole_count": 2,
+        "pattern": "symmetric_2_horizontal",
+        "reason": "Example prompt requests two holes on the vertical leg."
+      },
+      "inside_fillet": {
+        "state": "omitted",
+        "reason": "Example prompt does not request an inside fillet."
+      },
+      "outside_edge_fillets": {
+        "state": "omitted",
+        "reason": "Example prompt does not request outside edge fillets."
+      },
+      "triangular_gusset": {
+        "state": "omitted",
+        "reason": "Example prompt does not request a gusset."
+      }
+    }
+  }
+}

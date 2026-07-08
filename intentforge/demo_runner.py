@@ -19,10 +19,12 @@ from intentforge.workflows import (
 DEMO_PARSE_BUILD_PROMPTS = [
     "Make a wall-mounted bracket 120 mm wide, 60 mm tall, 8 mm thick, with two screw holes.",
     "Make a wall-mounted bracket 120 mm wide, 60 mm tall, 8 mm thick, with four corner screw holes and a center cutout.",
+    "Make an L-bracket 100 mm base leg, 80 mm vertical leg, 40 mm wide, and 6 mm thick.",
 ]
 DEMO_EDIT_APPLY_PROMPTS = [
-    "Make it 150 mm wide but keep the same thickness.",
-    "Change it to four mounting holes.",
+    ("bracket", "Make it 150 mm wide but keep the same thickness."),
+    ("bracket", "Change it to four mounting holes."),
+    ("l_bracket", "Make the base leg 120 mm long."),
 ]
 DEMO_REJECTED_EDIT = "Make it better."
 
@@ -98,9 +100,9 @@ def run_demo(output_root: str | Path | None = None) -> dict[str, Any]:
         result = parse_build_workflow(prompt, demo_dir)
         steps.append(_step_record(f'parse-build "{prompt}"', result))
 
-    for edit_text in DEMO_EDIT_APPLY_PROMPTS:
-        result = edit_parse_apply_workflow("bracket", edit_text, demo_dir)
-        steps.append(_step_record(f'edit-parse-apply bracket "{edit_text}"', result))
+    for target, edit_text in DEMO_EDIT_APPLY_PROMPTS:
+        result = edit_parse_apply_workflow(target, edit_text, demo_dir)
+        steps.append(_step_record(f'edit-parse-apply {target} "{edit_text}"', result))
 
     rejected_result = edit_parse_workflow(DEMO_REJECTED_EDIT, demo_dir, write_outputs=True)
     steps.append(_step_record(f'edit-parse "{DEMO_REJECTED_EDIT}"', rejected_result, intentional_rejection=True))
@@ -159,4 +161,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

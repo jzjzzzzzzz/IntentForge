@@ -45,6 +45,32 @@ Expected behavior:
 - STEP/STL exported
 - validation ignores omitted optional features
 
+## L-Bracket
+
+```bash
+python -m intentforge.cli parse-build "Make an L-bracket 100 mm base leg, 80 mm vertical leg, 40 mm wide, and 6 mm thick."
+```
+
+Expected behavior:
+
+- object type: `l_bracket`
+- active features: `base_leg`, `vertical_leg`
+- no holes unless requested
+- STEP/STL exported as `parsed_l_bracket.step` and `parsed_l_bracket.stl`
+- validation checks bounding box against base leg, vertical leg, and width
+
+## L-Bracket With Holes
+
+```bash
+python -m intentforge.cli parse-build "Make an L-bracket with two holes on the base and two holes on the vertical face."
+```
+
+Expected behavior:
+
+- active features: `base_leg`, `vertical_leg`, `base_mounting_holes`, `vertical_mounting_holes`
+- only two holes per leg are supported
+- hole validation is parameter-based; no topological hole detection yet
+
 ## Accepted Edit
 
 ```bash
@@ -59,6 +85,18 @@ Expected behavior:
 - edited STEP/STL exports are written
 - edited validation report is written
 
+## Accepted L-Bracket Edit
+
+```bash
+python -m intentforge.cli edit-parse-apply l_bracket "Make the base leg 120 mm long."
+```
+
+Expected behavior:
+
+- base leg length changes
+- vertical leg, width, thickness, holes, and feature flags are preserved unless explicitly edited
+- edited L-bracket STEP/STL exports are written
+
 ## Rejected Edit
 
 ```bash
@@ -70,4 +108,3 @@ Expected behavior:
 - edit is rejected
 - no new edited CAD is exported
 - edit report explains that only two-hole and four-hole patterns are supported
-

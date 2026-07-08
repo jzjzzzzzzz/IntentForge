@@ -1,0 +1,1 @@
+Make an L-bracket 100 mm base leg, 80 mm vertical leg, 40 mm wide, and 6 mm thick, with two holes on the base and two holes on the vertical face.

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "l_default_001",
+    "type": "parse_build",
+    "prompt": "Make an L-bracket.",
+    "expected_family": "l_bracket",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": ["base_leg", "vertical_leg"],
+    "expected_omitted_features": ["base_mounting_holes", "vertical_mounting_holes", "inside_fillet", "outside_edge_fillets", "triangular_gusset"]
+  },
+  {
+    "id": "l_default_002",
+    "type": "parse_build",
+    "prompt": "Create a right angle bracket with two holes on the base.",
+    "expected_family": "l_bracket",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": ["base_leg", "vertical_leg", "base_mounting_holes"],
+    "expected_omitted_features": ["vertical_mounting_holes", "inside_fillet", "outside_edge_fillets", "triangular_gusset"]
+  },
+  {
+    "id": "l_default_003",
+    "type": "parse_build",
+    "prompt": "Make an L-bracket with two holes on the vertical face.",
+    "expected_family": "l_bracket",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": ["base_leg", "vertical_leg", "vertical_mounting_holes"],
+    "expected_omitted_features": ["base_mounting_holes", "inside_fillet", "outside_edge_fillets", "triangular_gusset"]
+  },
+  {
+    "id": "l_default_004",
+    "type": "parse_build",
+    "prompt": "Make an L-bracket with a triangular gusset.",
+    "expected_family": "l_bracket",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": ["base_leg", "vertical_leg", "triangular_gusset"],
+    "expected_omitted_features": ["base_mounting_holes", "vertical_mounting_holes", "inside_fillet", "outside_edge_fillets"]
+  }
+]

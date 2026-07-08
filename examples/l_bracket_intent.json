@@ -1,0 +1,59 @@
+{
+  "family": "l_bracket",
+  "user_prompt": "Make an L-bracket 100 mm base leg, 80 mm vertical leg, 40 mm wide, and 6 mm thick, with two holes on the base and two holes on the vertical face.",
+  "objective": "Generate an editable parametric L-bracket with explicit leg and hole intent.",
+  "requirements": [
+    "L-bracket has two perpendicular rectangular legs joined at 90 degrees.",
+    "Base and vertical leg dimensions are named parameters.",
+    "Base leg has two symmetric mounting holes.",
+    "Vertical leg has two symmetric mounting holes.",
+    "Feature history preserves modification intent."
+  ],
+  "assumptions": [
+    "The L-bracket legs meet at a 90-degree inside corner.",
+    "Base and vertical holes are centered across bracket_width_mm."
+  ],
+  "unknowns": [
+    "Load rating is unknown.",
+    "Material is unknown."
+  ],
+  "metadata": {
+    "phase": "phase_10_l_bracket",
+    "feature_flags": {
+      "base_leg": {
+        "state": "defaulted_by_system",
+        "reason": "Base leg is required for the L-bracket family."
+      },
+      "vertical_leg": {
+        "state": "defaulted_by_system",
+        "reason": "Vertical leg is required for the L-bracket family."
+      },
+      "base_mounting_holes": {
+        "state": "requested_by_user",
+        "feature": "base_mounting_holes",
+        "hole_count": 2,
+        "pattern": "symmetric_2_horizontal",
+        "reason": "Example prompt requests two holes on the base leg."
+      },
+      "vertical_mounting_holes": {
+        "state": "requested_by_user",
+        "feature": "vertical_mounting_holes",
+        "hole_count": 2,
+        "pattern": "symmetric_2_horizontal",
+        "reason": "Example prompt requests two holes on the vertical leg."
+      },
+      "inside_fillet": {
+        "state": "omitted",
+        "reason": "Example prompt does not request an inside fillet."
+      },
+      "outside_edge_fillets": {
+        "state": "omitted",
+        "reason": "Example prompt does not request outside edge fillets."
+      },
+      "triangular_gusset": {
+        "state": "omitted",
+        "reason": "Example prompt does not request a gusset."
+      }
+    }
+  }
+}

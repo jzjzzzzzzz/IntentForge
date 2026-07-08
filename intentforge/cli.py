@@ -275,7 +275,7 @@ def _parse_build_command(prompt_parts: list[str]) -> int:
     print(f"Latest parsed feature plan: {latest_paths['feature_plan']}")
     print(f"Persistent parsed dir:      {result['persistent_output_dir']}")
     print(f"Run metadata:               {persistent_paths['run_metadata']}")
-    print("Built parsed bracket.")
+    print("Built parsed model.")
     print(f"Latest STEP: {latest_paths['step']}")
     print(f"Latest STL:  {latest_paths['stl']}")
     print(f"Latest validation report: {latest_paths['validation_report']}")
@@ -399,9 +399,6 @@ def _edit_parse_command(prompt_parts: list[str]) -> int:
 
 
 def _edit_parse_apply_command(example: str, prompt_parts: list[str]) -> int:
-    if example != "bracket":
-        raise ValueError(f"unsupported example: {example}")
-
     edit_text = " ".join(prompt_parts)
     result = edit_parse_apply_workflow(example, edit_text, _project_root() / "output")
     parsed_edit = result["edit_request"]
@@ -441,12 +438,12 @@ def _edit_parse_apply_command(example: str, prompt_parts: list[str]) -> int:
     return 0 if result["validation_valid"] else 1
 
 
-def _build_example_bracket() -> int:
-    result = build_example_workflow("bracket", _project_root() / "output")
+def _build_example_model(example: str = "bracket") -> int:
+    result = build_example_workflow(example, _project_root() / "output")
     if not result["ok"]:
-        print(result.get("message", "Failed to build wall_mounted_bracket example."))
+        print(result.get("message", f"Failed to build {example} example."))
         return 1
-    print("Built wall_mounted_bracket example.")
+    print(f"Built {result['parameters']['family']} example.")
     print(f"STEP: {result['step_path']}")
     print(f"STL:  {result['stl_path']}")
     return 0
@@ -481,12 +478,12 @@ def _combine_reports(geometry_report: ValidationReport, intent_report: Validatio
     )
 
 
-def _validate_example_bracket() -> int:
-    result = validate_example_workflow("bracket", _project_root() / "output")
+def _validate_example_model(example: str = "bracket") -> int:
+    result = validate_example_workflow(example, _project_root() / "output")
     if not result["ok"] and "valid" not in result:
-        print(result.get("message", "Failed to validate wall_mounted_bracket example."))
+        print(result.get("message", f"Failed to validate {example} example."))
         return 1
-    print("Validated wall_mounted_bracket example.")
+    print(f"Validated {example} example.")
     print(f"Latest report:     {result['report_path']}")
     print(f"Persistent report: {result['persistent_report_path']}")
     print(f"Total checks:  {result['total_checks']}")
@@ -687,7 +684,7 @@ def _build_parser() -> ArgumentParser:
     )
     build_example.add_argument(
         "example",
-        choices=["bracket"],
+        choices=["bracket", "l_bracket"],
         help="Example model to build.",
     )
 
@@ -697,7 +694,7 @@ def _build_parser() -> ArgumentParser:
     )
     validate_example.add_argument(
         "example",
-        choices=["bracket"],
+        choices=["bracket", "l_bracket"],
         help="Example model to validate.",
     )
 
@@ -739,7 +736,7 @@ def _build_parser() -> ArgumentParser:
     )
     edit_parse_apply.add_argument(
         "example",
-        choices=["bracket"],
+        choices=["bracket", "l_bracket"],
         help="Example model to edit.",
     )
     edit_parse_apply.add_argument("edit_text", nargs="+", help="Edit request text to parse and apply.")
@@ -774,10 +771,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        if args.command == "build-example" and args.example == "bracket":
-            return _build_example_bracket()
-        if args.command == "validate-example" and args.example == "bracket":
-            return _validate_example_bracket()
+        if args.command == "build-example":
+            return _build_example_model(args.example)
+        if args.command == "validate-example":
+            return _validate_example_model(args.example)
         if args.command == "edit-example" and args.example == "bracket":
             return _edit_example_bracket(args.edit_json)
         if args.command == "parse":

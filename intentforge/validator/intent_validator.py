@@ -23,6 +23,7 @@ from intentforge.schemas import (
 )
 
 SUPPORTED_FAMILY = "wall_mounted_bracket"
+L_BRACKET_FAMILY = "l_bracket"
 
 REQUIRED_PARAMETERS = [
     "back_plate_width_mm",
@@ -142,12 +143,12 @@ def _feature_flags(
 ) -> dict[str, dict[str, str]]:
     raw_flags = intent.metadata.get("feature_flags")
     if isinstance(raw_flags, dict):
-        return normalize_feature_flags(raw_flags)
+        return normalize_feature_flags(raw_flags, intent.family)
     if parameter_table is not None:
         return feature_flags_for_parameter_table(parameter_table)
     if feature_plan is not None and isinstance(feature_plan.metadata.get("feature_flags"), dict):
-        return normalize_feature_flags(feature_plan.metadata["feature_flags"])
-    return normalize_feature_flags(None)
+        return normalize_feature_flags(feature_plan.metadata["feature_flags"], feature_plan.family)
+    return normalize_feature_flags(None, intent.family)
 
 
 def _required_parameters(feature_flags: dict[str, dict[str, str]]) -> list[str]:
@@ -467,6 +468,197 @@ def validate_wall_bracket_intent(
     )
 
 
+def _l_required_parameters(feature_flags: dict[str, dict[str, Any]]) -> list[str]:
+    required = ["base_leg_length_mm", "vertical_leg_length_mm", "bracket_width_mm", "thickness_mm"]
+    if is_feature_active(feature_flags, "base_mounting_holes") or is_feature_active(feature_flags, "vertical_mounting_holes"):
+        required.append("hole_diameter_mm")
+    if is_feature_active(feature_flags, "base_mounting_holes"):
+        required.extend(["base_hole_count", "base_hole_spacing_mm"])
+    if is_feature_active(feature_flags, "vertical_mounting_holes"):
+        required.extend(["vertical_hole_count", "vertical_hole_spacing_mm"])
+    if is_feature_active(feature_flags, "inside_fillet"):
+        required.append("inside_fillet_radius_mm")
+    if is_feature_active(feature_flags, "outside_edge_fillets"):
+        required.append("outside_edge_fillet_radius_mm")
+    if is_feature_active(feature_flags, "triangular_gusset"):
+        required.extend(["gusset_enabled", "gusset_thickness_mm", "gusset_height_mm"])
+    return required
+
+
+def _l_hole_count(parameter_table: ParameterTable | None, name: str) -> int:
+    if parameter_table is None:
+        return 0
+    try:
+        value = parameter_table.get(name).value
+    except KeyError:
+        return 0
+    if isinstance(value, int | float) and not isinstance(value, bool):
+        return int(value)
+    return -1
+
+
+def validate_l_bracket_intent(
+    intent: IntentSpec,
+    parameter_table: ParameterTable | None = None,
+    feature_plan: FeaturePlan | None = None,
+    constraint_graph: ConstraintGraph | None = None,
+) -> ValidationReport:
+    """Validate structured design intent consistency for an L-bracket."""
+
+    checks: list[ValidationCheck] = []
+    feature_flags = _feature_flags(intent, parameter_table, feature_plan)
+    required_parameters = _l_required_parameters(feature_flags)
+
+    checks.append(
+        _make_check(
+            "object_type_check",
+            "Intent object type is l_bracket.",
+            intent.family == L_BRACKET_FAMILY,
+            expected=L_BRACKET_FAMILY,
+            actual=intent.family,
+            explanation=(
+                "Intent uses the supported L-bracket family."
+                if intent.family == L_BRACKET_FAMILY
+                else f"Unsupported intent family: {intent.family}"
+            ),
+        )
+    )
+
+    if parameter_table is None:
+        checks.append(
+            _make_check(
+                "required_parameters_exist_check",
+                "All required L-bracket parameters exist.",
+                False,
+                expected=required_parameters,
+                actual="no parameter table provided",
+                explanation="Cannot validate required parameters without a parameter table.",
+            )
+        )
+    else:
+        parameter_names = set(parameter_table.by_name())
+        missing = [name for name in required_parameters if name not in parameter_names]
+        checks.append(
+            _make_check(
+                "required_parameters_exist_check",
+                "All required L-bracket parameters exist.",
+                not missing,
+                expected=required_parameters,
+                actual=sorted(parameter_names),
+                explanation="All required parameters are present." if not missing else f"Missing required parameters: {', '.join(missing)}",
+                related_parameters=required_parameters,
+            )
+        )
+
+    if feature_plan is None:
+        checks.append(
+            _make_check(
+                "required_feature_steps_exist_check",
+                "Required L-bracket feature steps exist.",
+                False,
+                expected="base leg, vertical leg, right-angle join, and active optional steps",
+                actual="no feature plan provided",
+                explanation="Cannot validate L-bracket feature steps without a feature plan.",
+            )
+        )
+    else:
+        step_ids = [step.id for step in feature_plan.steps]
+        required_steps = ["create_base_leg", "create_vertical_leg", "join_legs_at_right_angle"]
+        if is_feature_active(feature_flags, "base_mounting_holes"):
+            required_steps.append("cut_base_mounting_holes")
+        if is_feature_active(feature_flags, "vertical_mounting_holes"):
+            required_steps.append("cut_vertical_mounting_holes")
+        if is_feature_active(feature_flags, "triangular_gusset"):
+            required_steps.append("add_triangular_gusset")
+        missing_steps = [step for step in required_steps if step not in step_ids]
+        checks.append(
+            _make_check(
+                "required_feature_steps_exist_check",
+                "Required L-bracket feature steps exist.",
+                not missing_steps,
+                expected=required_steps,
+                actual=step_ids,
+                explanation="Required feature steps are present." if not missing_steps else f"Missing required feature steps: {', '.join(missing_steps)}",
+                related_features=step_ids,
+            )
+        )
+        order_ok = True
+        order_reason = "Feature history creates both legs before cuts, gussets, or fillets."
+        try:
+            join_index = step_ids.index("join_legs_at_right_angle")
+            for cut_step in ["cut_base_mounting_holes", "cut_vertical_mounting_holes", "add_triangular_gusset", "add_inside_fillet", "add_outside_edge_fillets"]:
+                if cut_step in step_ids and step_ids.index(cut_step) < join_index:
+                    order_ok = False
+                    order_reason = f"{cut_step} appears before join_legs_at_right_angle."
+                    break
+        except ValueError:
+            order_ok = False
+            order_reason = "join_legs_at_right_angle is missing."
+        checks.append(
+            _make_check(
+                "feature_history_legs_before_cuts_check",
+                "L-bracket solids are created and joined before cuts and optional details.",
+                order_ok,
+                expected="create legs, join, then cuts/gusset/fillets",
+                actual=step_ids,
+                explanation=order_reason,
+                related_features=step_ids,
+            )
+        )
+
+    hole_failures: list[str] = []
+    if is_feature_active(feature_flags, "base_mounting_holes") and _l_hole_count(parameter_table, "base_hole_count") != 2:
+        hole_failures.append("base_hole_count must be 2 when base holes are active")
+    if is_feature_active(feature_flags, "vertical_mounting_holes") and _l_hole_count(parameter_table, "vertical_hole_count") != 2:
+        hole_failures.append("vertical_hole_count must be 2 when vertical holes are active")
+    checks.append(
+        _make_check(
+            "l_hole_count_intent_check",
+            "Active L-bracket hole features use supported counts.",
+            not hole_failures,
+            expected="0 or 2 holes per leg",
+            actual="valid" if not hole_failures else "; ".join(hole_failures),
+            explanation="Hole-count intent is valid." if not hole_failures else "; ".join(hole_failures),
+            related_features=["base_mounting_holes", "vertical_mounting_holes"],
+        )
+    )
+
+    if constraint_graph is not None:
+        constraint_ids = {constraint.id for constraint in constraint_graph.constraints}
+        required_constraints = {"l_bracket_right_angle"}
+        if is_feature_active(feature_flags, "base_mounting_holes"):
+            required_constraints.add("base_holes_fit_leg")
+        if is_feature_active(feature_flags, "vertical_mounting_holes"):
+            required_constraints.add("vertical_holes_fit_leg")
+        if is_feature_active(feature_flags, "triangular_gusset"):
+            required_constraints.add("gusset_fits_inside_corner")
+        missing_constraints = sorted(required_constraints - constraint_ids)
+        checks.append(
+            _make_check(
+                "required_constraints_exist_check",
+                "Required L-bracket intent constraints exist.",
+                not missing_constraints,
+                expected=sorted(required_constraints),
+                actual=sorted(constraint_ids),
+                explanation="Required constraints are present." if not missing_constraints else f"Missing required constraints: {', '.join(missing_constraints)}",
+            )
+        )
+
+    failed_count = sum(1 for check in checks if check.status == "fail")
+    warning_count = sum(1 for check in checks if check.status == "warning")
+    passed_count = sum(1 for check in checks if check.status in {"pass", "warning"})
+    summary = (
+        f"L-bracket intent validation completed: {passed_count}/{len(checks)} checks passed, "
+        f"{failed_count} failed, {warning_count} warnings."
+    )
+    return ValidationReport(
+        family=L_BRACKET_FAMILY,
+        checks=checks,
+        summary=summary,
+        metadata={"validator": "intent", "feature_flags": feature_flags},
+    )
+
+
 def validate_intent(
     intent: IntentSpec,
     parameter_table: ParameterTable | None = None,
@@ -475,4 +667,6 @@ def validate_intent(
 ) -> ValidationReport:
     """Validate structured intent before or after planning."""
 
+    if intent.family == L_BRACKET_FAMILY:
+        return validate_l_bracket_intent(intent, parameter_table, feature_plan, constraint_graph)
     return validate_wall_bracket_intent(intent, parameter_table, feature_plan, constraint_graph)

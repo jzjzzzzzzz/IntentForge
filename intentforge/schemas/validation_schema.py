@@ -4,7 +4,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
-SupportedFamily = Literal["wall_mounted_bracket"]
+SupportedFamily = Literal["wall_mounted_bracket", "l_bracket"]
 ValidationStatus = Literal["pass", "fail", "warning", "not_run"]
 ValidationSeverity = Literal["info", "warning", "error"]
 MeasuredValue = int | float | str | bool | None

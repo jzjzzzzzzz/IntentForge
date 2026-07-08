@@ -10,7 +10,7 @@ import yaml
 
 from intentforge.editor.edit_intent_handler import apply_edit_request, write_edit_report
 from intentforge.features import feature_flags_for_parameter_table
-from intentforge.generator.cadquery_generator import build_wall_bracket, export_model
+from intentforge.generator.cadquery_generator import build_l_bracket, build_wall_bracket, export_model
 from intentforge.output_manager import (
     build_run_metadata,
     create_parsed_run_context,
@@ -21,8 +21,8 @@ from intentforge.output_manager import (
 )
 from intentforge.parser import UnsupportedEditError, parse_edit_request, parse_prompt
 from intentforge.schemas import ConstraintGraph, FeaturePlan, IntentSpec, ParameterTable, ValidationReport
-from intentforge.validator.geometry_validator import validate_wall_bracket, write_validation_report
-from intentforge.validator.intent_validator import validate_wall_bracket_intent
+from intentforge.validator.geometry_validator import validate_l_bracket, validate_wall_bracket, write_validation_report
+from intentforge.validator.intent_validator import validate_l_bracket_intent, validate_wall_bracket_intent
 
 SUPPORTED_RUN_KINDS = {"parsed_runs", "edit_parse_runs"}
 
@@ -53,6 +53,12 @@ def _load_bracket_parameters() -> ParameterTable:
     )
 
 
+def _load_l_bracket_parameters() -> ParameterTable:
+    return ParameterTable.model_validate(
+        yaml.safe_load((_examples_dir() / "l_bracket_params.yaml").read_text(encoding="utf-8"))
+    )
+
+
 def _load_json_example(filename: str) -> dict[str, Any]:
     return json.loads((_examples_dir() / filename).read_text(encoding="utf-8"))
 
@@ -61,12 +67,81 @@ def _load_bracket_intent() -> IntentSpec:
     return IntentSpec.model_validate(_load_json_example("bracket_intent.json"))
 
 
+def _load_l_bracket_intent() -> IntentSpec:
+    return IntentSpec.model_validate(_load_json_example("l_bracket_intent.json"))
+
+
 def _load_bracket_feature_plan() -> FeaturePlan:
     return FeaturePlan.model_validate(_load_json_example("bracket_feature_plan.json"))
 
 
+def _load_l_bracket_feature_plan() -> FeaturePlan:
+    return FeaturePlan.model_validate(_load_json_example("l_bracket_feature_plan.json"))
+
+
 def _load_bracket_constraints() -> ConstraintGraph:
     return ConstraintGraph.model_validate(_load_json_example("bracket_constraints.json"))
+
+
+def _load_l_bracket_constraints() -> ConstraintGraph:
+    return ConstraintGraph.model_validate(_load_json_example("l_bracket_constraints.json"))
+
+
+def _example_bundle(target: str) -> tuple[ParameterTable, IntentSpec, FeaturePlan, ConstraintGraph]:
+    if target == "bracket":
+        return (
+            _load_bracket_parameters(),
+            _load_bracket_intent(),
+            _load_bracket_feature_plan(),
+            _load_bracket_constraints(),
+        )
+    if target == "l_bracket":
+        return (
+            _load_l_bracket_parameters(),
+            _load_l_bracket_intent(),
+            _load_l_bracket_feature_plan(),
+            _load_l_bracket_constraints(),
+        )
+    raise ValueError(f"unsupported target: {target}")
+
+
+def _build_model(parameter_table: ParameterTable, feature_plan: FeaturePlan | None = None) -> Any:
+    if parameter_table.family == "l_bracket":
+        return build_l_bracket(parameter_table, feature_plan)
+    return build_wall_bracket(parameter_table)
+
+
+def _validate_geometry(model: object, parameter_table: ParameterTable, output_paths: dict[str, Path] | None = None) -> ValidationReport:
+    if parameter_table.family == "l_bracket":
+        return validate_l_bracket(model, parameter_table, output_paths=output_paths)
+    return validate_wall_bracket(model, parameter_table, output_paths=output_paths)
+
+
+def _validate_intent(
+    intent: IntentSpec,
+    parameter_table: ParameterTable,
+    feature_plan: FeaturePlan,
+    constraint_graph: ConstraintGraph,
+) -> ValidationReport:
+    if intent.family == "l_bracket":
+        return validate_l_bracket_intent(intent, parameter_table, feature_plan, constraint_graph)
+    return validate_wall_bracket_intent(intent, parameter_table, feature_plan, constraint_graph)
+
+
+def _parsed_cad_basename(family: str) -> str:
+    return "parsed_l_bracket" if family == "l_bracket" else "parsed_bracket"
+
+
+def _edited_cad_basename(family: str) -> str:
+    return "l_bracket_edited" if family == "l_bracket" else "bracket_edited"
+
+
+def _parsed_validation_report_name(family: str) -> str:
+    return "parsed_l_bracket_validation_report.json" if family == "l_bracket" else "parsed_validation_report.json"
+
+
+def _edited_validation_report_name(family: str) -> str:
+    return "l_bracket_edited_validation_report.json" if family == "l_bracket" else "edited_validation_report.json"
 
 
 def _write_parameter_table(parameter_table: ParameterTable, path: Path) -> Path:
@@ -158,6 +233,9 @@ def _edit_run_metadata(
     output_paths: dict[str, Any],
     accepted: bool | None = None,
     validation_valid: bool | None = None,
+    object_type: str | None = None,
+    active_features: list[str] | None = None,
+    omitted_features: list[str] | None = None,
 ) -> dict[str, Any]:
     metadata: dict[str, Any] = {
         "run_id": run_context.run_id,
@@ -174,6 +252,12 @@ def _edit_run_metadata(
         metadata["accepted"] = accepted
     if validation_valid is not None:
         metadata["validation_valid"] = validation_valid
+    if object_type is not None:
+        metadata["object_type"] = object_type
+    if active_features is not None:
+        metadata["active_features"] = active_features
+    if omitted_features is not None:
+        metadata["omitted_features"] = omitted_features
     return metadata
 
 
@@ -187,7 +271,7 @@ def _combine_reports(geometry_report: ValidationReport, intent_report: Validatio
         f"{failed_count} failed, {warning_count} warnings."
     )
     return ValidationReport(
-        family="wall_mounted_bracket",
+        family=geometry_report.family,
         checks=checks,
         summary=summary,
         metadata={
@@ -270,25 +354,30 @@ def parse_build_workflow(prompt: str, output_root: str | Path | None = None) -> 
     latest_paths, persistent_paths = _write_parsed_outputs(parsed, prompt, out_root, run_context.run_dir)
     active_features, omitted_features = feature_state_names(parsed.parameter_table)
 
-    model = build_wall_bracket(parsed.parameter_table)
-    step_path = out_root / "parsed_bracket.step"
-    stl_path = out_root / "parsed_bracket.stl"
-    persistent_step_path = run_context.run_dir / "parsed_bracket.step"
-    persistent_stl_path = run_context.run_dir / "parsed_bracket.stl"
+    model = _build_model(parsed.parameter_table, parsed.feature_plan)
+    cad_basename = _parsed_cad_basename(parsed.parameter_table.family)
+    step_path = out_root / f"{cad_basename}.step"
+    stl_path = out_root / f"{cad_basename}.stl"
+    persistent_step_path = run_context.run_dir / f"{cad_basename}.step"
+    persistent_stl_path = run_context.run_dir / f"{cad_basename}.stl"
     export_model(model, step_path, stl_path)
     export_model(model, persistent_step_path, persistent_stl_path)
     latest_paths = {**latest_paths, "step": step_path, "stl": stl_path}
     persistent_paths = {**persistent_paths, "step": persistent_step_path, "stl": persistent_stl_path}
 
-    validation_report = validate_wall_bracket(
+    validation_report = _validate_geometry(
         model,
         parsed.parameter_table,
         output_paths={"step": step_path, "stl": stl_path},
     )
-    validation_path = out_root / "parsed_validation_report.json"
-    persistent_validation_path = run_context.run_dir / "parsed_validation_report.json"
+    validation_filename = _parsed_validation_report_name(parsed.parameter_table.family)
+    validation_path = out_root / validation_filename
+    persistent_validation_path = run_context.run_dir / validation_filename
+    shared_validation_path = out_root / "parsed_validation_report.json"
     latest_paths["validation_report"] = validation_path
     persistent_paths["validation_report"] = persistent_validation_path
+    if validation_path != shared_validation_path:
+        latest_paths["shared_validation_report"] = shared_validation_path
     validation_report = validation_report.model_copy(
         update={
             "metadata": {
@@ -300,11 +389,14 @@ def parse_build_workflow(prompt: str, output_root: str | Path | None = None) -> 
                 "stl_path": str(stl_path),
                 "persistent_step_path": str(persistent_step_path),
                 "persistent_stl_path": str(persistent_stl_path),
+                "shared_validation_report_path": str(shared_validation_path),
                 "persistent_validation_report_path": str(persistent_validation_path),
             }
         }
     )
     write_validation_report(validation_report, validation_path)
+    if validation_path != shared_validation_path:
+        write_validation_report(validation_report, shared_validation_path)
     write_validation_report(validation_report, persistent_validation_path)
 
     metadata = build_run_metadata(
@@ -323,6 +415,7 @@ def parse_build_workflow(prompt: str, output_root: str | Path | None = None) -> 
     return {
         "ok": validation_report.valid,
         "run_id": run_context.run_id,
+        "object_type": parsed.intent.family,
         "intent": parsed.intent.model_dump(mode="json"),
         "parameters": parsed.parameter_table.model_dump(mode="json"),
         "constraints": parsed.constraint_graph.model_dump(mode="json"),
@@ -409,7 +502,7 @@ def edit_parse_workflow(
 def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Path | None = None) -> dict[str, Any]:
     """Parse and apply a natural-language edit to the bundled bracket example."""
 
-    if target != "bracket":
+    if target not in {"bracket", "l_bracket"}:
         return {
             "ok": False,
             "accepted": False,
@@ -419,8 +512,8 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
         }
 
     out_root = _output_root(output_root)
-    parameter_table = _load_bracket_parameters()
-    constraint_graph = _load_bracket_constraints()
+    parameter_table, _, _, constraint_graph = _example_bundle(target)
+    original_active_features, original_omitted_features = feature_state_names(parameter_table)
     run_context = create_run_context(edit_text, out_root, "edit_parse_runs")
     latest_paths, persistent_paths = _edit_parse_output_paths(out_root, run_context.run_dir)
 
@@ -432,7 +525,7 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
         latest_paths["edit_report"] = latest_edit_report_path
         persistent_paths["edit_report"] = persistent_edit_report_path
         edit_report = {
-            "family": "wall_mounted_bracket",
+            "family": parameter_table.family,
             "accepted": False,
             "changed_parameters": [],
             "preserved_parameters": [],
@@ -446,7 +539,7 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
             "validation_summary": "Edit rejected before geometry regeneration.",
             "human_readable_explanation": parsed_edit.get("error", "Unsupported edit request."),
             "metadata": {
-                "command": "edit-parse-apply bracket",
+                "command": f"edit-parse-apply {target}",
                 "run_id": run_context.run_id,
                 "original_edit_text": edit_text,
                 "cad_exported": False,
@@ -460,6 +553,9 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
             edit_text=edit_text,
             parsed_edit=parsed_edit,
             accepted=False,
+            object_type=parameter_table.family,
+            active_features=original_active_features,
+            omitted_features=original_omitted_features,
             output_paths={"latest": latest_paths, "persistent": persistent_paths},
         )
         write_run_metadata(metadata, persistent_paths["run_metadata"])
@@ -467,6 +563,7 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
             "ok": False,
             "accepted": False,
             "run_id": run_context.run_id,
+            "object_type": parameter_table.family,
             "error_type": "UnsupportedEditError",
             "message": parsed_edit.get("error", "Unsupported edit request."),
             "edit_request": parsed_edit,
@@ -489,7 +586,7 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
             update={
                 "metadata": {
                     **edit_report.metadata,
-                    "command": "edit-parse-apply bracket",
+                    "command": f"edit-parse-apply {target}",
                     "run_id": run_context.run_id,
                     "original_edit_text": edit_text,
                     "latest_edit_report_path": str(latest_edit_report_path),
@@ -506,6 +603,9 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
             edit_text=edit_text,
             parsed_edit=parsed_edit,
             accepted=False,
+            object_type=parameter_table.family,
+            active_features=original_active_features,
+            omitted_features=original_omitted_features,
             output_paths={"latest": latest_paths, "persistent": persistent_paths},
         )
         write_run_metadata(metadata, persistent_paths["run_metadata"])
@@ -513,6 +613,7 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
             "ok": False,
             "accepted": False,
             "run_id": run_context.run_id,
+            "object_type": parameter_table.family,
             "error_type": "EditRejected",
             "message": edit_report.human_readable_explanation,
             "edit_request": parsed_edit,
@@ -532,11 +633,12 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
     _write_parameter_table(updated_table, latest_updated_params_path)
     _write_parameter_table(updated_table, persistent_updated_params_path)
 
-    model = build_wall_bracket(updated_table)
-    latest_step_path = out_root / "bracket_edited.step"
-    latest_stl_path = out_root / "bracket_edited.stl"
-    persistent_step_path = run_context.run_dir / "bracket_edited.step"
-    persistent_stl_path = run_context.run_dir / "bracket_edited.stl"
+    model = _build_model(updated_table)
+    cad_basename = _edited_cad_basename(updated_table.family)
+    latest_step_path = out_root / f"{cad_basename}.step"
+    latest_stl_path = out_root / f"{cad_basename}.stl"
+    persistent_step_path = run_context.run_dir / f"{cad_basename}.step"
+    persistent_stl_path = run_context.run_dir / f"{cad_basename}.stl"
     latest_paths["step"] = latest_step_path
     latest_paths["stl"] = latest_stl_path
     persistent_paths["step"] = persistent_step_path
@@ -544,16 +646,22 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
     export_model(model, latest_step_path, latest_stl_path)
     export_model(model, persistent_step_path, persistent_stl_path)
 
-    validation_report = validate_wall_bracket(
+    validation_report = _validate_geometry(
         model,
         updated_table,
         output_paths={"step": latest_step_path, "stl": latest_stl_path},
     )
-    latest_validation_report_path = out_root / "edited_validation_report.json"
-    persistent_validation_report_path = run_context.run_dir / "edited_validation_report.json"
+    validation_filename = _edited_validation_report_name(updated_table.family)
+    latest_validation_report_path = out_root / validation_filename
+    persistent_validation_report_path = run_context.run_dir / validation_filename
+    shared_validation_report_path = out_root / "edited_validation_report.json"
     latest_paths["validation_report"] = latest_validation_report_path
     persistent_paths["validation_report"] = persistent_validation_report_path
+    if latest_validation_report_path != shared_validation_report_path:
+        latest_paths["shared_validation_report"] = shared_validation_report_path
     write_validation_report(validation_report, latest_validation_report_path)
+    if latest_validation_report_path != shared_validation_report_path:
+        write_validation_report(validation_report, shared_validation_report_path)
     write_validation_report(validation_report, persistent_validation_report_path)
 
     edit_report = edit_report.model_copy(
@@ -562,7 +670,7 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
             "validation_summary": validation_report.summary,
             "metadata": {
                 **edit_report.metadata,
-                "command": "edit-parse-apply bracket",
+                "command": f"edit-parse-apply {target}",
                 "run_id": run_context.run_id,
                 "original_edit_text": edit_text,
                 "latest_edit_report_path": str(latest_edit_report_path),
@@ -574,6 +682,7 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
                 "persistent_edited_step_path": str(persistent_step_path),
                 "persistent_edited_stl_path": str(persistent_stl_path),
                 "edited_validation_report_path": str(latest_validation_report_path),
+                "shared_edited_validation_report_path": str(shared_validation_report_path),
                 "persistent_edited_validation_report_path": str(persistent_validation_report_path),
                 "cad_exported": True,
             },
@@ -582,6 +691,7 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
     write_edit_report(edit_report, latest_edit_report_path)
     write_edit_report(edit_report, persistent_edit_report_path)
 
+    updated_active_features, updated_omitted_features = feature_state_names(updated_table)
     metadata = _edit_run_metadata(
         run_context=run_context,
         command_type="edit-parse-apply",
@@ -589,6 +699,9 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
         parsed_edit=parsed_edit,
         accepted=True,
         validation_valid=validation_report.valid,
+        object_type=updated_table.family,
+        active_features=updated_active_features,
+        omitted_features=updated_omitted_features,
         output_paths={"latest": latest_paths, "persistent": persistent_paths},
     )
     write_run_metadata(metadata, persistent_paths["run_metadata"])
@@ -596,6 +709,7 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
         "ok": validation_report.valid,
         "accepted": True,
         "run_id": run_context.run_id,
+        "object_type": updated_table.family,
         "validation_valid": validation_report.valid,
         "edit_request": parsed_edit,
         "edit_report": edit_report.model_dump(mode="json"),
@@ -605,25 +719,27 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
         "persistent_outputs": _paths_for_json(persistent_paths),
         "persistent_output_dir": str(run_context.run_dir),
         "run_metadata": metadata,
-        "active_features": feature_state_names(updated_table)[0],
-        "omitted_features": feature_state_names(updated_table)[1],
+        "active_features": updated_active_features,
+        "omitted_features": updated_omitted_features,
     }
 
 
 def build_example_workflow(variant: str = "bracket", output_root: str | Path | None = None) -> dict[str, Any]:
     """Build the bundled bracket example and export latest STEP/STL files."""
 
-    if variant != "bracket":
+    if variant not in {"bracket", "l_bracket"}:
         return {"ok": False, "error_type": "ValueError", "message": f"unsupported variant: {variant}"}
 
     out_root = _output_root(output_root)
-    parameter_table = _load_bracket_parameters()
-    model = build_wall_bracket(parameter_table)
-    step_path = out_root / "bracket.step"
-    stl_path = out_root / "bracket.stl"
+    parameter_table, _, feature_plan, _ = _example_bundle(variant)
+    model = _build_model(parameter_table, feature_plan)
+    basename = "l_bracket" if parameter_table.family == "l_bracket" else "bracket"
+    step_path = out_root / f"{basename}.step"
+    stl_path = out_root / f"{basename}.stl"
     export_model(model, step_path, stl_path)
     return {
         "ok": True,
+        "object_type": parameter_table.family,
         "step_path": str(step_path),
         "stl_path": str(stl_path),
         "parameters": parameter_table.model_dump(mode="json"),
@@ -633,34 +749,32 @@ def build_example_workflow(variant: str = "bracket", output_root: str | Path | N
 def validate_example_workflow(variant: str = "bracket", output_root: str | Path | None = None) -> dict[str, Any]:
     """Validate the bundled bracket example and write latest and persistent reports."""
 
-    if variant != "bracket":
+    if variant not in {"bracket", "l_bracket"}:
         return {"ok": False, "error_type": "ValueError", "message": f"unsupported variant: {variant}"}
 
     out_root = _output_root(output_root)
-    parameter_table = _load_bracket_parameters()
-    intent = _load_bracket_intent()
-    feature_plan = _load_bracket_feature_plan()
-    constraint_graph = _load_bracket_constraints()
-    model = build_wall_bracket(parameter_table)
-    step_path = out_root / "bracket.step"
-    stl_path = out_root / "bracket.stl"
+    parameter_table, intent, feature_plan, constraint_graph = _example_bundle(variant)
+    model = _build_model(parameter_table, feature_plan)
+    basename = "l_bracket" if parameter_table.family == "l_bracket" else "bracket"
+    step_path = out_root / f"{basename}.step"
+    stl_path = out_root / f"{basename}.stl"
     if _needs_export(step_path, stl_path):
         export_model(model, step_path, stl_path)
 
-    geometry_report = validate_wall_bracket(
+    geometry_report = _validate_geometry(
         model,
         parameter_table,
         output_paths={"step": step_path, "stl": stl_path},
     )
-    intent_report = validate_wall_bracket_intent(intent, parameter_table, feature_plan, constraint_graph)
+    intent_report = _validate_intent(intent, parameter_table, feature_plan, constraint_graph)
     combined_report = _combine_reports(geometry_report, intent_report)
     latest_report_path = out_root / "validation_report.json"
-    persistent_report_path = out_root / "validation_reports" / "bracket_validation_report.json"
+    persistent_report_path = out_root / "validation_reports" / f"{basename}_validation_report.json"
     combined_report = combined_report.model_copy(
         update={
             "metadata": {
                 **combined_report.metadata,
-                "command": "validate-example bracket",
+                "command": f"validate-example {variant}",
                 "latest_report_path": str(latest_report_path),
                 "persistent_report_path": str(persistent_report_path),
             }
@@ -675,6 +789,7 @@ def validate_example_workflow(variant: str = "bracket", output_root: str | Path 
     return {
         "ok": combined_report.valid,
         "valid": combined_report.valid,
+        "object_type": parameter_table.family,
         "total_checks": total_checks,
         "passed_checks": passed_checks,
         "failed_checks": failed_checks,

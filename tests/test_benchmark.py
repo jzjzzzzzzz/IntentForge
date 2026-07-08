@@ -65,6 +65,8 @@ def test_benchmark_runner_produces_report_and_summary(tmp_path: Path) -> None:
     assert persistent_report_path.exists()
     assert result["total_cases"] >= 50
     assert result["passed"] + result["failed"] == result["total_cases"]
+    assert result["families"]["wall_mounted_bracket"]["passed"] > 0
+    assert result["families"]["l_bracket"]["passed"] > 0
 
 
 def test_benchmark_runner_records_failed_cases_correctly(tmp_path: Path) -> None:
@@ -112,4 +114,3 @@ def test_rejection_benchmark_cases_do_not_export_cad(tmp_path: Path) -> None:
         assert actual["ok"] is False
         assert "step" not in actual
         assert "stl" not in actual
-
