@@ -194,6 +194,10 @@ Available tool functions include:
 - `list_recent_runs`
 - `get_run_metadata`
 
+## License
+
+IntentForge is licensed under the Apache License 2.0. See `LICENSE`.
+
 ## Project Structure
 
 ```text
@@ -219,4 +223,3 @@ Near-term roadmap:
 - consider GUI or CAD-plugin integration after the core pipeline is more mature
 
 See `docs/roadmap.md` for more detail.
-
