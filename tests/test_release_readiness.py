@@ -16,6 +16,7 @@ DOC_FILES = [
     "workflow_examples.md",
     "validation.md",
     "benchmark.md",
+    "harness.md",
     "mcp.md",
     "roadmap.md",
 ]
@@ -43,6 +44,7 @@ def test_readme_contains_major_sections() -> None:
         "Usage",
         "Demo",
         "Benchmark",
+        "Edit Preservation Harness",
         "MCP Usage",
         "Project Structure",
         "Roadmap",

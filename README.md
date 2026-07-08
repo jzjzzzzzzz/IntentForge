@@ -177,6 +177,18 @@ Rejected edits are reported without exporting new edited CAD:
 python -m intentforge.cli edit-parse-apply bracket "Change it to three mounting holes."
 ```
 
+Run the parametric sweep harness:
+
+```bash
+python -m intentforge.cli sweep --max-cases-per-family 30
+```
+
+Run the edit preservation harness:
+
+```bash
+python -m intentforge.cli edit-harness
+```
+
 ## Demo
 
 Run the release demo:
@@ -211,6 +223,38 @@ output/benchmark/benchmark_summary.txt
 output/benchmark/runs/<run_id>/
 ```
 
+## Edit Preservation Harness
+
+The edit preservation harness stress-tests the core differentiator in IntentForge: changing an existing design without losing intent.
+
+It runs multi-step edit chains for both supported families and checks:
+
+- changed parameters are the ones the edit requested
+- preserved parameters remain unchanged
+- optional feature state stays consistent
+- regenerated CAD still validates
+- topology inspection and volume delta checks remain coherent when applicable
+- rejected edits do not export CAD
+
+Run it with:
+
+```bash
+python -m intentforge.cli edit-harness
+```
+
+Latest reports are written to:
+
+```text
+output/harness/edit_preservation_report.json
+output/harness/edit_preservation_summary.txt
+```
+
+Persistent run artifacts are written to:
+
+```text
+output/harness/edit_preservation_runs/<run_id>/
+```
+
 ## MCP Usage
 
 IntentForge can be exposed as an optional MCP tool server for coding agents:
@@ -243,6 +287,7 @@ benchmark/      Deterministic benchmark corpus and runner
 demo/           Release demo script and notes
 docs/           Architecture, design intent, validation, benchmark, MCP, and roadmap docs
 examples/       Bundled wall-bracket and L-bracket prompt, intent, parameters, constraints, feature plan, and edit examples
+harness/        Topology, volume delta, sweep, and edit-preservation harnesses
 intentforge/    Core schemas, parser, planner, generator, validator, editor, workflows, and CLI
 mcp_server/     Optional MCP wrapper around core workflows
 output/         Generated artifacts

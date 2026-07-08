@@ -10,9 +10,18 @@ import sys
 
 import yaml
 
+from harness.topology import (
+    build_volume_delta_report,
+    inspect_shape,
+    write_shape_inspection_report,
+    write_volume_delta_report,
+)
+from harness.sweeps import run_parametric_sweep
+from harness.edits import run_edit_preservation_harness
 from intentforge.editor.edit_intent_handler import apply_edit_request, write_edit_report
 from intentforge.generator.cadquery_generator import (
     CadQueryUnavailableError,
+    build_l_bracket,
     build_wall_bracket,
     export_model,
 )
@@ -48,6 +57,13 @@ def _project_root() -> Path:
 
 def _load_bracket_parameters() -> ParameterTable:
     params_path = _project_root() / "examples" / "bracket_params.yaml"
+    with params_path.open("r", encoding="utf-8") as params_file:
+        data = yaml.safe_load(params_file)
+    return ParameterTable.model_validate(data)
+
+
+def _load_l_bracket_parameters() -> ParameterTable:
+    params_path = _project_root() / "examples" / "l_bracket_params.yaml"
     with params_path.open("r", encoding="utf-8") as params_file:
         data = yaml.safe_load(params_file)
     return ParameterTable.model_validate(data)
@@ -690,6 +706,13 @@ def _package_installed(module_name: str) -> bool:
     return importlib.util.find_spec(module_name) is not None
 
 
+def _cadquery_required_message(command: str) -> str:
+    return (
+        f"CadQuery is required to run `{command}` because it builds and validates real CAD models. "
+        "Install it with: python -m pip install -e '.[cad]'"
+    )
+
+
 def _check_output_writable(output_dir: Path) -> tuple[bool, str]:
     try:
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -766,10 +789,171 @@ def _doctor_command() -> int:
     print("Supported model families:")
     for family in SUPPORTED_MODEL_FAMILIES:
         print(f"  - {family}")
+    print("Harness commands:")
+    print("  - inspect-shape")
+    print("  - volume-delta")
+    print("  - sweep")
+    print("  - edit-harness")
 
     core_ok = all(ok for _, ok, _ in core_checks)
     print(f"Doctor result: {'core checks passed' if core_ok else 'core checks failed'}")
     return 0 if core_ok else 1
+
+
+def _print_metric(name: str, value: object, unit: str = "") -> None:
+    suffix = f" {unit}" if unit and value is not None else ""
+    print(f"{name}: {value if value is not None else 'unavailable'}{suffix}")
+
+
+def _inspect_shape_command(family: str) -> int:
+    if family == "wall_mounted_bracket":
+        parameter_table = _load_bracket_parameters()
+        model = build_wall_bracket(parameter_table)
+    elif family == "l_bracket":
+        parameter_table = _load_l_bracket_parameters()
+        model = build_l_bracket(parameter_table)
+    else:
+        print(f"Unsupported shape family: {family}")
+        return 1
+
+    report = inspect_shape(model, family=parameter_table.family)
+    report_path = _project_root() / "output" / "harness" / "topology_report.json"
+    write_shape_inspection_report(report, report_path)
+
+    print(f"Inspected shape: {parameter_table.family}")
+    bbox = report.bounding_box_dimensions_mm or {}
+    if bbox:
+        print(f"Bounding box: x={bbox.get('x')} mm, y={bbox.get('y')} mm, z={bbox.get('z')} mm")
+    else:
+        print("Bounding box: unavailable")
+    _print_metric("Volume", report.volume_mm3, "mm^3")
+    _print_metric("Solid count", report.solid_count)
+    _print_metric("Face count", report.face_count)
+    _print_metric("Edge count", report.edge_count)
+    _print_metric("Vertex count", report.vertex_count)
+    print(f"Shape valid: {report.is_valid if report.is_valid is not None else 'unavailable'}")
+    if report.warnings:
+        print("Warnings:")
+        for warning in report.warnings:
+            print(f"  - {warning.metric}: {warning.message}")
+    else:
+        print("Warnings: none")
+    print(f"Topology report: {report_path}")
+    return 0
+
+
+def _example_parameter_table_for_family(family: str) -> ParameterTable:
+    if family == "wall_mounted_bracket":
+        return _load_bracket_parameters()
+    if family == "l_bracket":
+        return _load_l_bracket_parameters()
+    raise ValueError(f"Unsupported model family: {family}")
+
+
+def _build_example_model_for_table(parameter_table: ParameterTable):
+    if parameter_table.family == "l_bracket":
+        return build_l_bracket(parameter_table)
+    return build_wall_bracket(parameter_table)
+
+
+def _volume_delta_command(family: str) -> int:
+    parameter_table = _example_parameter_table_for_family(family)
+    model = _build_example_model_for_table(parameter_table)
+    active_features, omitted_features = feature_state_names(parameter_table)
+
+    harness_root = _project_root() / "output" / "harness"
+    run_context = create_run_context(f"volume-delta {family}", harness_root, "volume_delta_runs")
+    latest_report_path = harness_root / "volume_delta_report.json"
+    persistent_report_path = run_context.run_dir / "volume_delta_report.json"
+    output_paths = {
+        "latest_report": latest_report_path,
+        "persistent_report": persistent_report_path,
+    }
+    report = build_volume_delta_report(
+        parameter_table,
+        model,
+        run_id=run_context.run_id,
+        active_features=active_features,
+        omitted_features=omitted_features,
+        output_paths=json_safe_paths(output_paths),
+    )
+    write_volume_delta_report(report, latest_report_path)
+    write_volume_delta_report(report, persistent_report_path)
+
+    print(f"Volume delta run: {run_context.run_id}")
+    print(f"Object type: {parameter_table.family}")
+    print(f"Active features: {', '.join(active_features) if active_features else 'none'}")
+    print(f"Feature model volume: {report['feature_volume_mm3']} mm^3")
+    print("Checks:")
+    if not report["checks"]:
+        print("  - none")
+    for check in report["checks"]:
+        print(
+            f"  - {check['id']}: status={check['status']}, "
+            f"expected={check['expected_delta_mm3']}, actual={check['actual_delta_mm3']}, "
+            f"baseline={check['baseline_volume_mm3']}"
+        )
+        if check["warnings"]:
+            for warning in check["warnings"]:
+                print(f"    warning: {warning}")
+    print(f"Passed: {str(report['passed']).lower()}")
+    print(f"Latest report: {latest_report_path}")
+    print(f"Persistent report: {persistent_report_path}")
+    return 0 if report["passed"] else 1
+
+
+def _sweep_command(max_cases_per_family: int, no_export: bool) -> int:
+    result = run_parametric_sweep(
+        _project_root() / "output",
+        max_cases_per_family=max_cases_per_family,
+        export_enabled=not no_export,
+    )
+    print(f"Sweep run: {result['run_id']}")
+    print(f"Total cases: {result['total_cases']}")
+    print(f"Passed: {result['passed']}")
+    print(f"Failed: {result['failed']}")
+    print(f"Pass rate: {result['pass_rate']:.4f}")
+    print("Families:")
+    for family, counts in result["families"].items():
+        print(f"  - {family}: passed {counts['passed']}, failed {counts['failed']}, total {counts['total']}")
+    print("Failure types:")
+    for failure_type, count in result["failure_types"].items():
+        print(f"  - {failure_type}: {count}")
+    print(f"Report path: {result['report_path']}")
+    print(f"Summary path: {result['summary_path']}")
+    print(f"Persistent output dir: {result['persistent_output_dir']}")
+    failed_ids = [case["id"] for case in result["failed_cases"]]
+    print(f"Failed case IDs: {', '.join(failed_ids) if failed_ids else 'none'}")
+    return 0 if result["failed"] == 0 else 1
+
+
+def _edit_harness_command(max_chains: int | None, no_export: bool) -> int:
+    if not _package_installed("cadquery"):
+        print(_cadquery_required_message("edit-harness"))
+        return 1
+    result = run_edit_preservation_harness(
+        _project_root() / "output",
+        max_chains=max_chains,
+        export_enabled=not no_export,
+    )
+    print(f"Edit preservation run: {result['run_id']}")
+    print(f"Total chains: {result['total_chains']}")
+    print(f"Passed chains: {result['passed_chains']}")
+    print(f"Failed chains: {result['failed_chains']}")
+    print(f"Total edit steps: {result['total_edit_steps']}")
+    print(f"Edit preservation rate: {result['edit_preservation_rate']:.4f}")
+    print("Families:")
+    for family, counts in result["families"].items():
+        print(f"  - {family}: passed {counts['passed']}, failed {counts['failed']}, total {counts['total']}")
+    print("Failure types:")
+    for failure_type, count in result["failure_types"].items():
+        print(f"  - {failure_type}: {count}")
+    print(f"Report path: {result['report_path']}")
+    print(f"Summary path: {result['summary_path']}")
+    print(f"Persistent output dir: {result['persistent_output_dir']}")
+    failed_ids = result.get("failed_chain_ids", [])
+    print(f"Failed chain IDs: {', '.join(failed_ids) if failed_ids else 'none'}")
+    return 0 if not failed_ids else 1
 
 
 def _build_parser() -> ArgumentParser:
@@ -864,6 +1048,58 @@ def _build_parser() -> ArgumentParser:
         help="Check local IntentForge development environment health.",
     )
 
+    inspect_shape_parser = subparsers.add_parser(
+        "inspect-shape",
+        help="Inspect topology metrics for a bundled example model.",
+    )
+    inspect_shape_parser.add_argument(
+        "family",
+        choices=["wall_mounted_bracket", "l_bracket"],
+        help="Supported model family to build and inspect.",
+    )
+
+    volume_delta = subparsers.add_parser(
+        "volume-delta",
+        help="Run approximate volume delta checks for a bundled example model.",
+    )
+    volume_delta.add_argument(
+        "family",
+        choices=["wall_mounted_bracket", "l_bracket"],
+        help="Supported model family to compare.",
+    )
+
+    sweep = subparsers.add_parser(
+        "sweep",
+        help="Run the deterministic parametric sweep harness.",
+    )
+    sweep.add_argument(
+        "--max-cases-per-family",
+        type=int,
+        default=50,
+        help="Maximum sampled cases per supported family.",
+    )
+    sweep.add_argument(
+        "--no-export",
+        action="store_true",
+        help="Skip STEP/STL export for sweep cases.",
+    )
+
+    edit_harness = subparsers.add_parser(
+        "edit-harness",
+        help="Run the edit preservation harness.",
+    )
+    edit_harness.add_argument(
+        "--max-chains",
+        type=int,
+        default=None,
+        help="Maximum number of edit chains to run.",
+    )
+    edit_harness.add_argument(
+        "--no-export",
+        action="store_true",
+        help="Skip STEP/STL export for edit chains.",
+    )
+
     return parser
 
 
@@ -889,6 +1125,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "edit-parse-apply":
             return _edit_parse_apply_command(args.example, args.edit_text)
         if args.command == "benchmark":
+            if not _package_installed("cadquery"):
+                print(_cadquery_required_message("benchmark"))
+                return 1
             result = run_benchmark(args.output_root or (_project_root() / "output"))
             print(result["summary"], end="")
             print(f"Report path: {result['report_path']}")
@@ -898,6 +1137,14 @@ def main(argv: list[str] | None = None) -> int:
             return _demo_command(args.output_root)
         if args.command == "doctor":
             return _doctor_command()
+        if args.command == "inspect-shape":
+            return _inspect_shape_command(args.family)
+        if args.command == "volume-delta":
+            return _volume_delta_command(args.family)
+        if args.command == "sweep":
+            return _sweep_command(args.max_cases_per_family, args.no_export)
+        if args.command == "edit-harness":
+            return _edit_harness_command(args.max_chains, args.no_export)
     except CadQueryUnavailableError as exc:
         parser.exit(1, f"{exc}\n")
     except UnsupportedObjectError as exc:

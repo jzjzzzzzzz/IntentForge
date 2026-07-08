@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from harness.topology import inspect_shape
+from harness.topology.volume_delta import volume_delta_checks_for_model
 from intentforge.features import (
     feature_flags_for_parameter_table,
     hole_pattern_for_count,
@@ -606,10 +608,20 @@ def _export_files_exist_check(output_paths: Any) -> ValidationCheck:
     )
 
 
+def _topology_metadata(model: object, family: str, include_topology: bool) -> dict[str, Any]:
+    if not include_topology:
+        return {}
+    report = inspect_shape(model, family=family)
+    return {"topology": report.model_dump(mode="json")}
+
+
 def validate_wall_bracket(
     model: object,
     parameter_table: ParameterTable,
     output_paths: Any = None,
+    *,
+    include_topology: bool = True,
+    include_volume_delta: bool = True,
 ) -> ValidationReport:
     """Validate a generated wall-mounted bracket against named parameters."""
 
@@ -680,6 +692,11 @@ def validate_wall_bracket(
     if is_feature_active(feature_flags, "edge_fillets"):
         checks.append(_edge_fillet_limit_check(values, errors))
 
+    volume_delta_records: list[dict[str, Any]] = []
+    if include_volume_delta:
+        delta_checks, volume_delta_records = volume_delta_checks_for_model(parameter_table, model)
+        checks.extend(delta_checks)
+
     if output_paths is not None:
         checks.append(_export_files_exist_check(output_paths))
 
@@ -699,6 +716,8 @@ def validate_wall_bracket(
             "validator": "geometry",
             "min_edge_distance_mm": min_edge,
             "feature_flags": feature_flags,
+            "volume_delta_checks": volume_delta_records,
+            **_topology_metadata(model, SUPPORTED_FAMILY, include_topology),
         },
     )
 
@@ -957,6 +976,9 @@ def validate_l_bracket(
     model: object,
     parameter_table: ParameterTable,
     output_paths: Any = None,
+    *,
+    include_topology: bool = True,
+    include_volume_delta: bool = True,
 ) -> ValidationReport:
     """Validate a generated L-bracket against named parameters."""
 
@@ -1023,6 +1045,10 @@ def validate_l_bracket(
         checks.append(_l_fillet_check(values, "outside_edge_fillet_radius", thickness_value / 2 if thickness_value is not None else None))
     if is_feature_active(feature_flags, "triangular_gusset"):
         checks.append(_l_gusset_check(values))
+    volume_delta_records: list[dict[str, Any]] = []
+    if include_volume_delta:
+        delta_checks, volume_delta_records = volume_delta_checks_for_model(parameter_table, model)
+        checks.extend(delta_checks)
     if output_paths is not None:
         checks.append(_export_files_exist_check(output_paths))
 
@@ -1041,6 +1067,8 @@ def validate_l_bracket(
             "validator": "geometry",
             "min_edge_distance_mm": min_edge,
             "feature_flags": feature_flags,
+            "volume_delta_checks": volume_delta_records,
+            **_topology_metadata(model, L_BRACKET_FAMILY, include_topology),
         },
     )
 
@@ -1057,9 +1085,25 @@ def write_validation_report(report: ValidationReport, path: str | Path) -> Path:
     return output_path
 
 
-def validate_geometry(model: object, parameters: ParameterTable) -> ValidationReport:
+def validate_geometry(
+    model: object,
+    parameters: ParameterTable,
+    *,
+    include_topology: bool = True,
+    include_volume_delta: bool = True,
+) -> ValidationReport:
     """Backward-compatible geometry validation wrapper."""
 
     if parameters.family == L_BRACKET_FAMILY:
-        return validate_l_bracket(model, parameters)
-    return validate_wall_bracket(model, parameters)
+        return validate_l_bracket(
+            model,
+            parameters,
+            include_topology=include_topology,
+            include_volume_delta=include_volume_delta,
+        )
+    return validate_wall_bracket(
+        model,
+        parameters,
+        include_topology=include_topology,
+        include_volume_delta=include_volume_delta,
+    )

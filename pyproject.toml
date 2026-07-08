@@ -29,7 +29,7 @@ dev = [
 intentforge = "intentforge.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["intentforge*", "mcp_server*", "benchmark*"]
+include = ["intentforge*", "mcp_server*", "benchmark*", "harness*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

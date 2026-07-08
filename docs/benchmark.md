@@ -50,3 +50,36 @@ output/benchmark/runs/<run_id>/
 - failed case details
 
 `failed_cases.json` and `passed_cases.json` are written in the persistent run directory for focused debugging.
+
+## Parametric Sweep Harness
+
+The benchmark corpus checks prompt-level behavior. The sweep harness checks parameter-level robustness across sampled valid and invalid combinations for `wall_mounted_bracket` and `l_bracket`.
+
+The edit preservation harness checks multi-step design-intent preservation across both families.
+
+Run a moderate sweep:
+
+```bash
+python -m intentforge.cli sweep --max-cases-per-family 30
+```
+
+Run the edit preservation harness:
+
+```bash
+python -m intentforge.cli edit-harness
+```
+
+The sweep builds generated parameter tables, runs CadQuery generation, geometry validation, topology inspection, and volume delta checks. Expected invalid combinations are classified as `expected_rejection` rather than unexpected failures.
+
+Latest reports are written to:
+
+```text
+output/harness/sweep_report.json
+output/harness/sweep_summary.txt
+```
+
+Persistent run artifacts are written to:
+
+```text
+output/harness/sweep_runs/<run_id>/
+```

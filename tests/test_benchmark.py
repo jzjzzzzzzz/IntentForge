@@ -10,6 +10,7 @@ from benchmark.run_benchmark import (
     run_benchmark,
     validate_benchmark_cases,
 )
+import intentforge.cli as cli
 from intentforge.cli import main
 
 
@@ -95,6 +96,26 @@ def test_benchmark_cli_command_works(tmp_path: Path) -> None:
 
     assert result == 0
     assert (tmp_path / "output" / "benchmark" / "benchmark_report.json").exists()
+
+
+def test_benchmark_cli_requires_cadquery(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    real_find_spec = cli.importlib.util.find_spec
+
+    def fake_find_spec(name: str):
+        if name == "cadquery":
+            return None
+        return real_find_spec(name)
+
+    monkeypatch.setattr(cli.importlib.util, "find_spec", fake_find_spec)
+
+    result = main(["benchmark"])
+
+    output = capsys.readouterr().out
+    assert result == 1
+    assert "CadQuery is required to run `benchmark`" in output
 
 
 def test_rejection_benchmark_cases_do_not_export_cad(tmp_path: Path) -> None:

@@ -1,0 +1,364 @@
+[
+  {
+    "id": "wall_edit_001",
+    "object_type": "wall_mounted_bracket",
+    "initial_prompt": "Make a wall-mounted bracket 120 mm wide, 60 mm tall, 8 mm thick, with two screw holes and rounded corners.",
+    "edits": [
+      {
+        "text": "Make it 150 mm wide but keep the same thickness.",
+        "expected_changed": ["back_plate_width_mm"],
+        "expected_preserved": ["back_plate_thickness_mm", "mounting_hole_diameter_mm"],
+        "expected_active_features": ["mounting_holes", "rounded_corners"],
+        "expected_omitted_features": ["center_cutout", "edge_fillets"]
+      }
+    ]
+  },
+  {
+    "id": "wall_edit_002",
+    "object_type": "wall_mounted_bracket",
+    "initial_prompt": "Make a wall-mounted bracket 120 mm wide, 60 mm tall, 8 mm thick, with two screw holes and a center cutout.",
+    "edits": [
+      {
+        "text": "Remove the center cutout.",
+        "expected_changed": [],
+        "expected_preserved": ["back_plate_width_mm", "back_plate_thickness_mm", "mounting_hole_diameter_mm"],
+        "expected_active_features": ["mounting_holes"],
+        "expected_omitted_features": ["center_cutout", "rounded_corners", "edge_fillets"]
+      }
+    ]
+  },
+  {
+    "id": "wall_edit_003",
+    "object_type": "wall_mounted_bracket",
+    "initial_prompt": "Make a wall-mounted bracket 120 mm wide, 60 mm tall, 8 mm thick, with two screw holes.",
+    "edits": [
+      {
+        "text": "Add a center cutout.",
+        "expected_changed": ["center_cutout_width_mm", "center_cutout_height_mm"],
+        "expected_preserved": ["back_plate_width_mm", "back_plate_thickness_mm", "mounting_hole_diameter_mm"],
+        "expected_active_features": ["mounting_holes", "center_cutout"],
+        "expected_omitted_features": ["rounded_corners", "edge_fillets"]
+      }
+    ]
+  },
+  {
+    "id": "wall_edit_004",
+    "object_type": "wall_mounted_bracket",
+    "initial_prompt": "Make a wall-mounted bracket 120 mm wide, 60 mm tall, 8 mm thick, with two screw holes.",
+    "edits": [
+      {
+        "text": "Change it to four mounting holes.",
+        "expected_changed": ["mounting_hole_count", "mounting_hole_spacing_x_mm", "mounting_hole_spacing_y_mm"],
+        "expected_preserved": ["back_plate_width_mm", "back_plate_thickness_mm", "mounting_hole_diameter_mm"],
+        "expected_active_features": ["mounting_holes"],
+        "expected_omitted_features": ["center_cutout", "rounded_corners", "edge_fillets"]
+      }
+    ]
+  },
+  {
+    "id": "wall_edit_005",
+    "object_type": "wall_mounted_bracket",
+    "initial_prompt": "Make a wall-mounted bracket 120 mm wide, 60 mm tall, 8 mm thick, with two screw holes.",
+    "edits": [
+      {
+        "text": "Remove the mounting holes.",
+        "expected_changed": [],
+        "expected_preserved": ["back_plate_width_mm", "back_plate_thickness_mm", "mounting_hole_diameter_mm"],
+        "expected_active_features": [],
+        "expected_omitted_features": ["mounting_holes", "center_cutout", "rounded_corners", "edge_fillets"]
+      }
+    ]
+  },
+  {
+    "id": "wall_edit_006",
+    "object_type": "wall_mounted_bracket",
+    "initial_prompt": "Make a wall-mounted bracket 120 mm wide, 60 mm tall, 8 mm thick, with two screw holes.",
+    "edits": [
+      {
+        "text": "Add rounded corners.",
+        "expected_changed": ["corner_radius_mm"],
+        "expected_preserved": ["back_plate_width_mm", "back_plate_thickness_mm", "mounting_hole_diameter_mm"],
+        "expected_active_features": ["mounting_holes", "rounded_corners"],
+        "expected_omitted_features": ["center_cutout", "edge_fillets"]
+      }
+    ]
+  },
+  {
+    "id": "wall_edit_007",
+    "object_type": "wall_mounted_bracket",
+    "initial_prompt": "Make a wall-mounted bracket 120 mm wide, 60 mm tall, 8 mm thick, with two screw holes and rounded corners.",
+    "edits": [
+      {
+        "text": "Remove rounded corners.",
+        "expected_changed": [],
+        "expected_preserved": ["back_plate_width_mm", "back_plate_thickness_mm", "mounting_hole_diameter_mm"],
+        "expected_active_features": ["mounting_holes"],
+        "expected_omitted_features": ["center_cutout", "rounded_corners", "edge_fillets"]
+      }
+    ]
+  },
+  {
+    "id": "wall_edit_008",
+    "object_type": "wall_mounted_bracket",
+    "initial_prompt": "Make a wall-mounted bracket 120 mm wide, 60 mm tall, 8 mm thick, with two screw holes.",
+    "edits": [
+      {
+        "text": "Make it taller but keep the same thickness.",
+        "expected_changed": ["back_plate_height_mm"],
+        "expected_preserved": ["back_plate_thickness_mm", "mounting_hole_diameter_mm"],
+        "expected_active_features": ["mounting_holes"],
+        "expected_omitted_features": ["center_cutout", "rounded_corners", "edge_fillets"]
+      },
+      {
+        "text": "Make it 150 mm wide.",
+        "expected_changed": ["back_plate_width_mm"],
+        "expected_preserved": ["back_plate_height_mm", "back_plate_thickness_mm", "mounting_hole_diameter_mm"],
+        "expected_active_features": ["mounting_holes"],
+        "expected_omitted_features": ["center_cutout", "rounded_corners", "edge_fillets"]
+      }
+    ]
+  },
+  {
+    "id": "wall_edit_009",
+    "object_type": "wall_mounted_bracket",
+    "initial_prompt": "Make a wall-mounted bracket 120 mm wide, 60 mm tall, 8 mm thick, with two screw holes and a center cutout.",
+    "edits": [
+      {
+        "text": "Make it 150 mm wide but keep the same thickness.",
+        "expected_changed": ["back_plate_width_mm"],
+        "expected_preserved": ["back_plate_thickness_mm", "center_cutout_width_mm", "center_cutout_height_mm"],
+        "expected_active_features": ["mounting_holes", "center_cutout"],
+        "expected_omitted_features": ["rounded_corners", "edge_fillets"]
+      },
+      {
+        "text": "Remove the center cutout.",
+        "expected_changed": [],
+        "expected_preserved": ["back_plate_width_mm", "back_plate_thickness_mm", "mounting_hole_diameter_mm"],
+        "expected_active_features": ["mounting_holes"],
+        "expected_omitted_features": ["center_cutout", "rounded_corners", "edge_fillets"]
+      }
+    ]
+  },
+  {
+    "id": "wall_edit_010",
+    "object_type": "wall_mounted_bracket",
+    "initial_prompt": "Make a plain wall-mounted bracket 100 mm wide, 50 mm tall, and 6 mm thick.",
+    "edits": [
+      {
+        "text": "Add rounded corners.",
+        "expected_changed": ["corner_radius_mm"],
+        "expected_preserved": ["back_plate_width_mm", "back_plate_thickness_mm"],
+        "expected_active_features": ["rounded_corners"],
+        "expected_omitted_features": ["mounting_holes", "center_cutout", "edge_fillets"]
+      }
+    ]
+  },
+  {
+    "id": "l_edit_001",
+    "object_type": "l_bracket",
+    "initial_prompt": "Make a plain L-bracket 100 mm base leg, 80 mm vertical leg, 40 mm wide, and 6 mm thick.",
+    "edits": [
+      {
+        "text": "Make the base leg 120 mm long.",
+        "expected_changed": ["base_leg_length_mm"],
+        "expected_preserved": ["vertical_leg_length_mm", "thickness_mm"],
+        "expected_active_features": ["base_leg", "vertical_leg"],
+        "expected_omitted_features": ["base_mounting_holes", "vertical_mounting_holes", "inside_fillet", "outside_edge_fillets", "triangular_gusset"]
+      }
+    ]
+  },
+  {
+    "id": "l_edit_002",
+    "object_type": "l_bracket",
+    "initial_prompt": "Make a plain L-bracket 100 mm base leg, 80 mm vertical leg, 40 mm wide, and 6 mm thick.",
+    "edits": [
+      {
+        "text": "Make the vertical leg 100 mm tall.",
+        "expected_changed": ["vertical_leg_length_mm"],
+        "expected_preserved": ["base_leg_length_mm", "thickness_mm"],
+        "expected_active_features": ["base_leg", "vertical_leg"],
+        "expected_omitted_features": ["base_mounting_holes", "vertical_mounting_holes", "inside_fillet", "outside_edge_fillets", "triangular_gusset"]
+      }
+    ]
+  },
+  {
+    "id": "l_edit_003",
+    "object_type": "l_bracket",
+    "initial_prompt": "Make a plain L-bracket 100 mm base leg, 80 mm vertical leg, 40 mm wide, and 6 mm thick.",
+    "edits": [
+      {
+        "text": "Change bracket width to 50 mm.",
+        "expected_changed": ["bracket_width_mm"],
+        "expected_preserved": ["base_leg_length_mm", "vertical_leg_length_mm", "thickness_mm"],
+        "expected_active_features": ["base_leg", "vertical_leg"],
+        "expected_omitted_features": ["base_mounting_holes", "vertical_mounting_holes", "inside_fillet", "outside_edge_fillets", "triangular_gusset"]
+      }
+    ]
+  },
+  {
+    "id": "l_edit_004",
+    "object_type": "l_bracket",
+    "initial_prompt": "Make an L-bracket 100 mm base leg, 80 mm vertical leg, 40 mm wide, 6 mm thick, with two holes on the base and two holes on the vertical face.",
+    "edits": [
+      {
+        "text": "Remove the base holes.",
+        "expected_changed": [],
+        "expected_preserved": ["vertical_hole_count", "hole_diameter_mm", "thickness_mm"],
+        "expected_active_features": ["base_leg", "vertical_leg", "vertical_mounting_holes"],
+        "expected_omitted_features": ["base_mounting_holes", "inside_fillet", "outside_edge_fillets", "triangular_gusset"]
+      }
+    ]
+  },
+  {
+    "id": "l_edit_005",
+    "object_type": "l_bracket",
+    "initial_prompt": "Make an L-bracket 100 mm base leg, 80 mm vertical leg, 40 mm wide, 6 mm thick, with two holes on the base and two holes on the vertical face.",
+    "edits": [
+      {
+        "text": "Remove the vertical holes.",
+        "expected_changed": [],
+        "expected_preserved": ["base_hole_count", "hole_diameter_mm", "thickness_mm"],
+        "expected_active_features": ["base_leg", "vertical_leg", "base_mounting_holes"],
+        "expected_omitted_features": ["vertical_mounting_holes", "inside_fillet", "outside_edge_fillets", "triangular_gusset"]
+      }
+    ]
+  },
+  {
+    "id": "l_edit_006",
+    "object_type": "l_bracket",
+    "initial_prompt": "Make a plain L-bracket 100 mm base leg, 80 mm vertical leg, 40 mm wide, and 6 mm thick.",
+    "edits": [
+      {
+        "text": "Add two holes to the base leg.",
+        "expected_changed": ["base_hole_count", "hole_diameter_mm", "base_hole_spacing_mm"],
+        "expected_preserved": ["thickness_mm"],
+        "expected_active_features": ["base_leg", "vertical_leg", "base_mounting_holes"],
+        "expected_omitted_features": ["vertical_mounting_holes", "inside_fillet", "outside_edge_fillets", "triangular_gusset"]
+      }
+    ]
+  },
+  {
+    "id": "l_edit_007",
+    "object_type": "l_bracket",
+    "initial_prompt": "Make a plain L-bracket 100 mm base leg, 80 mm vertical leg, 40 mm wide, and 6 mm thick.",
+    "edits": [
+      {
+        "text": "Add two holes to the vertical face.",
+        "expected_changed": ["vertical_hole_count", "hole_diameter_mm", "vertical_hole_spacing_mm"],
+        "expected_preserved": ["thickness_mm"],
+        "expected_active_features": ["base_leg", "vertical_leg", "vertical_mounting_holes"],
+        "expected_omitted_features": ["base_mounting_holes", "inside_fillet", "outside_edge_fillets", "triangular_gusset"]
+      }
+    ]
+  },
+  {
+    "id": "l_edit_008",
+    "object_type": "l_bracket",
+    "initial_prompt": "Make a plain L-bracket 100 mm base leg, 80 mm vertical leg, 40 mm wide, and 6 mm thick.",
+    "edits": [
+      {
+        "text": "Add a triangular gusset.",
+        "expected_changed": ["gusset_enabled", "gusset_thickness_mm", "gusset_height_mm"],
+        "expected_preserved": ["base_leg_length_mm", "vertical_leg_length_mm", "thickness_mm"],
+        "expected_active_features": ["base_leg", "vertical_leg", "triangular_gusset"],
+        "expected_omitted_features": ["base_mounting_holes", "vertical_mounting_holes", "inside_fillet", "outside_edge_fillets"]
+      }
+    ]
+  },
+  {
+    "id": "l_edit_009",
+    "object_type": "l_bracket",
+    "initial_prompt": "Make an L-bracket 100 mm base leg, 80 mm vertical leg, 40 mm wide, 6 mm thick, with two holes on the base, two holes on the vertical face, and a triangular gusset.",
+    "edits": [
+      {
+        "text": "Remove the gusset.",
+        "expected_changed": [],
+        "expected_preserved": ["base_hole_count", "vertical_hole_count", "hole_diameter_mm"],
+        "expected_active_features": ["base_leg", "vertical_leg", "base_mounting_holes", "vertical_mounting_holes"],
+        "expected_omitted_features": ["triangular_gusset", "inside_fillet", "outside_edge_fillets"]
+      },
+      {
+        "text": "Make the base leg 150 mm long but keep the same thickness.",
+        "expected_changed": ["base_leg_length_mm"],
+        "expected_preserved": ["vertical_leg_length_mm", "thickness_mm", "hole_diameter_mm"],
+        "expected_active_features": ["base_leg", "vertical_leg", "base_mounting_holes", "vertical_mounting_holes"],
+        "expected_omitted_features": ["triangular_gusset", "inside_fillet", "outside_edge_fillets"]
+      }
+    ]
+  },
+  {
+    "id": "reject_001",
+    "object_type": "wall_mounted_bracket",
+    "initial_prompt": "Make a wall-mounted bracket 120 mm wide, 60 mm tall, 8 mm thick, with two screw holes.",
+    "edits": [
+      {
+        "text": "Make it better.",
+        "expected_rejected": true,
+        "expected_changed": [],
+        "expected_preserved": ["back_plate_width_mm", "back_plate_thickness_mm"],
+        "expected_active_features": ["mounting_holes"],
+        "expected_omitted_features": ["center_cutout", "rounded_corners", "edge_fillets"]
+      }
+    ]
+  },
+  {
+    "id": "reject_002",
+    "object_type": "wall_mounted_bracket",
+    "initial_prompt": "Make a wall-mounted bracket 120 mm wide, 60 mm tall, 8 mm thick, with two screw holes.",
+    "edits": [
+      {
+        "text": "Change it to three mounting holes.",
+        "expected_rejected": true,
+        "expected_changed": [],
+        "expected_preserved": ["back_plate_width_mm", "back_plate_thickness_mm"],
+        "expected_active_features": ["mounting_holes"],
+        "expected_omitted_features": ["center_cutout", "rounded_corners", "edge_fillets"]
+      }
+    ]
+  },
+  {
+    "id": "reject_003",
+    "object_type": "l_bracket",
+    "initial_prompt": "Make a plain L-bracket 100 mm base leg, 80 mm vertical leg, 40 mm wide, and 6 mm thick.",
+    "edits": [
+      {
+        "text": "Make a curved L-bracket.",
+        "expected_rejected": true,
+        "expected_changed": [],
+        "expected_preserved": ["base_leg_length_mm", "vertical_leg_length_mm", "thickness_mm"],
+        "expected_active_features": ["base_leg", "vertical_leg"],
+        "expected_omitted_features": ["base_mounting_holes", "vertical_mounting_holes", "inside_fillet", "outside_edge_fillets", "triangular_gusset"]
+      }
+    ]
+  },
+  {
+    "id": "reject_004",
+    "object_type": "l_bracket",
+    "initial_prompt": "Make a plain L-bracket 100 mm base leg, 80 mm vertical leg, 40 mm wide, and 6 mm thick.",
+    "edits": [
+      {
+        "text": "Add arbitrary coordinate holes.",
+        "expected_rejected": true,
+        "expected_changed": [],
+        "expected_preserved": ["base_leg_length_mm", "vertical_leg_length_mm", "thickness_mm"],
+        "expected_active_features": ["base_leg", "vertical_leg"],
+        "expected_omitted_features": ["base_mounting_holes", "vertical_mounting_holes", "inside_fillet", "outside_edge_fillets", "triangular_gusset"]
+      }
+    ]
+  },
+  {
+    "id": "reject_005",
+    "object_type": "l_bracket",
+    "initial_prompt": "Make a plain L-bracket 100 mm base leg, 80 mm vertical leg, 40 mm wide, and 6 mm thick.",
+    "edits": [
+      {
+        "text": "Make an L-bracket sheet metal flat pattern.",
+        "expected_rejected": true,
+        "expected_changed": [],
+        "expected_preserved": ["base_leg_length_mm", "vertical_leg_length_mm", "thickness_mm"],
+        "expected_active_features": ["base_leg", "vertical_leg"],
+        "expected_omitted_features": ["base_mounting_holes", "vertical_mounting_holes", "inside_fillet", "outside_edge_fillets", "triangular_gusset"]
+      }
+    ]
+  }
+]
