@@ -1,0 +1,50 @@
+[
+  {
+    "id": "l_reject_001",
+    "type": "parse",
+    "prompt": "Make a curved L-bracket.",
+    "expected_family": "l_bracket",
+    "expected_ok": false,
+    "expected_error_contains": "Curved brackets"
+  },
+  {
+    "id": "l_reject_002",
+    "type": "parse",
+    "prompt": "Make an L-bracket with four holes.",
+    "expected_family": "l_bracket",
+    "expected_ok": false,
+    "expected_error_contains": "0 or 2 holes"
+  },
+  {
+    "id": "l_reject_003",
+    "type": "parse",
+    "prompt": "Make an L-bracket with arbitrary hole coordinates.",
+    "expected_family": "l_bracket",
+    "expected_ok": false,
+    "expected_error_contains": "Freeform hole placement"
+  },
+  {
+    "id": "l_reject_004",
+    "type": "parse",
+    "prompt": "Make an L-bracket flat pattern.",
+    "expected_family": "l_bracket",
+    "expected_ok": false,
+    "expected_error_contains": "Sheet-metal unfold"
+  },
+  {
+    "id": "l_reject_005",
+    "type": "parse",
+    "prompt": "Make an adjustable L-bracket.",
+    "expected_family": "l_bracket",
+    "expected_ok": false,
+    "expected_error_contains": "Adjustable brackets"
+  },
+  {
+    "id": "l_reject_006",
+    "type": "parse",
+    "prompt": "Make an L-bracket with three holes on the base leg.",
+    "expected_family": "l_bracket",
+    "expected_ok": false,
+    "expected_error_contains": "0 or 2 holes"
+  }
+]

@@ -1,4 +1,4 @@
-"""Optional feature flags for the wall-mounted bracket family."""
+"""Feature flags for supported bracket model families."""
 
 from __future__ import annotations
 
@@ -6,12 +6,28 @@ from typing import Any
 
 from intentforge.schemas import ParameterTable
 
-OPTIONAL_FEATURES = (
+WALL_OPTIONAL_FEATURES = (
     "mounting_holes",
     "center_cutout",
     "rounded_corners",
     "edge_fillets",
 )
+
+L_BRACKET_FEATURES = (
+    "base_leg",
+    "vertical_leg",
+    "base_mounting_holes",
+    "vertical_mounting_holes",
+    "inside_fillet",
+    "outside_edge_fillets",
+    "triangular_gusset",
+)
+
+OPTIONAL_FEATURES = WALL_OPTIONAL_FEATURES
+OPTIONAL_FEATURES_BY_FAMILY = {
+    "wall_mounted_bracket": WALL_OPTIONAL_FEATURES,
+    "l_bracket": L_BRACKET_FEATURES,
+}
 ACTIVE_STATES = {"requested_by_user", "defaulted_by_system"}
 OMITTED_STATE = "omitted"
 SUPPORTED_HOLE_PATTERNS = {"none", "symmetric_2_horizontal", "rectangular_4"}
@@ -32,7 +48,22 @@ FEATURE_PARAMETER_MAP: dict[str, str] = {
     "corner_radius_mm": "rounded_corners",
     "fillet_radius_mm": "edge_fillets",
     "edge_fillet_radius_mm": "edge_fillets",
+    "base_hole_count": "base_mounting_holes",
+    "base_hole_spacing_mm": "base_mounting_holes",
+    "vertical_hole_count": "vertical_mounting_holes",
+    "vertical_hole_spacing_mm": "vertical_mounting_holes",
+    "inside_fillet_radius_mm": "inside_fillet",
+    "outside_edge_fillet_radius_mm": "outside_edge_fillets",
+    "gusset_enabled": "triangular_gusset",
+    "gusset_thickness_mm": "triangular_gusset",
+    "gusset_height_mm": "triangular_gusset",
 }
+
+
+def optional_features_for_family(family: str) -> tuple[str, ...]:
+    """Return the feature flag names used by a supported family."""
+
+    return OPTIONAL_FEATURES_BY_FAMILY.get(family, WALL_OPTIONAL_FEATURES)
 
 
 def hole_pattern_for_count(hole_count: int) -> str | None:
@@ -64,12 +95,15 @@ def make_mounting_hole_flag(state: str, reason: str, hole_count: int = 2) -> dic
     )
 
 
-def normalize_feature_flags(raw_flags: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
+def normalize_feature_flags(
+    raw_flags: dict[str, Any] | None,
+    family: str = "wall_mounted_bracket",
+) -> dict[str, dict[str, Any]]:
     """Return feature flags with all supported features present."""
 
     normalized: dict[str, dict[str, Any]] = {}
     raw_flags = raw_flags or {}
-    for feature in OPTIONAL_FEATURES:
+    for feature in optional_features_for_family(family):
         raw_flag = raw_flags.get(feature)
         if isinstance(raw_flag, dict):
             state = str(raw_flag.get("state", OMITTED_STATE))
@@ -95,6 +129,16 @@ def normalize_feature_flags(raw_flags: dict[str, Any] | None) -> dict[str, dict[
                 metadata.setdefault("feature", "mounting_holes")
                 metadata.setdefault("hole_count", 0)
                 metadata.setdefault("pattern", "none")
+        elif feature in {"base_mounting_holes", "vertical_mounting_holes"}:
+            metadata.setdefault("feature", feature)
+            if state in ACTIVE_STATES:
+                raw_count = metadata.get("hole_count", 2)
+                hole_count = int(raw_count) if isinstance(raw_count, int | float) and not isinstance(raw_count, bool) else 2
+                metadata.setdefault("hole_count", hole_count)
+                metadata.setdefault("pattern", "symmetric_2_horizontal" if hole_count == 2 else "unsupported")
+            else:
+                metadata.setdefault("hole_count", 0)
+                metadata.setdefault("pattern", "none")
         normalized[feature] = make_feature_flag(state, reason, **metadata)
     return normalized
 
@@ -111,9 +155,9 @@ def _has_positive_parameter(parameter_table: ParameterTable, name: str) -> bool:
     return isinstance(value, int | float) and not isinstance(value, bool) and value > 0
 
 
-def _infer_feature_flags(parameter_table: ParameterTable) -> dict[str, dict[str, Any]]:
+def _infer_wall_feature_flags(parameter_table: ParameterTable) -> dict[str, dict[str, Any]]:
     names = _parameter_names(parameter_table)
-    flags = normalize_feature_flags(None)
+    flags = normalize_feature_flags(None, "wall_mounted_bracket")
 
     if "mounting_hole_diameter_mm" in names and (
         "mounting_hole_spacing_mm" in names
@@ -142,20 +186,93 @@ def _infer_feature_flags(parameter_table: ParameterTable) -> dict[str, dict[str,
     return flags
 
 
+def _bool_parameter(parameter_table: ParameterTable, name: str) -> bool:
+    try:
+        value = parameter_table.get(name).value
+    except KeyError:
+        return False
+    return bool(value) if isinstance(value, bool) else False
+
+
+def _infer_l_bracket_feature_flags(parameter_table: ParameterTable) -> dict[str, dict[str, Any]]:
+    names = _parameter_names(parameter_table)
+    flags = normalize_feature_flags(None, "l_bracket")
+    flags["base_leg"] = make_feature_flag(
+        "defaulted_by_system",
+        "Base leg is required for the L-bracket family.",
+    )
+    flags["vertical_leg"] = make_feature_flag(
+        "defaulted_by_system",
+        "Vertical leg is required for the L-bracket family.",
+    )
+    if "base_hole_count" in names:
+        try:
+            raw_count = parameter_table.get("base_hole_count").value
+            hole_count = int(raw_count) if isinstance(raw_count, int | float) and not isinstance(raw_count, bool) else 0
+        except KeyError:
+            hole_count = 0
+        if hole_count > 0:
+            flags["base_mounting_holes"] = make_feature_flag(
+                "defaulted_by_system",
+                "Inferred from base-hole parameters in a legacy parameter table.",
+                feature="base_mounting_holes",
+                hole_count=hole_count,
+                pattern="symmetric_2_horizontal" if hole_count == 2 else "unsupported",
+            )
+    if "vertical_hole_count" in names:
+        try:
+            raw_count = parameter_table.get("vertical_hole_count").value
+            hole_count = int(raw_count) if isinstance(raw_count, int | float) and not isinstance(raw_count, bool) else 0
+        except KeyError:
+            hole_count = 0
+        if hole_count > 0:
+            flags["vertical_mounting_holes"] = make_feature_flag(
+                "defaulted_by_system",
+                "Inferred from vertical-hole parameters in a legacy parameter table.",
+                feature="vertical_mounting_holes",
+                hole_count=hole_count,
+                pattern="symmetric_2_horizontal" if hole_count == 2 else "unsupported",
+            )
+    if _has_positive_parameter(parameter_table, "inside_fillet_radius_mm"):
+        flags["inside_fillet"] = make_feature_flag(
+            "defaulted_by_system",
+            "Inferred from inside-fillet radius parameter in a legacy parameter table.",
+        )
+    if _has_positive_parameter(parameter_table, "outside_edge_fillet_radius_mm"):
+        flags["outside_edge_fillets"] = make_feature_flag(
+            "defaulted_by_system",
+            "Inferred from outside-edge fillet radius parameter in a legacy parameter table.",
+        )
+    if _bool_parameter(parameter_table, "gusset_enabled"):
+        flags["triangular_gusset"] = make_feature_flag(
+            "defaulted_by_system",
+            "Inferred from gusset_enabled parameter in a legacy parameter table.",
+        )
+    return flags
+
+
+def _infer_feature_flags(parameter_table: ParameterTable) -> dict[str, dict[str, Any]]:
+    if parameter_table.family == "l_bracket":
+        return _infer_l_bracket_feature_flags(parameter_table)
+    return _infer_wall_feature_flags(parameter_table)
+
+
 def feature_flags_for_parameter_table(parameter_table: ParameterTable) -> dict[str, dict[str, Any]]:
     """Return explicit feature flags or infer them from legacy parameters."""
 
     raw_flags = parameter_table.metadata.get("feature_flags")
     if isinstance(raw_flags, dict):
-        return normalize_feature_flags(raw_flags)
+        return normalize_feature_flags(raw_flags, parameter_table.family)
     return _infer_feature_flags(parameter_table)
 
 
 def is_feature_active(feature_flags: dict[str, Any], feature: str) -> bool:
     """Return True when the feature is requested or system-defaulted."""
 
-    flags = normalize_feature_flags(feature_flags)
-    return flags[feature]["state"] in ACTIVE_STATES
+    raw_flag = feature_flags.get(feature) if isinstance(feature_flags, dict) else None
+    if isinstance(raw_flag, dict):
+        return raw_flag.get("state") in ACTIVE_STATES
+    return False
 
 
 def mounting_hole_count_from_flags(feature_flags: dict[str, Any]) -> int:

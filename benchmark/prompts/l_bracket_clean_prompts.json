@@ -1,0 +1,72 @@
+[
+  {
+    "id": "l_clean_001",
+    "type": "parse_build",
+    "prompt": "Make an L-bracket 100 mm base leg, 80 mm vertical leg, 40 mm wide, and 6 mm thick.",
+    "expected_family": "l_bracket",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": ["base_leg", "vertical_leg"],
+    "expected_omitted_features": ["base_mounting_holes", "vertical_mounting_holes", "inside_fillet", "outside_edge_fillets", "triangular_gusset"]
+  },
+  {
+    "id": "l_clean_002",
+    "type": "parse_build",
+    "prompt": "Create a right angle bracket with two holes on the base and two holes on the vertical face.",
+    "expected_family": "l_bracket",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": ["base_leg", "vertical_leg", "base_mounting_holes", "vertical_mounting_holes"],
+    "expected_omitted_features": ["inside_fillet", "outside_edge_fillets", "triangular_gusset"]
+  },
+  {
+    "id": "l_clean_003",
+    "type": "parse_build",
+    "prompt": "Make an L bracket with a 120 mm base, 90 mm upright, 50 mm width, 8 mm thickness.",
+    "expected_family": "l_bracket",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": ["base_leg", "vertical_leg"],
+    "expected_omitted_features": ["base_mounting_holes", "vertical_mounting_holes", "inside_fillet", "outside_edge_fillets", "triangular_gusset"]
+  },
+  {
+    "id": "l_clean_004",
+    "type": "parse_build",
+    "prompt": "Make an L-bracket with two holes on the base.",
+    "expected_family": "l_bracket",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": ["base_leg", "vertical_leg", "base_mounting_holes"],
+    "expected_omitted_features": ["vertical_mounting_holes", "inside_fillet", "outside_edge_fillets", "triangular_gusset"]
+  },
+  {
+    "id": "l_clean_005",
+    "type": "parse_build",
+    "prompt": "Make an L-bracket with two holes on the vertical face.",
+    "expected_family": "l_bracket",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": ["base_leg", "vertical_leg", "vertical_mounting_holes"],
+    "expected_omitted_features": ["base_mounting_holes", "inside_fillet", "outside_edge_fillets", "triangular_gusset"]
+  },
+  {
+    "id": "l_clean_006",
+    "type": "parse_build",
+    "prompt": "Make a 90 degree bracket with no holes.",
+    "expected_family": "l_bracket",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": ["base_leg", "vertical_leg"],
+    "expected_omitted_features": ["base_mounting_holes", "vertical_mounting_holes", "inside_fillet", "outside_edge_fillets", "triangular_gusset"]
+  },
+  {
+    "id": "l_clean_007",
+    "type": "parse_build",
+    "prompt": "Make an L bracket with two base face holes and two vertical face holes.",
+    "expected_family": "l_bracket",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": ["base_leg", "vertical_leg", "base_mounting_holes", "vertical_mounting_holes"],
+    "expected_omitted_features": ["inside_fillet", "outside_edge_fillets", "triangular_gusset"]
+  }
+]

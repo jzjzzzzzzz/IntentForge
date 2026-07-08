@@ -25,6 +25,11 @@ PROMPT_FILES = {
     "hole_patterns": BENCHMARK_DIR / "prompts" / "hole_pattern_prompts.json",
     "rejections": BENCHMARK_DIR / "prompts" / "rejection_prompts.json",
     "edits": BENCHMARK_DIR / "prompts" / "edit_prompts.json",
+    "l_clean": BENCHMARK_DIR / "prompts" / "l_bracket_clean_prompts.json",
+    "l_defaults": BENCHMARK_DIR / "prompts" / "l_bracket_default_prompts.json",
+    "l_optional_features": BENCHMARK_DIR / "prompts" / "l_bracket_optional_feature_prompts.json",
+    "l_rejections": BENCHMARK_DIR / "prompts" / "l_bracket_rejection_prompts.json",
+    "l_edits": BENCHMARK_DIR / "prompts" / "l_bracket_edit_prompts.json",
 }
 EXPECTED_FEATURES_PATH = BENCHMARK_DIR / "expected" / "expected_features.json"
 EXPECTED_REJECTIONS_PATH = BENCHMARK_DIR / "expected" / "expected_rejections.json"
@@ -167,6 +172,16 @@ def _case_pass(
             return False, f"expected error containing {expected_error!r}, actual={message!r}"
         return True, "rejection matched expected outcome"
 
+    expected_family = case.get("expected_family")
+    if expected_family is not None:
+        actual_family = (
+            actual.get("intent", {}).get("family")
+            or actual.get("parameters", {}).get("family")
+            or actual.get("edit_report", {}).get("family")
+        )
+        if actual_family != expected_family:
+            return False, f"expected family {expected_family!r}, actual {actual_family!r}"
+
     if case["type"] == "parse_build":
         if "expected_validation_valid" in case and bool(actual.get("validation_valid")) != bool(case["expected_validation_valid"]):
             return False, (
@@ -286,6 +301,7 @@ def _run_case(
     case_result = {
         "id": case["id"],
         "category": case["category"],
+        "family": case.get("expected_family") or ("l_bracket" if case.get("target") == "l_bracket" or str(case["id"]).startswith("l_") else "wall_mounted_bracket"),
         "type": case["type"],
         "passed": passed,
         "reason": reason,
@@ -312,6 +328,9 @@ def _build_summary(report: dict[str, Any]) -> str:
         "Categories:",
     ]
     for name, stats in report["categories"].items():
+        lines.append(f"  - {name}: passed {stats['passed']}, failed {stats['failed']}")
+    lines.append("Families:")
+    for name, stats in report["families"].items():
         lines.append(f"  - {name}: passed {stats['passed']}, failed {stats['failed']}")
     if report["failed_cases"]:
         lines.append("Failed case IDs:")
@@ -342,7 +361,19 @@ def run_benchmark(
     failed = len(failed_cases)
     pass_rate = round(passed / total_cases, 4) if total_cases else 0.0
 
-    category_names = ["clean", "defaults", "optional_features", "hole_patterns", "rejections", "edits"]
+    category_names = [
+        "clean",
+        "defaults",
+        "optional_features",
+        "hole_patterns",
+        "rejections",
+        "edits",
+        "l_clean",
+        "l_defaults",
+        "l_optional_features",
+        "l_rejections",
+        "l_edits",
+    ]
     categories: dict[str, dict[str, int]] = {
         name: {"passed": 0, "failed": 0} for name in category_names
     }
@@ -352,6 +383,16 @@ def run_benchmark(
             categories[category] = {"passed": 0, "failed": 0}
         categories[category]["passed" if case["passed"] else "failed"] += 1
 
+    families: dict[str, dict[str, int]] = {
+        "wall_mounted_bracket": {"passed": 0, "failed": 0},
+        "l_bracket": {"passed": 0, "failed": 0},
+    }
+    for case in case_results:
+        family = case.get("family") or "unknown"
+        if family not in families:
+            families[family] = {"passed": 0, "failed": 0}
+        families[family]["passed" if case["passed"] else "failed"] += 1
+
     report = {
         "run_id": context.run_id,
         "total_cases": total_cases,
@@ -359,6 +400,7 @@ def run_benchmark(
         "failed": failed,
         "pass_rate": pass_rate,
         "categories": categories,
+        "families": families,
         "failed_cases": [
             {
                 "id": case["id"],

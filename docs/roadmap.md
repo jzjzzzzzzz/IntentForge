@@ -4,17 +4,17 @@ IntentForge should expand only when the intent pipeline remains explicit, testab
 
 ## Phase 10
 
-Add a second model family while preserving the same core flow:
+Add and harden the `l_bracket` model family while preserving the same core flow:
 
 ```text
 prompt -> intent -> parameters -> constraints -> feature plan -> CAD -> validation -> edits
 ```
 
-The next model family should be small enough to keep deterministic behavior and meaningful tests.
+The L-bracket family is intentionally limited to two perpendicular rectangular legs, 0 or 2 holes per leg, and an optional triangular gusset.
 
 ## Candidate Families
 
-`L-bracket` is the likely next family. It adds a second plate face and bend/leg relationships while still staying close to the current bracket domain.
+`L-bracket` is the current Phase 10 family. It adds a second plate face and leg relationships while still staying close to the current bracket domain.
 
 `electronics enclosure` is a later candidate. It would require stronger support for shells, lids, bosses, openings, clearances, and assembly intent.
 
@@ -31,6 +31,9 @@ The next model family should be small enough to keep deterministic behavior and 
 
 - arbitrary CAD generation
 - freeform feature placement
+- four-hole L-bracket patterns
+- curved or adjustable L-brackets
+- sheet-metal unfold patterns
+- robust geometric inside-corner filleting for L-brackets
 - desktop CAD automation
 - replacing the deterministic parser with an LLM
-

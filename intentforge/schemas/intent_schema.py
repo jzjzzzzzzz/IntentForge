@@ -4,7 +4,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-SupportedFamily = Literal["wall_mounted_bracket"]
+SupportedFamily = Literal["wall_mounted_bracket", "l_bracket"]
 
 
 class IntentSpec(BaseModel):

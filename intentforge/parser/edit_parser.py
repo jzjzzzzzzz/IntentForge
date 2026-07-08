@@ -19,6 +19,7 @@ UNSUPPORTED_OBJECTS = [
     "coupler",
     "hinge",
     "drone frame",
+    "adjustable bracket",
 ]
 
 VAGUE_EDIT_PATTERNS = [
@@ -45,7 +46,7 @@ def _reject_unsupported(text: str) -> None:
     for object_name in UNSUPPORTED_OBJECTS:
         if re.search(rf"\b{re.escape(object_name)}s?\b", text):
             raise UnsupportedEditError(
-                "Unsupported object edit for Phase 6. Currently only wall_mounted_bracket edits are supported."
+                "Unsupported object edit. Currently only supported bracket-family edits are available."
             )
     for pattern in VAGUE_EDIT_PATTERNS:
         if re.search(pattern, text):
@@ -73,7 +74,61 @@ def _append_feature(edits: list[dict[str, Any]], edit_type: str, feature: str, r
     edits.append({"type": edit_type, "feature": feature, "reason": reason})
 
 
+def _is_l_bracket_context(existing_params: Any) -> bool:
+    return getattr(existing_params, "family", None) == "l_bracket"
+
+
+def _parse_l_parameter_edits(text: str, edits: list[dict[str, Any]], assumptions: list[str]) -> None:
+    base_leg = (
+        _number(rf"\b(?:make|set|change)\s+(?:the\s+)?base\s+leg\s*(?:length\s*)?(?:to)?\s*{NUMBER_UNIT}\b", text)
+        or _number(rf"\b(?:make|set|change)\s+(?:the\s+)?base\s*(?:to)?\s*{NUMBER_UNIT}\b", text)
+        or _number(rf"\b{NUMBER_UNIT}\s+(?:base\s+leg|base)\b", text)
+    )
+    if base_leg is not None:
+        _append_set(edits, "base_leg_length", base_leg)
+
+    vertical_leg = (
+        _number(rf"\b(?:make|set|change)\s+(?:the\s+)?(?:vertical\s+leg|upright)\s*(?:length|height|tall)?\s*(?:to)?\s*{NUMBER_UNIT}\b", text)
+        or _number(rf"\b{NUMBER_UNIT}\s+(?:vertical\s+leg|upright)\b", text)
+    )
+    if vertical_leg is not None:
+        _append_set(edits, "vertical_leg_length", vertical_leg)
+
+    bracket_width = (
+        _number(rf"\b(?:set|change)\s+(?:the\s+)?(?:bracket\s+)?width\s*(?:to)?\s*{NUMBER_UNIT}\b", text)
+        or _number(rf"\b{NUMBER_UNIT}\s+(?:bracket\s+)?wide\b", text)
+    )
+    if bracket_width is not None:
+        _append_set(edits, "bracket_width", bracket_width)
+
+    thickness = (
+        _number(rf"\b(?:make it|set|change)\s+(?:the\s+)?thickness\s*(?:to)?\s*{NUMBER_UNIT}\b", text)
+        or _number(rf"\b(?:make it|change it to)?\s*{NUMBER_UNIT}\s+thick\b", text)
+    )
+    if thickness is not None:
+        _append_set(edits, "l_thickness", thickness)
+
+    hole_diameter = _number(rf"\b(?:change|set|make)\s+(?:the\s+)?hole\s+diameter\s*(?:to)?\s*{NUMBER_UNIT}\b", text)
+    if hole_diameter is not None:
+        _append_set(edits, "hole_diameter_mm", hole_diameter)
+
+    base_spacing = _number(rf"\bbase\s+hole\s+spacing\s*(?:to)?\s*{NUMBER_UNIT}\b", text)
+    if base_spacing is not None:
+        _append_set(edits, "base_hole_spacing", base_spacing)
+
+    vertical_spacing = _number(rf"\bvertical\s+hole\s+spacing\s*(?:to)?\s*{NUMBER_UNIT}\b", text)
+    if vertical_spacing is not None:
+        _append_set(edits, "vertical_hole_spacing", vertical_spacing)
+
+    if re.search(r"\badd\s+(?:a\s+)?triangular\s+gusset\b|\badd\s+(?:a\s+)?gusset\b", text):
+        assumptions.append("Gusset thickness and height will use safe defaults if not already present.")
+
+
 def _parse_parameter_edits(text: str, edits: list[dict[str, Any]], assumptions: list[str], existing_params: Any) -> None:
+    if _is_l_bracket_context(existing_params):
+        _parse_l_parameter_edits(text, edits, assumptions)
+        return
+
     cutout_width_phrase = bool(re.search(rf"\bcutout\s+{NUMBER_UNIT}\s+(?:wide|width)\b", text))
     cutout_height_phrase = bool(re.search(rf"\bcutout\b.*\b{NUMBER_UNIT}\s+(?:tall|high|height)\b", text))
     width = _number(rf"\b(?:make it|set|change)\s+(?:the\s+)?width\s*(?:to)?\s*{NUMBER_UNIT}\b", text)
@@ -210,7 +265,35 @@ def _parse_preserve(text: str) -> list[str]:
     return preserve
 
 
-def _parse_feature_edits(text: str, edits: list[dict[str, Any]]) -> None:
+def _parse_feature_edits(text: str, edits: list[dict[str, Any]], existing_params: Any = None) -> None:
+    if _is_l_bracket_context(existing_params):
+        if re.search(r"\badd\s+(?:two\s+|2\s+)?holes?\s+to\s+(?:the\s+)?base\s+leg\b", text):
+            _append_feature(edits, "enable_feature", "base_mounting_holes", "Edit request added base-leg holes.")
+            _append_set(edits, "base_hole_count", 2.0)
+        if re.search(r"\bremove\s+(?:the\s+)?base\s+(?:mounting\s+|screw\s+)?holes?\b", text):
+            _append_feature(edits, "disable_feature", "base_mounting_holes", "Edit request removed base-leg holes.")
+
+        if re.search(r"\badd\s+(?:two\s+|2\s+)?holes?\s+to\s+(?:the\s+)?(?:vertical|upright)(?:\s+face|\s+leg)?\b", text):
+            _append_feature(edits, "enable_feature", "vertical_mounting_holes", "Edit request added vertical-leg holes.")
+            _append_set(edits, "vertical_hole_count", 2.0)
+        if re.search(r"\bremove\s+(?:the\s+)?(?:vertical|upright)\s+(?:mounting\s+|screw\s+)?holes?\b", text):
+            _append_feature(edits, "disable_feature", "vertical_mounting_holes", "Edit request removed vertical-leg holes.")
+
+        if re.search(r"\badd\s+(?:a\s+)?(?:triangular\s+)?gusset\b", text):
+            _append_feature(edits, "enable_feature", "triangular_gusset", "Edit request added a triangular gusset.")
+        elif re.search(r"\bremove\s+(?:the\s+)?(?:triangular\s+)?gusset\b", text):
+            _append_feature(edits, "disable_feature", "triangular_gusset", "Edit request removed the gusset.")
+
+        if re.search(
+            r"\b(?:three|3|four|4)\s+(?:base\s+|vertical\s+|upright\s+|mounting\s+|screw\s+)?holes?\b",
+            text,
+        ) or re.search(
+            r"\b(?:three|3|four|4)\s+holes?\s+on\s+(?:the\s+)?(?:base|vertical|upright)(?:\s+face|\s+leg)?\b",
+            text,
+        ):
+            raise UnsupportedEditError("Unsupported L-bracket hole count for Phase 10. Use 0 or 2 holes per leg.")
+        return
+
     if re.search(r"\bremove\s+(?:the\s+)?(?:center\s+|central\s+)?cutout\b", text):
         _append_feature(edits, "disable_feature", "center_cutout", "Edit request removed the center cutout.")
     elif re.search(r"\badd\s+(?:a\s+)?(?:center\s+|central\s+)?cutout\b", text):
@@ -245,7 +328,7 @@ def parse_edit_request(
     warnings: list[str] = []
     preserve = _parse_preserve(normalized)
 
-    _parse_feature_edits(normalized, edits)
+    _parse_feature_edits(normalized, edits, existing_params)
     _parse_parameter_edits(normalized, edits, assumptions, existing_params)
 
     if existing_feature_flags is None and existing_params is not None:

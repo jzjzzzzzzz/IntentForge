@@ -1,0 +1,42 @@
+[
+  {
+    "id": "l_optional_001",
+    "type": "parse_build",
+    "prompt": "Make a plain L-bracket with no holes.",
+    "expected_family": "l_bracket",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": ["base_leg", "vertical_leg"],
+    "expected_omitted_features": ["base_mounting_holes", "vertical_mounting_holes", "inside_fillet", "outside_edge_fillets", "triangular_gusset"]
+  },
+  {
+    "id": "l_optional_002",
+    "type": "parse_build",
+    "prompt": "Make an L-bracket with a triangular gusset.",
+    "expected_family": "l_bracket",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": ["base_leg", "vertical_leg", "triangular_gusset"],
+    "expected_omitted_features": ["base_mounting_holes", "vertical_mounting_holes", "inside_fillet", "outside_edge_fillets"]
+  },
+  {
+    "id": "l_optional_003",
+    "type": "parse_build",
+    "prompt": "Make an L-bracket with outside edge fillets.",
+    "expected_family": "l_bracket",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": ["base_leg", "vertical_leg", "outside_edge_fillets"],
+    "expected_omitted_features": ["base_mounting_holes", "vertical_mounting_holes", "inside_fillet", "triangular_gusset"]
+  },
+  {
+    "id": "l_optional_004",
+    "type": "parse_build",
+    "prompt": "Make an L-bracket with an inside fillet.",
+    "expected_family": "l_bracket",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": ["base_leg", "vertical_leg", "inside_fillet"],
+    "expected_omitted_features": ["base_mounting_holes", "vertical_mounting_holes", "outside_edge_fillets", "triangular_gusset"]
+  }
+]

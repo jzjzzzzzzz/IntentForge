@@ -1,0 +1,76 @@
+[
+  {
+    "id": "l_edit_001",
+    "type": "edit_parse_apply",
+    "target": "l_bracket",
+    "edit_text": "Make the base leg 120 mm long.",
+    "expected_family": "l_bracket",
+    "expected_ok": true,
+    "expected_accepted": true,
+    "expected_validation_valid": true,
+    "expected_changed_parameters": ["base_leg_length_mm"],
+    "expected_preserved_parameters": ["thickness_mm"]
+  },
+  {
+    "id": "l_edit_002",
+    "type": "edit_parse_apply",
+    "target": "l_bracket",
+    "edit_text": "Make the vertical leg 100 mm tall.",
+    "expected_family": "l_bracket",
+    "expected_ok": true,
+    "expected_accepted": true,
+    "expected_validation_valid": true,
+    "expected_changed_parameters": ["vertical_leg_length_mm"],
+    "expected_preserved_parameters": ["thickness_mm"]
+  },
+  {
+    "id": "l_edit_003",
+    "type": "edit_parse_apply",
+    "target": "l_bracket",
+    "edit_text": "Remove the vertical holes.",
+    "expected_family": "l_bracket",
+    "expected_ok": true,
+    "expected_accepted": true,
+    "expected_validation_valid": true
+  },
+  {
+    "id": "l_edit_004",
+    "type": "edit_parse_apply",
+    "target": "l_bracket",
+    "edit_text": "Add a triangular gusset.",
+    "expected_family": "l_bracket",
+    "expected_ok": true,
+    "expected_accepted": true,
+    "expected_validation_valid": true
+  },
+  {
+    "id": "l_edit_005",
+    "type": "edit_parse_apply",
+    "target": "l_bracket",
+    "edit_text": "Make it better.",
+    "expected_family": "l_bracket",
+    "expected_ok": false,
+    "expected_accepted": false,
+    "expected_error_contains": "Unsupported edit"
+  },
+  {
+    "id": "l_edit_006",
+    "type": "edit_parse_apply",
+    "target": "l_bracket",
+    "edit_text": "Add two holes to the base leg.",
+    "expected_family": "l_bracket",
+    "expected_ok": true,
+    "expected_accepted": true,
+    "expected_validation_valid": true
+  },
+  {
+    "id": "l_edit_007",
+    "type": "edit_parse_apply",
+    "target": "l_bracket",
+    "edit_text": "Change it to three base holes.",
+    "expected_family": "l_bracket",
+    "expected_ok": false,
+    "expected_accepted": false,
+    "expected_error_contains": "hole count"
+  }
+]

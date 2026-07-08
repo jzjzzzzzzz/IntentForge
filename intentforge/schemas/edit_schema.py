@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from intentforge.schemas.validation_schema import ValidationReport
 
-SupportedFamily = Literal["wall_mounted_bracket"]
+SupportedFamily = Literal["wall_mounted_bracket", "l_bracket"]
 EditValue = int | float | str | bool
 
 

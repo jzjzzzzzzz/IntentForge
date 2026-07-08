@@ -31,6 +31,7 @@ from intentforge.schemas import (
 )
 
 SUPPORTED_FAMILY = "wall_mounted_bracket"
+L_BRACKET_FAMILY = "l_bracket"
 DEFAULT_UNITS = "mm"
 DEFAULT_WIDTH_MM = 120.0
 DEFAULT_HEIGHT_MM = 60.0
@@ -39,6 +40,10 @@ DEFAULT_HOLE_COUNT = 2
 DEFAULT_HOLE_DIAMETER_MM = 5.0
 DEFAULT_CORNER_RADIUS_MM = 4.0
 DEFAULT_EDGE_FILLET_RADIUS_MM = 1.5
+DEFAULT_BASE_LEG_LENGTH_MM = 100.0
+DEFAULT_VERTICAL_LEG_LENGTH_MM = 80.0
+DEFAULT_BRACKET_WIDTH_MM = 40.0
+DEFAULT_L_BRACKET_THICKNESS_MM = 6.0
 MIN_EDGE_DISTANCE_MM = 3.0
 
 UNSUPPORTED_OBJECTS = [
@@ -48,6 +53,7 @@ UNSUPPORTED_OBJECTS = [
     "coupler",
     "hinge",
     "drone frame",
+    "adjustable bracket",
 ]
 
 VAGUE_PROMPT_PATTERNS = [
@@ -93,6 +99,15 @@ def _has_supported_object(text: str) -> bool:
             "mounting plate",
             "mounting bracket",
         ]
+    )
+
+
+def _has_l_bracket_object(text: str) -> bool:
+    return bool(
+        re.search(r"\bl[-\s]?bracket\b", text)
+        or re.search(r"\bright\s+angle\s+bracket\b", text)
+        or re.search(r"\b90[-\s]?degree\s+bracket\b", text)
+        or re.search(r"\bangle\s+bracket\b", text)
     )
 
 
@@ -865,9 +880,396 @@ def parse_bracket_prompt(prompt: str) -> ParsedPrompt:
     )
 
 
+def _reject_unsupported_l_bracket_prompt(text: str) -> None:
+    if re.search(r"\b(?:curved|bend|bent)\s+l[-\s]?bracket\b", text):
+        raise UnsupportedObjectError("Unsupported L-bracket request for Phase 10. Curved brackets are not supported.")
+    if re.search(r"\badjustable\s+(?:l[-\s]?)?bracket\b", text):
+        raise UnsupportedObjectError("Unsupported L-bracket request for Phase 10. Adjustable brackets are not supported.")
+    if re.search(r"\b(?:sheet\s+metal\s+)?unfold|flat\s+pattern\b", text):
+        raise UnsupportedObjectError("Unsupported L-bracket request for Phase 10. Sheet-metal unfold patterns are not supported.")
+    if re.search(r"\b(?:freeform|arbitrary)\s+(?:hole\s+)?(?:placement|coordinates)\b", text):
+        raise UnsupportedObjectError("Unsupported L-bracket request for Phase 10. Freeform hole placement is not supported.")
+    if re.search(r"\b(?:three|3|four|4|five|5)\s+(?:holes?|mounting\s+holes?)\b", text):
+        raise UnsupportedObjectError("Unsupported L-bracket hole pattern for Phase 10. Use 0 or 2 holes per leg.")
+
+
+def _l_leg_holes_requested(text: str, leg: str) -> bool:
+    if leg == "base":
+        return bool(
+            re.search(r"\b(?:two|2)\s+holes?\s+on\s+(?:the\s+)?base(?:\s+face|\s+leg)?\b", text)
+            or re.search(r"\b(?:two|2)\s+base(?:\s+face|\s+leg)?\s+(?:mounting\s+|screw\s+)?holes?\b", text)
+            or re.search(r"\bbase\s+face\s+(?:mounting\s+|screw\s+)?holes?\b", text)
+            or re.search(r"\bbase\s+(?:mounting\s+|screw\s+)?holes?\b", text)
+        )
+    return bool(
+        re.search(r"\b(?:two|2)\s+holes?\s+on\s+(?:the\s+)?(?:vertical|upright)(?:\s+face|\s+leg)?\b", text)
+        or re.search(r"\b(?:two|2)\s+(?:vertical|upright)\s+(?:mounting\s+|screw\s+)?holes?\b", text)
+        or re.search(r"\bvertical\s+face\s+(?:mounting\s+|screw\s+)?holes?\b", text)
+        or re.search(r"\b(?:vertical|upright)\s+(?:mounting\s+|screw\s+)?holes?\b", text)
+    )
+
+
+def _l_holes_explicitly_omitted(text: str) -> bool:
+    return bool(re.search(r"\b(?:plain\s+)?l[-\s]?bracket\s+with\s+no\s+holes\b", text) or _mentions_no_holes(text))
+
+
+def _l_feature_flags(
+    *,
+    base_holes: bool,
+    vertical_holes: bool,
+    no_holes: bool,
+    inside_fillet: bool,
+    outside_fillets: bool,
+    gusset: bool,
+) -> dict[str, dict[str, Any]]:
+    return normalize_feature_flags(
+        {
+            "base_leg": make_feature_flag(
+                "defaulted_by_system",
+                "Base leg is required for the L-bracket family.",
+            ),
+            "vertical_leg": make_feature_flag(
+                "defaulted_by_system",
+                "Vertical leg is required for the L-bracket family.",
+            ),
+            "base_mounting_holes": make_feature_flag(
+                "requested_by_user" if base_holes else "omitted",
+                "Prompt requested two holes on the base leg."
+                if base_holes
+                else "Prompt explicitly omitted holes."
+                if no_holes
+                else "Prompt did not mention base-leg holes.",
+                feature="base_mounting_holes",
+                hole_count=2 if base_holes else 0,
+                pattern="symmetric_2_horizontal" if base_holes else "none",
+            ),
+            "vertical_mounting_holes": make_feature_flag(
+                "requested_by_user" if vertical_holes else "omitted",
+                "Prompt requested two holes on the vertical leg."
+                if vertical_holes
+                else "Prompt explicitly omitted holes."
+                if no_holes
+                else "Prompt did not mention vertical-leg holes.",
+                feature="vertical_mounting_holes",
+                hole_count=2 if vertical_holes else 0,
+                pattern="symmetric_2_horizontal" if vertical_holes else "none",
+            ),
+            "inside_fillet": make_feature_flag(
+                "requested_by_user" if inside_fillet else "omitted",
+                "Prompt requested an inside fillet." if inside_fillet else "Prompt did not mention an inside fillet.",
+            ),
+            "outside_edge_fillets": make_feature_flag(
+                "requested_by_user" if outside_fillets else "omitted",
+                "Prompt requested outside edge fillets."
+                if outside_fillets
+                else "Prompt did not mention outside edge fillets.",
+            ),
+            "triangular_gusset": make_feature_flag(
+                "requested_by_user" if gusset else "omitted",
+                "Prompt requested a triangular gusset." if gusset else "Prompt did not mention a gusset.",
+            ),
+        },
+        L_BRACKET_FAMILY,
+    )
+
+
+def _build_l_parameter_table(
+    values: dict[str, float | int | bool],
+    sources: dict[str, str],
+    units: str,
+    feature_flags: dict[str, dict[str, Any]],
+    assumptions: list[str],
+    unknowns: list[str],
+    warnings: list[str],
+) -> ParameterTable:
+    parameters = [
+        _param("base_leg_length_mm", values["base_leg_length"], units, "Length of the horizontal base leg.", sources["base_leg_length"], "Defines the horizontal mounting leg.", 1.0),
+        _param("vertical_leg_length_mm", values["vertical_leg_length"], units, "Height of the vertical leg.", sources["vertical_leg_length"], "Defines the upright mounting leg.", 1.0),
+        _param("bracket_width_mm", values["bracket_width"], units, "Width shared by both L-bracket legs.", sources["bracket_width"], "Controls the transverse bracket width.", 1.0),
+        _param("thickness_mm", values["thickness"], units, "Plate thickness of both legs.", sources["thickness"], "Controls material thickness for both perpendicular plates.", 1.0),
+    ]
+    if is_feature_active(feature_flags, "base_mounting_holes") or is_feature_active(feature_flags, "vertical_mounting_holes"):
+        parameters.append(
+            _param("hole_diameter_mm", values["hole_diameter"], units, "Diameter of L-bracket mounting holes.", sources["hole_diameter"], "Controls screw clearance for active hole features.", 1.0)
+        )
+    if is_feature_active(feature_flags, "base_mounting_holes"):
+        parameters.extend(
+            [
+                _param("base_hole_count", 2, None, "Number of base-leg mounting holes.", sources["base_hole_count"], "Phase 10 supports two symmetric holes on the base leg.", 0.0),
+                _param("base_hole_spacing_mm", values["base_hole_spacing"], units, "Spacing between the two base-leg holes.", sources["base_hole_spacing"], "Controls symmetric base-leg hole placement.", 1.0),
+            ]
+        )
+    if is_feature_active(feature_flags, "vertical_mounting_holes"):
+        parameters.extend(
+            [
+                _param("vertical_hole_count", 2, None, "Number of vertical-leg mounting holes.", sources["vertical_hole_count"], "Phase 10 supports two symmetric holes on the vertical leg.", 0.0),
+                _param("vertical_hole_spacing_mm", values["vertical_hole_spacing"], units, "Spacing between the two vertical-leg holes.", sources["vertical_hole_spacing"], "Controls symmetric vertical-leg hole placement.", 1.0),
+            ]
+        )
+    if is_feature_active(feature_flags, "inside_fillet"):
+        parameters.append(_param("inside_fillet_radius_mm", values["inside_fillet_radius"], units, "Inside corner fillet radius.", sources["inside_fillet_radius"], "Captures inside-corner radius intent.", 0.0))
+    if is_feature_active(feature_flags, "outside_edge_fillets"):
+        parameters.append(_param("outside_edge_fillet_radius_mm", values["outside_edge_fillet_radius"], units, "Outside exposed edge fillet radius.", sources["outside_edge_fillet_radius"], "Captures edge-softening intent.", 0.0))
+    if is_feature_active(feature_flags, "triangular_gusset"):
+        parameters.extend(
+            [
+                Parameter(name="gusset_enabled", value=bool(values["gusset_enabled"]), unit=None, description="Whether a triangular gusset is active.", source=sources["gusset_enabled"], reason="Controls the optional triangular reinforcement web."),
+                _param("gusset_thickness_mm", values["gusset_thickness"], units, "Triangular gusset thickness across bracket width.", sources["gusset_thickness"], "Controls the optional gusset's transverse thickness.", 1.0),
+                _param("gusset_height_mm", values["gusset_height"], units, "Triangular gusset leg height from the inside corner.", sources["gusset_height"], "Controls the optional gusset extent along both legs.", 1.0),
+            ]
+        )
+    return ParameterTable(
+        family=L_BRACKET_FAMILY,
+        parameters=parameters,
+        assumptions=assumptions,
+        unknowns=unknowns,
+        metadata={
+            "parser": "rule_based_phase_10",
+            "feature_flags": feature_flags,
+            "warnings": warnings,
+            "min_edge_distance_mm": MIN_EDGE_DISTANCE_MM,
+        },
+    )
+
+
+def _build_l_intent(
+    prompt: str,
+    feature_flags: dict[str, dict[str, Any]],
+    assumptions: list[str],
+    unknowns: list[str],
+    warnings: list[str],
+) -> IntentSpec:
+    requirements = [
+        "L-bracket has two perpendicular rectangular legs joined at 90 degrees.",
+        "Base and vertical leg dimensions are named parameters.",
+        "Feature history preserves modification intent.",
+    ]
+    if is_feature_active(feature_flags, "base_mounting_holes"):
+        requirements.append("Base leg has two symmetric mounting holes.")
+    if is_feature_active(feature_flags, "vertical_mounting_holes"):
+        requirements.append("Vertical leg has two symmetric mounting holes.")
+    if is_feature_active(feature_flags, "triangular_gusset"):
+        requirements.append("L-bracket includes a triangular gusset.")
+    return IntentSpec(
+        family=L_BRACKET_FAMILY,
+        user_prompt=prompt,
+        objective="Generate an editable parametric L-bracket from a rule-parsed prompt.",
+        requirements=requirements,
+        assumptions=assumptions,
+        unknowns=unknowns,
+        metadata={"parser": "rule_based_phase_10", "warnings": warnings, "feature_flags": feature_flags},
+    )
+
+
+def _build_l_constraints(feature_flags: dict[str, dict[str, Any]]) -> ConstraintGraph:
+    nodes = ["base_leg_length_mm", "vertical_leg_length_mm", "bracket_width_mm", "thickness_mm"]
+    dependencies: dict[str, list[str]] = {}
+    constraints = [
+        Constraint(
+            id="l_bracket_right_angle",
+            kind="geometric",
+            expression="base_leg perpendicular_to vertical_leg",
+            parameters=["base_leg_length_mm", "vertical_leg_length_mm", "thickness_mm"],
+            reason="The L-bracket family is defined by a 90-degree inside corner.",
+        )
+    ]
+    if is_feature_active(feature_flags, "base_mounting_holes") or is_feature_active(feature_flags, "vertical_mounting_holes"):
+        nodes.append("hole_diameter_mm")
+    if is_feature_active(feature_flags, "base_mounting_holes"):
+        nodes.extend(["base_hole_count", "base_hole_spacing_mm"])
+        dependencies["base_hole_spacing_mm"] = ["base_leg_length_mm", "hole_diameter_mm"]
+        constraints.append(
+            Constraint(
+                id="base_holes_fit_leg",
+                kind="dimensional",
+                expression="base_hole_spacing_mm / 2 + hole_diameter_mm / 2 <= base_leg_length_mm / 2 - min_edge_distance_mm",
+                parameters=["base_hole_spacing_mm", "hole_diameter_mm", "base_leg_length_mm"],
+                reason="Base mounting holes must fit inside the horizontal leg.",
+            )
+        )
+    if is_feature_active(feature_flags, "vertical_mounting_holes"):
+        nodes.extend(["vertical_hole_count", "vertical_hole_spacing_mm"])
+        dependencies["vertical_hole_spacing_mm"] = ["vertical_leg_length_mm", "hole_diameter_mm"]
+        constraints.append(
+            Constraint(
+                id="vertical_holes_fit_leg",
+                kind="dimensional",
+                expression="vertical_hole_spacing_mm / 2 + hole_diameter_mm / 2 <= vertical_leg_length_mm / 2 - min_edge_distance_mm",
+                parameters=["vertical_hole_spacing_mm", "hole_diameter_mm", "vertical_leg_length_mm"],
+                reason="Vertical mounting holes must fit inside the upright leg.",
+            )
+        )
+    if is_feature_active(feature_flags, "triangular_gusset"):
+        nodes.extend(["gusset_enabled", "gusset_thickness_mm", "gusset_height_mm"])
+        dependencies["gusset_height_mm"] = ["base_leg_length_mm", "vertical_leg_length_mm"]
+        constraints.append(
+            Constraint(
+                id="gusset_fits_inside_corner",
+                kind="geometric",
+                expression="gusset_height_mm < min(base_leg_length_mm, vertical_leg_length_mm)",
+                parameters=["gusset_height_mm", "base_leg_length_mm", "vertical_leg_length_mm"],
+                reason="The triangular gusset must fit inside the L-bracket corner.",
+            )
+        )
+    return ConstraintGraph(
+        family=L_BRACKET_FAMILY,
+        nodes=nodes,
+        dependencies=dependencies,
+        constraints=constraints,
+        assumptions=["Constraint expressions are recorded for deterministic validation."],
+        unknowns=["No load or stress constraint is available yet."],
+        metadata={"parser": "rule_based_phase_10", "feature_flags": feature_flags, "min_edge_distance_mm": MIN_EDGE_DISTANCE_MM},
+    )
+
+
+def _build_l_feature_plan(feature_flags: dict[str, dict[str, Any]]) -> FeaturePlan:
+    steps = [
+        FeatureStep(id="create_base_leg", operation="extrude_base_leg", parameters=["base_leg_length_mm", "bracket_width_mm", "thickness_mm"], reason="The base leg is one required side of the L-bracket.", outputs=["base_leg_solid"], validation_refs=["base_leg_dimensions"]),
+        FeatureStep(id="create_vertical_leg", operation="extrude_vertical_leg", parameters=["vertical_leg_length_mm", "bracket_width_mm", "thickness_mm"], reason="The vertical leg is the perpendicular side of the L-bracket.", outputs=["vertical_leg_solid"], validation_refs=["vertical_leg_dimensions"]),
+        FeatureStep(id="join_legs_at_right_angle", operation="boolean_union", parameters=["thickness_mm"], depends_on=["create_base_leg", "create_vertical_leg"], reason="The two plates must share a 90-degree inside corner.", outputs=["l_bracket_solid"], validation_refs=["l_bracket_right_angle"]),
+    ]
+    if is_feature_active(feature_flags, "base_mounting_holes"):
+        steps.append(FeatureStep(id="cut_base_mounting_holes", operation="cut_two_base_holes", parameters=["base_hole_count", "hole_diameter_mm", "base_hole_spacing_mm"], depends_on=["join_legs_at_right_angle"], reason="Base leg mounting holes were requested.", outputs=["base_mounting_holes"], validation_refs=["base_holes_fit_leg"], metadata={"pattern": "symmetric_2_horizontal"}))
+    if is_feature_active(feature_flags, "vertical_mounting_holes"):
+        steps.append(FeatureStep(id="cut_vertical_mounting_holes", operation="cut_two_vertical_holes", parameters=["vertical_hole_count", "hole_diameter_mm", "vertical_hole_spacing_mm"], depends_on=["join_legs_at_right_angle"], reason="Vertical leg mounting holes were requested.", outputs=["vertical_mounting_holes"], validation_refs=["vertical_holes_fit_leg"], metadata={"pattern": "symmetric_2_horizontal"}))
+    if is_feature_active(feature_flags, "triangular_gusset"):
+        steps.append(FeatureStep(id="add_triangular_gusset", operation="add_triangular_gusset", parameters=["gusset_enabled", "gusset_thickness_mm", "gusset_height_mm"], depends_on=["join_legs_at_right_angle"], reason="A triangular gusset was requested for reinforcement intent.", outputs=["triangular_gusset"], validation_refs=["gusset_fits_inside_corner"]))
+    if is_feature_active(feature_flags, "inside_fillet"):
+        steps.append(FeatureStep(id="add_inside_fillet", operation="fillet_inside_corner", parameters=["inside_fillet_radius_mm"], depends_on=[steps[-1].id], reason="Inside corner radius intent was requested.", outputs=["inside_fillet"], validation_refs=["inside_fillet_limit_check"]))
+    if is_feature_active(feature_flags, "outside_edge_fillets"):
+        steps.append(FeatureStep(id="add_outside_edge_fillets", operation="fillet_exposed_edges", parameters=["outside_edge_fillet_radius_mm"], depends_on=[steps[-1].id], reason="Outside edge fillet intent was requested.", outputs=["outside_edge_fillets"], validation_refs=["outside_edge_fillet_limit_check"]))
+    return FeaturePlan(
+        family=L_BRACKET_FAMILY,
+        construction_strategy="Create perpendicular legs, union them, cut requested holes, then add optional reinforcement and fillets.",
+        steps=steps,
+        assumptions=["Only 0 or 2 holes per leg are supported in Phase 10."],
+        unknowns=["No sheet-metal unfold pattern or load rating is generated."],
+        metadata={"parser": "rule_based_phase_10", "feature_flags": feature_flags},
+    )
+
+
+def parse_l_bracket_prompt(prompt: str) -> ParsedPrompt:
+    """Parse a simple L-bracket prompt with deterministic rules."""
+
+    if not prompt or not prompt.strip():
+        raise ValueError("prompt must not be empty")
+
+    text = _normalise(prompt)
+    for pattern in VAGUE_PROMPT_PATTERNS:
+        if re.search(pattern, text):
+            raise UnsupportedObjectError(
+                "Unsupported prompt for Phase 10. Please provide measurable L-bracket parameters or supported features."
+            )
+    if not _has_l_bracket_object(text):
+        raise UnsupportedObjectError("Unsupported object type for Phase 10. Currently l_bracket parsing requires an L-bracket prompt.")
+    _reject_unsupported_l_bracket_prompt(text)
+
+    assumptions: list[str] = []
+    warnings: list[str] = []
+    unknowns = ["material", "manufacturing method", "load requirement", "screw standard", "tolerance requirement"]
+    _add_default_assumption(assumptions, "Material was not specified.")
+    _add_default_assumption(assumptions, "Load requirement was not specified.")
+    units = _units(text, assumptions)
+
+    no_holes = _l_holes_explicitly_omitted(text)
+    base_holes = _l_leg_holes_requested(text, "base") and not no_holes
+    vertical_holes = _l_leg_holes_requested(text, "vertical") and not no_holes
+    if "with two holes" in text and "base" not in text and "vertical" not in text and "upright" not in text:
+        warnings.append("Two holes were mentioned without a leg; L-bracket holes were omitted because the target leg was unclear.")
+    inside_fillet = bool(re.search(r"\binside\s+fillet\b|\binside\s+radius\b", text))
+    outside_fillets = bool(re.search(r"\boutside\s+(?:edge\s+)?fillets?\b|\bedge\s+fillets?\b", text))
+    gusset = bool(re.search(r"\b(?:triangular\s+)?gusset\b", text))
+    feature_flags = _l_feature_flags(
+        base_holes=base_holes,
+        vertical_holes=vertical_holes,
+        no_holes=no_holes,
+        inside_fillet=inside_fillet,
+        outside_fillets=outside_fillets,
+        gusset=gusset,
+    )
+    if not base_holes and not vertical_holes and not no_holes:
+        warnings.append("Mounting holes were not requested for either L-bracket leg; generated L-bracket will not include holes.")
+
+    extracted = {
+        "base_leg_length": _dimension_value(text, "base_leg_length", ["base leg", "base"]),
+        "vertical_leg_length": _dimension_value(text, "vertical_leg_length", ["vertical leg", "vertical", "upright"]),
+        "bracket_width": _dimension_value(text, "bracket_width", ["bracket width", "width", "wide"]),
+        "thickness": _dimension_value(text, "thickness", ["thick", "thickness"]),
+        "hole_diameter": _dimension_value(text, "hole_diameter", ["hole diameter", "holes", "hole"]),
+        "base_hole_spacing": _dimension_value(text, "base_hole_spacing", ["base hole spacing"]),
+        "vertical_hole_spacing": _dimension_value(text, "vertical_hole_spacing", ["vertical hole spacing"]),
+        "inside_fillet_radius": _dimension_value(text, "inside_fillet_radius", ["inside fillet radius", "inside radius"]),
+        "outside_edge_fillet_radius": _dimension_value(text, "outside_edge_fillet_radius", ["outside edge fillet radius", "outside fillet radius"]),
+    }
+
+    values: dict[str, float | int | bool] = {}
+    sources: dict[str, str] = {}
+    defaults = {
+        "base_leg_length": (DEFAULT_BASE_LEG_LENGTH_MM, "Base leg length defaulted to 100 mm."),
+        "vertical_leg_length": (DEFAULT_VERTICAL_LEG_LENGTH_MM, "Vertical leg length defaulted to 80 mm."),
+        "bracket_width": (DEFAULT_BRACKET_WIDTH_MM, "Bracket width defaulted to 40 mm."),
+        "thickness": (DEFAULT_L_BRACKET_THICKNESS_MM, "Thickness defaulted to 6 mm."),
+    }
+    for key, (default_value, assumption) in defaults.items():
+        if extracted[key] is None:
+            values[key] = default_value
+            sources[key] = "default"
+            _add_default_assumption(assumptions, assumption)
+        else:
+            values[key] = extracted[key]
+            sources[key] = "user"
+
+    if base_holes or vertical_holes:
+        values["hole_diameter"] = extracted["hole_diameter"] or DEFAULT_HOLE_DIAMETER_MM
+        sources["hole_diameter"] = "user" if extracted["hole_diameter"] is not None else "default"
+        if extracted["hole_diameter"] is None:
+            _add_default_assumption(assumptions, "Hole diameter defaulted to 5 mm.")
+    if base_holes:
+        values["base_hole_spacing"] = extracted["base_hole_spacing"] or float(values["base_leg_length"]) - 40.0
+        values["base_hole_count"] = 2
+        sources["base_hole_spacing"] = "user" if extracted["base_hole_spacing"] is not None else "derived"
+        sources["base_hole_count"] = "user"
+        if extracted["base_hole_spacing"] is None:
+            _add_default_assumption(assumptions, "Base hole spacing defaulted to base_leg_length - 40 mm.")
+    if vertical_holes:
+        values["vertical_hole_spacing"] = extracted["vertical_hole_spacing"] or float(values["vertical_leg_length"]) - 40.0
+        values["vertical_hole_count"] = 2
+        sources["vertical_hole_spacing"] = "user" if extracted["vertical_hole_spacing"] is not None else "derived"
+        sources["vertical_hole_count"] = "user"
+        if extracted["vertical_hole_spacing"] is None:
+            _add_default_assumption(assumptions, "Vertical hole spacing defaulted to vertical_leg_length - 40 mm.")
+    if inside_fillet:
+        values["inside_fillet_radius"] = extracted["inside_fillet_radius"] or 3.0
+        sources["inside_fillet_radius"] = "user" if extracted["inside_fillet_radius"] is not None else "default"
+        if extracted["inside_fillet_radius"] is None:
+            _add_default_assumption(assumptions, "Inside fillet radius defaulted to 3 mm.")
+    if outside_fillets:
+        values["outside_edge_fillet_radius"] = extracted["outside_edge_fillet_radius"] or 1.0
+        sources["outside_edge_fillet_radius"] = "user" if extracted["outside_edge_fillet_radius"] is not None else "default"
+        if extracted["outside_edge_fillet_radius"] is None:
+            _add_default_assumption(assumptions, "Outside edge fillet radius defaulted to 1 mm.")
+    if gusset:
+        values["gusset_enabled"] = True
+        values["gusset_thickness"] = float(values["thickness"])
+        values["gusset_height"] = round(min(float(values["base_leg_length"]), float(values["vertical_leg_length"])) * 0.45, 3)
+        sources["gusset_enabled"] = "user"
+        sources["gusset_thickness"] = "derived"
+        sources["gusset_height"] = "derived"
+        _add_default_assumption(assumptions, "Gusset thickness defaulted to bracket thickness.")
+        _add_default_assumption(assumptions, "Gusset height defaulted to 45% of the shorter leg.")
+
+    parameter_table = _build_l_parameter_table(values, sources, units, feature_flags, assumptions, unknowns, warnings)
+    intent = _build_l_intent(prompt, feature_flags, assumptions, unknowns, warnings)
+    constraints = _build_l_constraints(feature_flags)
+    feature_plan = _build_l_feature_plan(feature_flags)
+    return ParsedPrompt(intent=intent, parameter_table=parameter_table, constraint_graph=constraints, feature_plan=feature_plan, warnings=warnings)
+
+
 def parse_prompt(prompt: str) -> ParsedPrompt:
     """Parse a supported prompt into structured IntentForge artifacts."""
 
+    if _has_l_bracket_object(_normalise(prompt)):
+        return parse_l_bracket_prompt(prompt)
     return parse_bracket_prompt(prompt)
 
 

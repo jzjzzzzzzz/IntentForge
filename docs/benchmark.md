@@ -1,6 +1,6 @@
 # Benchmark
 
-The benchmark suite is a deterministic regression suite for the current wall-mounted bracket pipeline.
+The benchmark suite is a deterministic regression suite for the current supported model families: `wall_mounted_bracket` and `l_bracket`.
 
 ## Categories
 
@@ -12,6 +12,11 @@ Benchmark cases are stored under `benchmark/prompts/`:
 - `hole_pattern_prompts.json`: no-hole, two-hole, four-hole, explicit spacing, and unsupported hole-pattern cases
 - `rejection_prompts.json`: unsupported object and vague prompt rejection cases
 - `edit_prompts.json`: accepted and rejected natural-language edit cases
+- `l_bracket_clean_prompts.json`: clean L-bracket parse-build cases
+- `l_bracket_default_prompts.json`: L-bracket prompts that rely on safe defaults
+- `l_bracket_optional_feature_prompts.json`: L-bracket omitted/requested feature cases
+- `l_bracket_rejection_prompts.json`: unsupported L-bracket prompt cases
+- `l_bracket_edit_prompts.json`: accepted and rejected L-bracket edit cases
 
 ## Running
 
@@ -41,7 +46,7 @@ output/benchmark/runs/<run_id>/
 - passed and failed counts
 - pass rate
 - per-category counts
+- per-family counts for `wall_mounted_bracket` and `l_bracket`
 - failed case details
 
 `failed_cases.json` and `passed_cases.json` are written in the persistent run directory for focused debugging.
-

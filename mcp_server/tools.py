@@ -39,13 +39,13 @@ def _call_workflow(workflow: ToolCallable, *args: Any, **kwargs: Any) -> dict[st
 
 
 def parse_cad_prompt(prompt: str) -> dict[str, Any]:
-    """Parse a deterministic wall-mounted bracket CAD prompt."""
+    """Parse a deterministic bracket CAD prompt for a supported model family."""
 
     return _call_workflow(parse_prompt_workflow, prompt)
 
 
 def parse_build_cad_prompt(prompt: str, output_root: str | None = None) -> dict[str, Any]:
-    """Parse, build, export, and validate a wall-mounted bracket prompt."""
+    """Parse, build, export, and validate a supported bracket prompt."""
 
     return _call_workflow(parse_build_workflow, prompt, output_root)
 
@@ -61,19 +61,19 @@ def parse_apply_edit_prompt(
     edit_text: str,
     output_root: str | None = None,
 ) -> dict[str, Any]:
-    """Parse and apply an edit to the bundled bracket example."""
+    """Parse and apply an edit to a bundled bracket or L-bracket example."""
 
     return _call_workflow(edit_parse_apply_workflow, target, edit_text, output_root)
 
 
 def build_example_bracket(variant: str = "bracket", output_root: str | None = None) -> dict[str, Any]:
-    """Build and export the bundled wall-mounted bracket example."""
+    """Build and export a bundled supported bracket example."""
 
     return _call_workflow(build_example_workflow, variant, output_root)
 
 
 def validate_example_bracket(variant: str = "bracket", output_root: str | None = None) -> dict[str, Any]:
-    """Validate the bundled wall-mounted bracket example."""
+    """Validate a bundled supported bracket example."""
 
     return _call_workflow(validate_example_workflow, variant, output_root)
 

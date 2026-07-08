@@ -1,0 +1,69 @@
+{
+  "family": "l_bracket",
+  "nodes": [
+    "base_leg_length_mm",
+    "vertical_leg_length_mm",
+    "bracket_width_mm",
+    "thickness_mm",
+    "hole_diameter_mm",
+    "base_hole_count",
+    "base_hole_spacing_mm",
+    "vertical_hole_count",
+    "vertical_hole_spacing_mm"
+  ],
+  "dependencies": {
+    "base_hole_spacing_mm": [
+      "base_leg_length_mm",
+      "hole_diameter_mm"
+    ],
+    "vertical_hole_spacing_mm": [
+      "vertical_leg_length_mm",
+      "hole_diameter_mm"
+    ]
+  },
+  "constraints": [
+    {
+      "id": "l_bracket_right_angle",
+      "kind": "geometric",
+      "expression": "base_leg perpendicular_to vertical_leg",
+      "parameters": [
+        "base_leg_length_mm",
+        "vertical_leg_length_mm",
+        "thickness_mm"
+      ],
+      "reason": "The L-bracket family is defined by a 90-degree inside corner."
+    },
+    {
+      "id": "base_holes_fit_leg",
+      "kind": "dimensional",
+      "expression": "base_hole_spacing_mm / 2 + hole_diameter_mm / 2 <= base_leg_length_mm / 2 - min_edge_distance_mm",
+      "parameters": [
+        "base_hole_spacing_mm",
+        "hole_diameter_mm",
+        "base_leg_length_mm"
+      ],
+      "reason": "Base mounting holes must fit inside the horizontal leg."
+    },
+    {
+      "id": "vertical_holes_fit_leg",
+      "kind": "dimensional",
+      "expression": "vertical_hole_spacing_mm / 2 + hole_diameter_mm / 2 <= vertical_leg_length_mm / 2 - min_edge_distance_mm",
+      "parameters": [
+        "vertical_hole_spacing_mm",
+        "hole_diameter_mm",
+        "vertical_leg_length_mm"
+      ],
+      "reason": "Vertical mounting holes must fit inside the upright leg."
+    }
+  ],
+  "assumptions": [
+    "Constraint expressions are recorded for deterministic validation."
+  ],
+  "unknowns": [
+    "No load or stress constraint is available yet."
+  ],
+  "metadata": {
+    "phase": "phase_10_l_bracket",
+    "min_edge_distance_mm": 3.0
+  }
+}
