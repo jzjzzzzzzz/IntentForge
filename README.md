@@ -196,7 +196,7 @@ Available tool functions include:
 
 ## License
 
-IntentForge is licensed under the Apache License 2.0. See `LICENSE`.
+License: Apache-2.0. See `LICENSE`.
 
 ## Project Structure
 

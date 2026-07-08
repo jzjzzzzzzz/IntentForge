@@ -1,6 +1,8 @@
 # Project Status
 
-Current version: `v0.9.0-dev`
+Current release target: `v0.9.0`
+
+Current supported model family: `wall_mounted_bracket` / mounting plate
 
 ## Completed Phases
 
@@ -37,35 +39,32 @@ Current version: `v0.9.0-dev`
 ## Current Limitations
 
 - one model family only: `wall_mounted_bracket`
-- deterministic regex parser only
-- no arbitrary CAD support
 - no GUI
+- no LLM calls
 - no desktop CAD control
-- no external LLM calls
+- no arbitrary CAD
 - no topological feature detection from solids yet
+- deterministic parser only
 - no freeform hole placement
 
 ## Test Status
 
-The expected release check is:
+Release verification:
 
-```bash
-python -m pytest
-```
+- `python -m pytest`
+- Last recorded result for this release target: `173 passed`
 
 CadQuery-dependent tests require the optional CAD dependency.
 
 ## Benchmark Status
 
-The expected release benchmark check is:
+Release benchmark:
 
-```bash
-python -m intentforge.cli benchmark
-```
+- `python -m intentforge.cli benchmark`
+- Last recorded result for this release target: `54 passed, 0 failed`, pass rate `1.0000`
 
 Benchmark reports are written under `output/benchmark/`.
 
 ## Next Planned Phase
 
 Phase 10 should add a second small model family while preserving the same intent-first workflow and validation discipline.
-
