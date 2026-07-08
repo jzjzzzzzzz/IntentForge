@@ -1,5 +1,7 @@
 # IntentForge
 
+[![Tests](https://github.com/jzjzzzzzzz/IntentForge/actions/workflows/tests.yml/badge.svg)](https://github.com/jzjzzzzzzz/IntentForge/actions/workflows/tests.yml)
+
 IntentForge is a deterministic CAD intent pipeline for turning simple engineering language into editable, explainable, validated parametric CAD models.
 
 It is not a general text-to-CAD generator. The goal is not to produce geometry that merely looks right once. The goal is to preserve the design intent behind the model so later edits can update named parameters and active features without losing the original assumptions, constraints, and feature history.
@@ -110,6 +112,12 @@ Run the test suite:
 
 ```bash
 python -m pytest
+```
+
+Check the local development environment:
+
+```bash
+python -m intentforge.cli doctor
 ```
 
 ## Usage

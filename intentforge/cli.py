@@ -1,8 +1,12 @@
 """Command-line entry point for IntentForge."""
 
 from argparse import ArgumentParser
+import importlib
+import importlib.util
 import json
+import platform
 from pathlib import Path
+import sys
 
 import yaml
 
@@ -34,6 +38,8 @@ from intentforge.workflows import (
 )
 from benchmark.run_benchmark import run_benchmark
 from intentforge.demo_runner import run_demo
+
+SUPPORTED_MODEL_FAMILIES = ["wall_mounted_bracket", "l_bracket"]
 
 
 def _project_root() -> Path:
@@ -674,6 +680,98 @@ def _demo_command(output_root: str | None = None) -> int:
     return 0 if benchmark["failed"] == 0 else 1
 
 
+def _format_status(ok: bool, warning: bool = False) -> str:
+    if ok:
+        return "ok"
+    return "warning" if warning else "fail"
+
+
+def _package_installed(module_name: str) -> bool:
+    return importlib.util.find_spec(module_name) is not None
+
+
+def _check_output_writable(output_dir: Path) -> tuple[bool, str]:
+    try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        probe_path = output_dir / ".intentforge_doctor_write_test"
+        probe_path.write_text("ok\n", encoding="utf-8")
+        probe_path.unlink()
+    except OSError as exc:
+        return False, str(exc)
+    return True, str(output_dir)
+
+
+def _doctor_command() -> int:
+    project_root = _project_root()
+    core_checks: list[tuple[str, bool, str]] = []
+    optional_checks: list[tuple[str, bool, str]] = []
+
+    python_ok = sys.version_info >= (3, 10)
+    core_checks.append(
+        (
+            "Python version",
+            python_ok,
+            f"{platform.python_version()} (requires >= 3.10)",
+        )
+    )
+
+    try:
+        module = importlib.import_module("intentforge")
+        import_ok = True
+        import_detail = f"imported from {Path(module.__file__).parent}"
+    except Exception as exc:  # pragma: no cover - difficult to trigger without breaking import
+        import_ok = False
+        import_detail = str(exc)
+    core_checks.append(("intentforge import", import_ok, import_detail))
+
+    examples_dir = project_root / "examples"
+    benchmark_dir = project_root / "benchmark"
+    core_checks.append(("examples directory", examples_dir.is_dir(), str(examples_dir)))
+    core_checks.append(("benchmark directory", benchmark_dir.is_dir(), str(benchmark_dir)))
+
+    output_ok, output_detail = _check_output_writable(project_root / "output")
+    core_checks.append(("output directory writable", output_ok, output_detail))
+
+    optional_checks.append(
+        (
+            "CadQuery",
+            _package_installed("cadquery"),
+            "installed" if _package_installed("cadquery") else "missing; CAD export commands require the cad extra",
+        )
+    )
+    optional_checks.append(
+        (
+            "pytest",
+            _package_installed("pytest"),
+            "installed" if _package_installed("pytest") else "missing; install the dev extra to run tests",
+        )
+    )
+    optional_checks.append(
+        (
+            "MCP package",
+            _package_installed("mcp"),
+            "installed" if _package_installed("mcp") else "missing; MCP support is optional",
+        )
+    )
+
+    print("IntentForge doctor")
+    print("Core checks:")
+    for name, ok, detail in core_checks:
+        print(f"  [{_format_status(ok)}] {name}: {detail}")
+
+    print("Optional packages:")
+    for name, ok, detail in optional_checks:
+        print(f"  [{_format_status(ok, warning=True)}] {name}: {detail}")
+
+    print("Supported model families:")
+    for family in SUPPORTED_MODEL_FAMILIES:
+        print(f"  - {family}")
+
+    core_ok = all(ok for _, ok, _ in core_checks)
+    print(f"Doctor result: {'core checks passed' if core_ok else 'core checks failed'}")
+    return 0 if core_ok else 1
+
+
 def _build_parser() -> ArgumentParser:
     parser = ArgumentParser(prog="intentforge")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -761,6 +859,11 @@ def _build_parser() -> ArgumentParser:
         help="Optional output root directory for demo artifacts.",
     )
 
+    subparsers.add_parser(
+        "doctor",
+        help="Check local IntentForge development environment health.",
+    )
+
     return parser
 
 
@@ -793,6 +896,8 @@ def main(argv: list[str] | None = None) -> int:
             return 0 if result["failed"] == 0 else 1
         if args.command == "demo":
             return _demo_command(args.output_root)
+        if args.command == "doctor":
+            return _doctor_command()
     except CadQueryUnavailableError as exc:
         parser.exit(1, f"{exc}\n")
     except UnsupportedObjectError as exc:
