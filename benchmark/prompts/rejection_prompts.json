@@ -1,0 +1,58 @@
+[
+  {
+    "id": "reject_001",
+    "type": "parse",
+    "prompt": "Make a gear with 24 teeth.",
+    "expected_ok": false,
+    "expected_error_contains": "Unsupported object type"
+  },
+  {
+    "id": "reject_002",
+    "type": "parse",
+    "prompt": "Make a shaft coupler.",
+    "expected_ok": false,
+    "expected_error_contains": "Unsupported object type"
+  },
+  {
+    "id": "reject_003",
+    "type": "parse",
+    "prompt": "Make it beautiful.",
+    "expected_ok": false,
+    "expected_error_contains": "measurable"
+  },
+  {
+    "id": "reject_004",
+    "type": "parse",
+    "prompt": "Create a drone frame.",
+    "expected_ok": false,
+    "expected_error_contains": "Unsupported object type"
+  },
+  {
+    "id": "reject_005",
+    "type": "parse",
+    "prompt": "Make a hinge.",
+    "expected_ok": false,
+    "expected_error_contains": "Unsupported object type"
+  },
+  {
+    "id": "reject_006",
+    "type": "parse",
+    "prompt": "Optimize it.",
+    "expected_ok": false,
+    "expected_error_contains": "measurable"
+  },
+  {
+    "id": "reject_007",
+    "type": "parse",
+    "prompt": "Make it cheaper.",
+    "expected_ok": false,
+    "expected_error_contains": "measurable"
+  },
+  {
+    "id": "reject_008",
+    "type": "parse",
+    "prompt": "Create an enclosure for a PCB.",
+    "expected_ok": false,
+    "expected_error_contains": "Unsupported object type"
+  }
+]

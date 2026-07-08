@@ -1,0 +1,97 @@
+{
+  "family": "wall_mounted_bracket",
+  "construction_strategy": "Create a rounded back plate, cut two symmetric mounting holes, then cut a centered relief opening.",
+  "steps": [
+    {
+      "id": "create_back_plate",
+      "operation": "extrude_rounded_plate",
+      "parameters": [
+        "back_plate_width_mm",
+        "back_plate_height_mm",
+        "back_plate_thickness_mm",
+        "corner_radius_mm"
+      ],
+      "depends_on": [],
+      "reason": "The back plate is the wall mounting datum and the rounded profile is robust under size edits.",
+      "outputs": [
+        "back_plate_solid"
+      ],
+      "validation_refs": [
+        "back_plate_dimensions"
+      ]
+    },
+    {
+      "id": "cut_mounting_holes",
+      "operation": "cut_through_holes",
+      "parameters": [
+        "mounting_hole_count",
+        "mounting_hole_diameter_mm",
+        "mounting_hole_spacing_mm"
+      ],
+      "depends_on": [
+        "create_back_plate"
+      ],
+      "reason": "The bracket must mount to a wall with two symmetric editable screw holes.",
+      "outputs": [
+        "mounting_holes"
+      ],
+      "validation_refs": [
+        "mounting_hole_count",
+        "mounting_hole_clearance",
+        "mounting_holes_symmetric"
+      ],
+      "metadata": {
+        "pattern": "symmetric_2_horizontal"
+      }
+    },
+    {
+      "id": "cut_center_opening",
+      "operation": "cut_center_rectangular_through_opening",
+      "parameters": [
+        "center_cutout_width_mm",
+        "center_cutout_height_mm"
+      ],
+      "depends_on": [
+        "create_back_plate"
+      ],
+      "reason": "The centered cutout creates an editable relief feature without changing the mounting datum.",
+      "outputs": [
+        "center_cutout"
+      ],
+      "validation_refs": [
+        "center_cutout_fits_plate_width",
+        "center_cutout_fits_plate_height"
+      ]
+    }
+  ],
+  "assumptions": [
+    "The mounting holes and center cutout are centered on the plate."
+  ],
+  "unknowns": [
+    "No load-bearing arm or gusset feature is added until load requirements are known."
+  ],
+  "metadata": {
+    "phase": "schema_skeleton",
+    "feature_flags": {
+      "mounting_holes": {
+        "state": "requested_by_user",
+        "feature": "mounting_holes",
+        "hole_count": 2,
+        "pattern": "symmetric_2_horizontal",
+        "reason": "Example prompt includes two symmetric mounting holes."
+      },
+      "center_cutout": {
+        "state": "requested_by_user",
+        "reason": "Example prompt includes a centered rectangular cutout."
+      },
+      "rounded_corners": {
+        "state": "defaulted_by_system",
+        "reason": "Bundled example uses rounded corners as a documented default style."
+      },
+      "edge_fillets": {
+        "state": "omitted",
+        "reason": "Edge fillets are omitted unless explicitly requested."
+      }
+    }
+  }
+}

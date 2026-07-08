@@ -1,0 +1,19 @@
+{
+  "default_feature_states": {
+    "center_cutout": "omitted",
+    "edge_fillets": "omitted",
+    "mounting_holes": "omitted",
+    "rounded_corners": "omitted"
+  },
+  "hole_patterns": {
+    "none": "none",
+    "two": "symmetric_2_horizontal",
+    "four": "rectangular_4"
+  },
+  "supported_optional_features": [
+    "mounting_holes",
+    "center_cutout",
+    "rounded_corners",
+    "edge_fillets"
+  ]
+}

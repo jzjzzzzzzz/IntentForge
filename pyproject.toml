@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "intentforge"
+version = "0.1.0"
+description = "Intent-preserving parametric CAD schemas and pipeline skeletons."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.7",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+cad = [
+    "cadquery>=2.4",
+]
+mcp = [
+    "mcp",
+]
+dev = [
+    "pytest>=8.2",
+]
+
+[project.scripts]
+intentforge = "intentforge.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["intentforge*", "mcp_server*", "benchmark*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

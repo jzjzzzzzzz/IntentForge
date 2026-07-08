@@ -1,0 +1,121 @@
+[
+  {
+    "id": "edit_001",
+    "type": "edit_parse_apply",
+    "target": "bracket",
+    "edit_text": "Make it 150 mm wide but keep the same thickness.",
+    "expected_ok": true,
+    "expected_accepted": true,
+    "expected_validation_valid": true,
+    "expected_changed_parameters": [
+      "back_plate_width_mm"
+    ],
+    "expected_preserved_parameters": [
+      "back_plate_thickness_mm"
+    ]
+  },
+  {
+    "id": "edit_002",
+    "type": "edit_parse_apply",
+    "target": "bracket",
+    "edit_text": "Add a 40 mm by 20 mm center cutout.",
+    "expected_ok": true,
+    "expected_accepted": true,
+    "expected_validation_valid": true,
+    "expected_changed_parameters": [
+      "center_cutout_width_mm",
+      "center_cutout_height_mm"
+    ]
+  },
+  {
+    "id": "edit_003",
+    "type": "edit_parse_apply",
+    "target": "bracket",
+    "edit_text": "Remove the center cutout.",
+    "expected_ok": true,
+    "expected_accepted": true,
+    "expected_validation_valid": true,
+    "expected_changed_parameters": []
+  },
+  {
+    "id": "edit_004",
+    "type": "edit_parse_apply",
+    "target": "bracket",
+    "edit_text": "Change it to four mounting holes.",
+    "expected_ok": true,
+    "expected_accepted": true,
+    "expected_validation_valid": true,
+    "expected_changed_parameters": [
+      "mounting_hole_count",
+      "mounting_hole_spacing_x_mm",
+      "mounting_hole_spacing_y_mm"
+    ]
+  },
+  {
+    "id": "edit_005",
+    "type": "edit_parse_apply",
+    "target": "bracket",
+    "edit_text": "Change it to three mounting holes.",
+    "expected_ok": false,
+    "expected_accepted": false,
+    "expected_error_contains": "two or four holes"
+  },
+  {
+    "id": "edit_006",
+    "type": "edit_parse_apply",
+    "target": "bracket",
+    "edit_text": "Make it better.",
+    "expected_ok": false,
+    "expected_accepted": false,
+    "expected_error_contains": "measurable"
+  },
+  {
+    "id": "edit_007",
+    "type": "edit_parse_apply",
+    "target": "bracket",
+    "edit_text": "Remove the mounting holes.",
+    "expected_ok": true,
+    "expected_accepted": true,
+    "expected_validation_valid": true,
+    "expected_changed_parameters": []
+  },
+  {
+    "id": "edit_008",
+    "type": "edit_parse_apply",
+    "target": "bracket",
+    "edit_text": "Make it 10 mm thick.",
+    "expected_ok": true,
+    "expected_accepted": true,
+    "expected_validation_valid": true,
+    "expected_changed_parameters": [
+      "back_plate_thickness_mm"
+    ]
+  },
+  {
+    "id": "edit_009",
+    "type": "edit_parse_apply",
+    "target": "bracket",
+    "edit_text": "Change the hole diameter to 6 mm and keep symmetry.",
+    "expected_ok": true,
+    "expected_accepted": true,
+    "expected_validation_valid": true,
+    "expected_changed_parameters": [
+      "mounting_hole_diameter_mm"
+    ],
+    "expected_preserved_parameters": [
+      "mounting_hole_symmetry"
+    ]
+  },
+  {
+    "id": "edit_010",
+    "type": "edit_parse_apply",
+    "target": "bracket",
+    "edit_text": "Set hole spacing to 100 mm.",
+    "expected_ok": true,
+    "expected_accepted": true,
+    "expected_validation_valid": true,
+    "expected_changed_parameters": [
+      "mounting_hole_spacing_mm"
+    ]
+  }
+]

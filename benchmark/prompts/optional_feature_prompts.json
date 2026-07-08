@@ -1,0 +1,128 @@
+[
+  {
+    "id": "optional_001",
+    "type": "parse_build",
+    "prompt": "Make a wall-mounted bracket 120 mm wide and 60 mm tall with two screw holes.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [
+      "mounting_holes"
+    ],
+    "expected_omitted_features": [
+      "center_cutout",
+      "rounded_corners",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "symmetric_2_horizontal"
+  },
+  {
+    "id": "optional_002",
+    "type": "parse_build",
+    "prompt": "Make a wall-mounted bracket 120 mm wide and 60 mm tall with two screw holes and a center cutout.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [
+      "mounting_holes",
+      "center_cutout"
+    ],
+    "expected_omitted_features": [
+      "rounded_corners",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "symmetric_2_horizontal"
+  },
+  {
+    "id": "optional_003",
+    "type": "parse_build",
+    "prompt": "Make a plain mounting plate 100 mm wide, 50 mm tall, and 6 mm thick.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [],
+    "expected_omitted_features": [
+      "mounting_holes",
+      "center_cutout",
+      "rounded_corners",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "none"
+  },
+  {
+    "id": "optional_004",
+    "type": "parse_build",
+    "prompt": "Create a wall-mounted bracket with rounded corners.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [
+      "rounded_corners"
+    ],
+    "expected_omitted_features": [
+      "mounting_holes",
+      "center_cutout",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "none"
+  },
+  {
+    "id": "optional_005",
+    "type": "parse_build",
+    "prompt": "Create a wall-mounted bracket with rounded corners and a center cutout.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [
+      "rounded_corners",
+      "center_cutout"
+    ],
+    "expected_omitted_features": [
+      "mounting_holes",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "none"
+  },
+  {
+    "id": "optional_006",
+    "type": "parse_build",
+    "prompt": "Make a wall-mounted bracket with no holes and a plain face.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [],
+    "expected_omitted_features": [
+      "mounting_holes",
+      "center_cutout",
+      "rounded_corners",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "none"
+  },
+  {
+    "id": "optional_007",
+    "type": "parse_build",
+    "prompt": "Make a wall-mounted bracket with two screw holes and rounded corners.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [
+      "mounting_holes",
+      "rounded_corners"
+    ],
+    "expected_omitted_features": [
+      "center_cutout",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "symmetric_2_horizontal"
+  },
+  {
+    "id": "optional_008",
+    "type": "parse_build",
+    "prompt": "Make a wall-mounted bracket with two screw holes and a center cutout.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [
+      "mounting_holes",
+      "center_cutout"
+    ],
+    "expected_omitted_features": [
+      "rounded_corners",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "symmetric_2_horizontal"
+  }
+]

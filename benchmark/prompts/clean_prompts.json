@@ -1,0 +1,161 @@
+[
+  {
+    "id": "clean_001",
+    "type": "parse_build",
+    "prompt": "Make a wall-mounted bracket 120 mm wide, 60 mm tall, 8 mm thick, with two screw holes and a center cutout.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [
+      "mounting_holes",
+      "center_cutout"
+    ],
+    "expected_omitted_features": [
+      "rounded_corners",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "symmetric_2_horizontal"
+  },
+  {
+    "id": "clean_002",
+    "type": "parse_build",
+    "prompt": "Make a wall-mounted bracket 150 mm wide, 80 mm tall, 10 mm thick, with four corner screw holes.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [
+      "mounting_holes"
+    ],
+    "expected_omitted_features": [
+      "center_cutout",
+      "rounded_corners",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "rectangular_4"
+  },
+  {
+    "id": "clean_003",
+    "type": "parse_build",
+    "prompt": "Create a mounting plate 100 mm wide, 50 mm tall, and 6 mm thick.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [],
+    "expected_omitted_features": [
+      "mounting_holes",
+      "center_cutout",
+      "rounded_corners",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "none"
+  },
+  {
+    "id": "clean_004",
+    "type": "parse_build",
+    "prompt": "Make a wall-mounted bracket 140 mm wide, 70 mm tall, 8 mm thick, with two screw holes and rounded corners.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [
+      "mounting_holes",
+      "rounded_corners"
+    ],
+    "expected_omitted_features": [
+      "center_cutout",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "symmetric_2_horizontal"
+  },
+  {
+    "id": "clean_005",
+    "type": "parse_build",
+    "prompt": "Make a wall-mounted bracket 160 mm wide, 90 mm tall, 10 mm thick, with four holes spaced 120 mm by 60 mm.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [
+      "mounting_holes"
+    ],
+    "expected_omitted_features": [
+      "center_cutout",
+      "rounded_corners",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "rectangular_4"
+  },
+  {
+    "id": "clean_006",
+    "type": "parse_build",
+    "prompt": "Make a wall-mounted bracket 120 mm wide, 60 mm tall, 8 mm thick, with two screw holes and rounded corners.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [
+      "mounting_holes",
+      "rounded_corners"
+    ],
+    "expected_omitted_features": [
+      "center_cutout",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "symmetric_2_horizontal"
+  },
+  {
+    "id": "clean_007",
+    "type": "parse_build",
+    "prompt": "Make a wall-mounted bracket 180 mm wide, 100 mm tall, 12 mm thick, with four corner screw holes and a center cutout.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [
+      "mounting_holes",
+      "center_cutout"
+    ],
+    "expected_omitted_features": [
+      "rounded_corners",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "rectangular_4"
+  },
+  {
+    "id": "clean_008",
+    "type": "parse_build",
+    "prompt": "Make a wall-mounted bracket 110 mm wide, 55 mm tall, 6 mm thick with no holes and rounded corners.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [
+      "rounded_corners"
+    ],
+    "expected_omitted_features": [
+      "mounting_holes",
+      "center_cutout",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "none"
+  },
+  {
+    "id": "clean_009",
+    "type": "parse_build",
+    "prompt": "Create a mounting plate 130 mm wide, 70 mm tall, 8 mm thick, with two screw holes.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [
+      "mounting_holes"
+    ],
+    "expected_omitted_features": [
+      "center_cutout",
+      "rounded_corners",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "symmetric_2_horizontal"
+  },
+  {
+    "id": "clean_010",
+    "type": "parse_build",
+    "prompt": "Make a wall-mounted bracket 150 mm wide, 75 mm tall, 8 mm thick, with four corner holes and rounded corners.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [
+      "mounting_holes",
+      "rounded_corners"
+    ],
+    "expected_omitted_features": [
+      "center_cutout",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "rectangular_4"
+  }
+]

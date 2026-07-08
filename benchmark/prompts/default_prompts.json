@@ -1,0 +1,130 @@
+[
+  {
+    "id": "default_001",
+    "type": "parse_build",
+    "prompt": "Make a bracket with two screw holes.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [
+      "mounting_holes"
+    ],
+    "expected_omitted_features": [
+      "center_cutout",
+      "rounded_corners",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "symmetric_2_horizontal"
+  },
+  {
+    "id": "default_002",
+    "type": "parse_build",
+    "prompt": "Create a wall-mounted bracket with rounded corners.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [
+      "rounded_corners"
+    ],
+    "expected_omitted_features": [
+      "mounting_holes",
+      "center_cutout",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "none"
+  },
+  {
+    "id": "default_003",
+    "type": "parse_build",
+    "prompt": "Make a mounting plate with four corner holes.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [
+      "mounting_holes"
+    ],
+    "expected_omitted_features": [
+      "center_cutout",
+      "rounded_corners",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "rectangular_4"
+  },
+  {
+    "id": "default_004",
+    "type": "parse_build",
+    "prompt": "Make a wall-mounted bracket with a center cutout.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [
+      "center_cutout"
+    ],
+    "expected_omitted_features": [
+      "mounting_holes",
+      "rounded_corners",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "none"
+  },
+  {
+    "id": "default_005",
+    "type": "parse_build",
+    "prompt": "Make a bracket with rounded corners and a center cutout.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [
+      "rounded_corners",
+      "center_cutout"
+    ],
+    "expected_omitted_features": [
+      "mounting_holes",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "none"
+  },
+  {
+    "id": "default_006",
+    "type": "parse_build",
+    "prompt": "Make a wall-mounted bracket with two holes and rounded corners.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [
+      "mounting_holes",
+      "rounded_corners"
+    ],
+    "expected_omitted_features": [
+      "center_cutout",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "symmetric_2_horizontal"
+  },
+  {
+    "id": "default_007",
+    "type": "parse_build",
+    "prompt": "Create a mounting plate with no holes and rounded corners.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [
+      "rounded_corners"
+    ],
+    "expected_omitted_features": [
+      "mounting_holes",
+      "center_cutout",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "none"
+  },
+  {
+    "id": "default_008",
+    "type": "parse_build",
+    "prompt": "Make a wall-mounted bracket with four holes and a center cutout.",
+    "expected_ok": true,
+    "expected_validation_valid": true,
+    "expected_active_features": [
+      "mounting_holes",
+      "center_cutout"
+    ],
+    "expected_omitted_features": [
+      "rounded_corners",
+      "edge_fillets"
+    ],
+    "expected_hole_pattern": "rectangular_4"
+  }
+]
