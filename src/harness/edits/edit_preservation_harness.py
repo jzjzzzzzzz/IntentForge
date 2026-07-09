@@ -11,6 +11,7 @@ from harness.topology import inspect_shape, write_shape_inspection_report
 from intentforge.editor.edit_intent_handler import apply_edit_request, write_edit_report
 from intentforge.generator.cadquery_generator import build_l_bracket, build_wall_bracket, export_model
 from intentforge.output_manager import create_run_context, feature_state_names, json_safe_paths
+from intentforge.paths import project_root as _intentforge_project_root
 from intentforge.parser import UnsupportedEditError, parse_edit_request, parse_prompt
 from intentforge.schemas import ParameterTable
 from intentforge.validator.geometry_validator import validate_l_bracket, validate_wall_bracket, write_validation_report
@@ -30,7 +31,7 @@ FAILURE_TYPES = (
 
 
 def _project_root() -> Path:
-    return Path(__file__).resolve().parents[2]
+    return _intentforge_project_root()
 
 
 def _default_chain_path() -> Path:

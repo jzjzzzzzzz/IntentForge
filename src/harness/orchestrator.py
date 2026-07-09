@@ -29,6 +29,7 @@ from intentforge.generator.cadquery_generator import (
     build_wall_bracket,
 )
 from intentforge.output_manager import create_run_context, feature_state_names, json_safe_paths
+from intentforge.paths import project_root as _intentforge_project_root
 from intentforge.schemas import ParameterTable
 
 SUPPORTED_MODEL_FAMILIES = ("wall_mounted_bracket", "l_bracket")
@@ -45,7 +46,7 @@ QUALITY_GATES: dict[str, float | int] = {
 
 
 def _project_root() -> Path:
-    return Path(__file__).resolve().parents[1]
+    return _intentforge_project_root()
 
 
 def _cadquery_available() -> bool:

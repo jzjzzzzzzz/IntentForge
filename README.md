@@ -106,6 +106,18 @@ Or install the source tree in editable mode for development:
 python -m pip install -e .
 ```
 
+IntentForge also supports uv for local development:
+
+```bash
+uv sync
+uv sync --all-extras
+uv run pytest
+uv run intentforge doctor
+uv run intentforge benchmark
+```
+
+Pip remains the standard install path for PyPI users. See [docs/development.md](docs/development.md) for the full development workflow.
+
 CadQuery is optional for non-CAD parser tests, but required for real STEP/STL generation:
 
 ```bash
@@ -535,14 +547,14 @@ License: Apache-2.0. See `LICENSE`.
 ## Project Structure
 
 ```text
-benchmark/      Deterministic benchmark corpus and runner
 demo/           Release demo script and notes
 docs/           Architecture, design intent, validation, benchmark, LLM, MCP, and roadmap docs
 examples/       Bundled wall-bracket and L-bracket prompt, intent, parameters, constraints, feature plan, and edit examples
-harness/        Topology, volume delta, sweep, edit-preservation, adversarial, and orchestrator harnesses
-intentforge/    Core schemas, parser, planner, generator, validator, editor, workflows, and CLI
-mcp_server/     Optional MCP wrapper around core workflows
 output/         Generated artifacts
+src/benchmark/  Deterministic benchmark package and bundled prompt data
+src/harness/    Topology, volume delta, sweep, edit-preservation, adversarial, and orchestrator harnesses
+src/intentforge/ Core schemas, parser, planner, generator, validator, editor, workflows, API, reports, and CLI
+src/mcp_server/ Optional MCP wrapper around core workflows
 tests/          Pytest coverage
 ```
 

@@ -1,0 +1,15 @@
+{
+  "edits": [
+    {
+      "type": "set_parameter",
+      "parameter": "width",
+      "value": 150
+    }
+  ],
+  "preserve": [
+    "thickness",
+    "hole_diameter",
+    "center_cutout_width",
+    "mounting_hole_symmetry"
+  ]
+}

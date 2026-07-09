@@ -1,0 +1,3 @@
+Create a wall-mounted bracket with a rectangular back plate, two symmetric mounting holes, and a centered rectangular cutout.
+
+Use a 120 mm wide by 80 mm tall by 6 mm thick back plate. Use two 6.5 mm diameter mounting holes with 44 mm center-to-center spacing. Add a 42 mm wide by 18 mm tall center cutout. Round the outside plate corners with a 3 mm radius. Keep all important dimensions editable by name.

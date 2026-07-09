@@ -2,6 +2,15 @@
 
 IntentForge is organized as a deterministic CAD intent pipeline. Each module owns one part of the path from prompt to validated CAD.
 
+Importable Python packages use a `src/` layout:
+
+- `src/intentforge`
+- `src/mcp_server`
+- `src/benchmark`
+- `src/harness`
+
+Project assets such as `tests/`, `docs/`, `examples/`, and `demo/` remain at the repository root.
+
 ## Core Modules
 
 `intentforge.schemas` defines Pydantic models for intent, parameters, constraints, feature plans, validation reports, and edit reports. These schemas are the contract between pipeline stages.

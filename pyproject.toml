@@ -7,7 +7,7 @@ name = "intentforge"
 version = "0.10.2"
 description = "Intent-preserving deterministic CAD pipeline for editable, validated CadQuery models."
 readme = "README.md"
-license = "MIT"
+license = "Apache-2.0"
 requires-python = ">=3.10"
 dependencies = [
     "pydantic>=2.7",
@@ -39,14 +39,19 @@ dev = [
 intentforge = "intentforge.cli:main"
 
 [tool.setuptools.packages.find]
+where = ["src"]
 include = ["intentforge*", "mcp_server*", "benchmark*", "harness*"]
+
+[tool.setuptools.package-dir]
+"" = "src"
 
 [tool.setuptools.package-data]
 "benchmark" = ["prompts/*.json", "expected/*.json"]
 "harness.adversarial" = ["*.json"]
 "harness.edits" = ["*.json"]
 "harness.sweeps" = ["*.yaml"]
+"intentforge.example_data" = ["*.json", "*.yaml", "*.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["."]
+pythonpath = ["src"]

@@ -1,6 +1,6 @@
 # Project Status
 
-Current development target: Phase 18 topology feature recognition and design review reports on `main`
+Current development target: Phase 19 project tooling modernization with uv and src layout on `main`
 
 Current supported model families:
 
@@ -37,6 +37,7 @@ Current supported model families:
 - Phase 16: product demo workflow and API client examples
 - Phase 17: interactive CLI, first-run LLM setup, and Homebrew tap readiness
 - Phase 18: topology-informed feature recognition and design review reports
+- Phase 19: uv development workflow support and src-layout packaging migration
 
 ## Current Capabilities
 
@@ -79,6 +80,8 @@ Current supported model families:
 - persistent user config at `~/.intentforge/config.json`
 - `OPENAI_API_KEY` and `INTENTFORGE_LLM_*` provider configuration
 - Homebrew tap install documentation
+- `src/` layout for importable Python packages
+- uv development workflow documentation
 
 ## Current Limitations
 
@@ -116,6 +119,15 @@ PyPI publish status:
 CadQuery-dependent tests require the optional CAD dependency.
 
 API tests require the optional API dependency (fastapi + uvicorn + httpx).
+
+Source layout:
+
+- `src/intentforge/`
+- `src/mcp_server/`
+- `src/benchmark/`
+- `src/harness/`
+
+Root-level `tests/`, `docs/`, `examples/`, and `demo/` remain project assets.
 
 ## Benchmark Status
 

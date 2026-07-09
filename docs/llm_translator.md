@@ -24,7 +24,7 @@ Unsupported geometry such as curved L-brackets, sheet-metal flat patterns, arbit
 
 ## Architecture
 
-The LLM layer lives under `intentforge/llm/`:
+The LLM layer lives under `src/intentforge/llm/` in the source tree:
 
 - `provider.py`: provider interface and optional provider loading
 - `translator.py`: high-level translation workflows

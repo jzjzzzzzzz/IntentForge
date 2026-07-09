@@ -10,6 +10,7 @@ import yaml
 
 from intentforge.editor.edit_intent_handler import apply_edit_request, write_edit_report
 from intentforge.contracts import apply_response_contract, ensure_request_id, error_response
+from intentforge.example_data import load_example_json, load_example_yaml
 from intentforge.features import feature_flags_for_parameter_table
 from intentforge.generator.cadquery_generator import (
     CadQueryUnavailableError,
@@ -25,6 +26,8 @@ from intentforge.output_manager import (
     json_safe_paths,
     write_run_metadata,
 )
+from intentforge.paths import default_output_root as _default_output_root
+from intentforge.paths import project_root as _project_root
 from intentforge.parser import UnsupportedEditError, UnsupportedObjectError, parse_edit_request, parse_prompt
 from intentforge.schemas import ConstraintGraph, FeaturePlan, IntentSpec, ParameterTable, ValidationReport
 from intentforge.validator.geometry_validator import validate_l_bracket, validate_wall_bracket, write_validation_report
@@ -36,37 +39,29 @@ SUPPORTED_RUN_KINDS = {"parsed_runs", "edit_parse_runs"}
 def project_root() -> Path:
     """Return the repository root for bundled examples and default output."""
 
-    return Path(__file__).resolve().parents[1]
+    return _project_root()
 
 
 def default_output_root() -> Path:
     """Return the default output directory."""
 
-    return project_root() / "output"
+    return _default_output_root()
 
 
 def _output_root(output_root: str | Path | None = None) -> Path:
     return Path(output_root) if output_root is not None else default_output_root()
 
 
-def _examples_dir() -> Path:
-    return project_root() / "examples"
-
-
 def _load_bracket_parameters() -> ParameterTable:
-    return ParameterTable.model_validate(
-        yaml.safe_load((_examples_dir() / "bracket_params.yaml").read_text(encoding="utf-8"))
-    )
+    return ParameterTable.model_validate(load_example_yaml("bracket_params.yaml"))
 
 
 def _load_l_bracket_parameters() -> ParameterTable:
-    return ParameterTable.model_validate(
-        yaml.safe_load((_examples_dir() / "l_bracket_params.yaml").read_text(encoding="utf-8"))
-    )
+    return ParameterTable.model_validate(load_example_yaml("l_bracket_params.yaml"))
 
 
 def _load_json_example(filename: str) -> dict[str, Any]:
-    return json.loads((_examples_dir() / filename).read_text(encoding="utf-8"))
+    return load_example_json(filename)
 
 
 def _load_bracket_intent() -> IntentSpec:

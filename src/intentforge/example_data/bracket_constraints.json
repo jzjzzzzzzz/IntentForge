@@ -1,0 +1,165 @@
+{
+  "family": "wall_mounted_bracket",
+  "nodes": [
+    "back_plate_width_mm",
+    "back_plate_height_mm",
+    "back_plate_thickness_mm",
+    "mounting_hole_count",
+    "mounting_hole_diameter_mm",
+    "mounting_hole_spacing_mm",
+    "mounting_hole_edge_offset_x_mm",
+    "mounting_hole_edge_offset_y_mm",
+    "center_cutout_width_mm",
+    "center_cutout_height_mm",
+    "corner_radius_mm",
+    "fillet_radius_mm"
+  ],
+  "dependencies": {
+    "mounting_hole_spacing_mm": [
+      "back_plate_width_mm",
+      "mounting_hole_diameter_mm"
+    ],
+    "mounting_hole_edge_offset_x_mm": [
+      "back_plate_width_mm",
+      "mounting_hole_diameter_mm"
+    ],
+    "mounting_hole_edge_offset_y_mm": [
+      "back_plate_height_mm",
+      "mounting_hole_diameter_mm"
+    ],
+    "center_cutout_width_mm": [
+      "back_plate_width_mm"
+    ],
+    "center_cutout_height_mm": [
+      "back_plate_height_mm"
+    ],
+    "corner_radius_mm": [
+      "back_plate_width_mm",
+      "back_plate_height_mm"
+    ],
+    "fillet_radius_mm": [
+      "back_plate_thickness_mm"
+    ]
+  },
+  "constraints": [
+    {
+      "id": "mounting_holes_symmetric",
+      "kind": "geometric",
+      "expression": "mounting_hole_centers are symmetric about the plate center",
+      "parameters": [
+        "mounting_hole_spacing_mm"
+      ],
+      "reason": "The two mounting holes must remain symmetric when spacing changes.",
+      "severity": "error"
+    },
+    {
+      "id": "hole_x_clearance",
+      "kind": "dimensional",
+      "expression": "mounting_hole_edge_offset_x_mm > mounting_hole_diameter_mm / 2",
+      "parameters": [
+        "mounting_hole_edge_offset_x_mm",
+        "mounting_hole_diameter_mm"
+      ],
+      "reason": "Mounting holes must not break through the side edges.",
+      "severity": "error"
+    },
+    {
+      "id": "hole_y_clearance",
+      "kind": "dimensional",
+      "expression": "mounting_hole_edge_offset_y_mm > mounting_hole_diameter_mm / 2",
+      "parameters": [
+        "mounting_hole_edge_offset_y_mm",
+        "mounting_hole_diameter_mm"
+      ],
+      "reason": "Mounting holes must not break through the top or bottom edges.",
+      "severity": "error"
+    },
+    {
+      "id": "hole_spacing_fits_plate",
+      "kind": "dimensional",
+      "expression": "mounting_hole_spacing_mm / 2 + mounting_hole_diameter_mm / 2 <= back_plate_width_mm / 2 - min_edge_distance_mm",
+      "parameters": [
+        "mounting_hole_spacing_mm",
+        "mounting_hole_diameter_mm",
+        "back_plate_width_mm"
+      ],
+      "reason": "The two symmetric mounting holes must fit inside the plate width with edge clearance.",
+      "severity": "error"
+    },
+    {
+      "id": "center_cutout_fits_plate_width",
+      "kind": "dimensional",
+      "expression": "center_cutout_width_mm < back_plate_width_mm",
+      "parameters": [
+        "center_cutout_width_mm",
+        "back_plate_width_mm"
+      ],
+      "reason": "The center cutout must not consume the full plate width.",
+      "severity": "error"
+    },
+    {
+      "id": "center_cutout_fits_plate_height",
+      "kind": "dimensional",
+      "expression": "center_cutout_height_mm < back_plate_height_mm",
+      "parameters": [
+        "center_cutout_height_mm",
+        "back_plate_height_mm"
+      ],
+      "reason": "The center cutout must not consume the full plate height.",
+      "severity": "error"
+    },
+    {
+      "id": "corner_radius_fits_plate",
+      "kind": "geometric",
+      "expression": "corner_radius_mm * 2 < min(back_plate_width_mm, back_plate_height_mm)",
+      "parameters": [
+        "corner_radius_mm",
+        "back_plate_width_mm",
+        "back_plate_height_mm"
+      ],
+      "reason": "Rounded outside corners must fit inside the plate profile.",
+      "severity": "error"
+    },
+    {
+      "id": "fillet_smaller_than_thickness",
+      "kind": "manufacturing",
+      "expression": "fillet_radius_mm <= back_plate_thickness_mm / 2",
+      "parameters": [
+        "fillet_radius_mm",
+        "back_plate_thickness_mm"
+      ],
+      "reason": "Fillets should remain smaller than the available plate thickness.",
+      "severity": "warning"
+    }
+  ],
+  "assumptions": [
+    "Constraint expressions are recorded for later deterministic evaluation."
+  ],
+  "unknowns": [
+    "No load or stress constraint is available yet."
+  ],
+  "metadata": {
+    "phase": "schema_skeleton",
+    "feature_flags": {
+      "mounting_holes": {
+        "state": "requested_by_user",
+        "feature": "mounting_holes",
+        "hole_count": 2,
+        "pattern": "symmetric_2_horizontal",
+        "reason": "Example prompt includes two symmetric mounting holes."
+      },
+      "center_cutout": {
+        "state": "requested_by_user",
+        "reason": "Example prompt includes a centered rectangular cutout."
+      },
+      "rounded_corners": {
+        "state": "defaulted_by_system",
+        "reason": "Bundled example uses rounded corners as a documented default style."
+      },
+      "edge_fillets": {
+        "state": "omitted",
+        "reason": "Edge fillets are omitted unless explicitly requested."
+      }
+    }
+  }
+}

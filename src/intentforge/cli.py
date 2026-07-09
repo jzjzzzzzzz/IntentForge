@@ -2,6 +2,7 @@
 
 from argparse import ArgumentParser
 import importlib
+import importlib.resources
 import importlib.util
 import json
 import platform
@@ -23,6 +24,7 @@ from harness.adversarial import run_adversarial_harness
 from harness.sweeps import run_parametric_sweep
 from harness.edits import run_edit_preservation_harness
 from intentforge.editor.edit_intent_handler import apply_edit_request, write_edit_report
+from intentforge.example_data import load_example_json, load_example_yaml
 from intentforge.generator.cadquery_generator import (
     CadQueryUnavailableError,
     build_l_bracket,
@@ -46,6 +48,7 @@ from intentforge.output_manager import (
     json_safe_paths,
     write_run_metadata,
 )
+from intentforge.paths import project_root
 from intentforge.parser import UnsupportedEditError, UnsupportedObjectError, parse_edit_request, parse_prompt
 from intentforge.reports.design_review import (
     generate_design_review_report,
@@ -71,27 +74,19 @@ SUPPORTED_MODEL_FAMILIES = ["wall_mounted_bracket", "l_bracket"]
 
 
 def _project_root() -> Path:
-    return Path(__file__).resolve().parents[1]
+    return project_root()
 
 
 def _load_bracket_parameters() -> ParameterTable:
-    params_path = _project_root() / "examples" / "bracket_params.yaml"
-    with params_path.open("r", encoding="utf-8") as params_file:
-        data = yaml.safe_load(params_file)
-    return ParameterTable.model_validate(data)
+    return ParameterTable.model_validate(load_example_yaml("bracket_params.yaml"))
 
 
 def _load_l_bracket_parameters() -> ParameterTable:
-    params_path = _project_root() / "examples" / "l_bracket_params.yaml"
-    with params_path.open("r", encoding="utf-8") as params_file:
-        data = yaml.safe_load(params_file)
-    return ParameterTable.model_validate(data)
+    return ParameterTable.model_validate(load_example_yaml("l_bracket_params.yaml"))
 
 
 def _load_json_example(filename: str) -> dict:
-    path = _project_root() / "examples" / filename
-    with path.open("r", encoding="utf-8") as json_file:
-        return json.load(json_file)
+    return load_example_json(filename)
 
 
 def _load_json_path(path: str | Path) -> dict:
@@ -954,8 +949,14 @@ def _doctor_command() -> int:
         import_detail = str(exc)
     core_checks.append(("intentforge import", import_ok, import_detail))
 
-    benchmark_dir = project_root / "benchmark"
-    core_checks.append(("benchmark directory", benchmark_dir.is_dir(), str(benchmark_dir)))
+    try:
+        benchmark_prompts = importlib.resources.files("benchmark").joinpath("prompts")
+        benchmark_ok = benchmark_prompts.is_dir()
+        benchmark_detail = str(benchmark_prompts)
+    except Exception as exc:  # pragma: no cover - importlib.resources failures vary
+        benchmark_ok = False
+        benchmark_detail = str(exc)
+    core_checks.append(("benchmark package data", benchmark_ok, benchmark_detail))
 
     examples_dir = project_root / "examples"
     examples_detail = str(examples_dir) if examples_dir.is_dir() else "not found (dev-only; not included in PyPI install)"

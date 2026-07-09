@@ -4,7 +4,7 @@ The benchmark suite is a deterministic regression suite for the current supporte
 
 ## Categories
 
-Benchmark cases are stored under `benchmark/prompts/`:
+Benchmark cases are packaged under `src/benchmark/prompts/`:
 
 - `clean_prompts.json`: prompts that should parse, build, export CAD, and validate
 - `default_prompts.json`: prompts with missing details that should use safe defaults and record assumptions

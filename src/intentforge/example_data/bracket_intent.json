@@ -1,0 +1,48 @@
+{
+  "family": "wall_mounted_bracket",
+  "user_prompt": "Create a wall-mounted bracket with a rectangular back plate, two symmetric mounting holes, and a centered rectangular cutout.",
+  "objective": "Generate an editable parametric wall-mounted bracket plate with named dimensions and validation checks.",
+  "requirements": [
+    "Back plate is rectangular.",
+    "Back plate has two symmetric mounting holes.",
+    "Back plate has a centered rectangular cutout.",
+    "Outside plate corners are rounded.",
+    "Important dimensions are named parameters.",
+    "Feature history preserves modification intent."
+  ],
+  "assumptions": [
+    "Dimensions are in millimeters.",
+    "The mounting holes are centered on the vertical centerline of the plate.",
+    "Mounting holes pass fully through the back plate.",
+    "The center cutout passes fully through the back plate."
+  ],
+  "unknowns": [
+    "Required load rating is not specified.",
+    "Material is not specified."
+  ],
+  "metadata": {
+    "example": true,
+    "phase": "schema_skeleton",
+    "feature_flags": {
+      "mounting_holes": {
+        "state": "requested_by_user",
+        "feature": "mounting_holes",
+        "hole_count": 2,
+        "pattern": "symmetric_2_horizontal",
+        "reason": "Example prompt includes two symmetric mounting holes."
+      },
+      "center_cutout": {
+        "state": "requested_by_user",
+        "reason": "Example prompt includes a centered rectangular cutout."
+      },
+      "rounded_corners": {
+        "state": "defaulted_by_system",
+        "reason": "Bundled example uses rounded corners as a documented default style."
+      },
+      "edge_fillets": {
+        "state": "omitted",
+        "reason": "Edge fillets are omitted unless explicitly requested."
+      }
+    }
+  }
+}

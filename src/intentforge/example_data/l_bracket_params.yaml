@@ -1,0 +1,102 @@
+family: l_bracket
+parameters:
+  - name: base_leg_length_mm
+    value: 100.0
+    unit: mm
+    description: Length of the horizontal base leg.
+    source: user
+    reason: Defines the horizontal mounting leg.
+    min_value: 1.0
+  - name: vertical_leg_length_mm
+    value: 80.0
+    unit: mm
+    description: Height of the vertical leg.
+    source: user
+    reason: Defines the upright mounting leg.
+    min_value: 1.0
+  - name: bracket_width_mm
+    value: 40.0
+    unit: mm
+    description: Width shared by both L-bracket legs.
+    source: user
+    reason: Controls the transverse bracket width.
+    min_value: 1.0
+  - name: thickness_mm
+    value: 6.0
+    unit: mm
+    description: Plate thickness of both legs.
+    source: user
+    reason: Controls material thickness for both perpendicular plates.
+    min_value: 1.0
+  - name: hole_diameter_mm
+    value: 5.0
+    unit: mm
+    description: Diameter of L-bracket mounting holes.
+    source: user
+    reason: Controls screw clearance for active hole features.
+    min_value: 1.0
+  - name: base_hole_count
+    value: 2
+    unit: null
+    description: Number of base-leg mounting holes.
+    source: user
+    reason: Phase 10 supports two symmetric holes on the base leg.
+    min_value: 0.0
+  - name: base_hole_spacing_mm
+    value: 60.0
+    unit: mm
+    description: Spacing between the two base-leg holes.
+    source: user
+    reason: Controls symmetric base-leg hole placement.
+    min_value: 1.0
+  - name: vertical_hole_count
+    value: 2
+    unit: null
+    description: Number of vertical-leg mounting holes.
+    source: user
+    reason: Phase 10 supports two symmetric holes on the vertical leg.
+    min_value: 0.0
+  - name: vertical_hole_spacing_mm
+    value: 40.0
+    unit: mm
+    description: Spacing between the two vertical-leg holes.
+    source: user
+    reason: Controls symmetric vertical-leg hole placement.
+    min_value: 1.0
+assumptions:
+  - The L-bracket legs meet at a 90-degree inside corner.
+  - Base and vertical holes are centered across bracket_width_mm.
+unknowns:
+  - Load rating is unknown.
+  - Material is unknown.
+metadata:
+  phase: phase_10_l_bracket
+  min_edge_distance_mm: 3.0
+  feature_flags:
+    base_leg:
+      state: defaulted_by_system
+      reason: Base leg is required for the L-bracket family.
+    vertical_leg:
+      state: defaulted_by_system
+      reason: Vertical leg is required for the L-bracket family.
+    base_mounting_holes:
+      state: requested_by_user
+      feature: base_mounting_holes
+      hole_count: 2
+      pattern: symmetric_2_horizontal
+      reason: Example prompt requests two holes on the base leg.
+    vertical_mounting_holes:
+      state: requested_by_user
+      feature: vertical_mounting_holes
+      hole_count: 2
+      pattern: symmetric_2_horizontal
+      reason: Example prompt requests two holes on the vertical leg.
+    inside_fillet:
+      state: omitted
+      reason: Example prompt does not request an inside fillet.
+    outside_edge_fillets:
+      state: omitted
+      reason: Example prompt does not request outside edge fillets.
+    triangular_gusset:
+      state: omitted
+      reason: Example prompt does not request a gusset.

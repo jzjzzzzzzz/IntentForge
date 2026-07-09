@@ -1,0 +1,110 @@
+family: wall_mounted_bracket
+parameters:
+  - name: back_plate_width_mm
+    value: 120.0
+    unit: mm
+    description: Overall width of the wall back plate.
+    source: user
+    reason: Required to size the mounting face.
+    min_value: 1.0
+  - name: back_plate_height_mm
+    value: 80.0
+    unit: mm
+    description: Overall height of the wall back plate.
+    source: user
+    reason: Required to size the mounting face.
+    min_value: 1.0
+  - name: back_plate_thickness_mm
+    value: 6.0
+    unit: mm
+    description: Thickness of the back plate.
+    source: user
+    reason: Required for a stable wall interface.
+    min_value: 1.0
+  - name: mounting_hole_diameter_mm
+    value: 6.5
+    unit: mm
+    description: Diameter of each mounting hole.
+    source: user
+    reason: Matches a likely M6 clearance hole.
+    min_value: 1.0
+  - name: mounting_hole_count
+    value: 2
+    unit: null
+    description: Number of mounting holes.
+    source: user
+    reason: Captures the symmetric two-hole mounting pattern.
+    min_value: 1.0
+  - name: mounting_hole_spacing_mm
+    value: 44.0
+    unit: mm
+    description: Center-to-center spacing between the two symmetric mounting holes.
+    source: user
+    reason: Controls the symmetric wall fastener pattern.
+    min_value: 1.0
+  - name: mounting_hole_edge_offset_x_mm
+    value: 20.0
+    unit: mm
+    description: Horizontal distance from plate side edges to mounting hole centers.
+    source: user
+    reason: Keeps screw centers away from side edges.
+    min_value: 1.0
+  - name: mounting_hole_edge_offset_y_mm
+    value: 18.0
+    unit: mm
+    description: Vertical distance from plate top and bottom edges to mounting hole centers.
+    source: user
+    reason: Keeps screw centers away from top and bottom edges.
+    min_value: 1.0
+  - name: center_cutout_width_mm
+    value: 42.0
+    unit: mm
+    description: Width of the centered rectangular cutout.
+    source: user
+    reason: Creates an editable relief opening in the plate.
+    min_value: 1.0
+  - name: center_cutout_height_mm
+    value: 18.0
+    unit: mm
+    description: Height of the centered rectangular cutout.
+    source: user
+    reason: Creates an editable relief opening in the plate.
+    min_value: 1.0
+  - name: corner_radius_mm
+    value: 3.0
+    unit: mm
+    description: Outside corner radius for the back plate profile.
+    source: user
+    reason: Rounds the exposed outside plate corners robustly in the 2D profile.
+    min_value: 0.0
+  - name: fillet_radius_mm
+    value: 3.0
+    unit: mm
+    description: Exposed outside edge fillet radius.
+    source: user
+    reason: Reduces sharp edges while preserving simple geometry.
+    min_value: 0.0
+assumptions:
+  - The two mounting holes are centered on the vertical centerline.
+  - The center cutout is centered on the plate.
+unknowns:
+  - Load rating is unknown.
+  - Material is unknown.
+metadata:
+  phase: schema_skeleton
+  feature_flags:
+    mounting_holes:
+      state: requested_by_user
+      feature: mounting_holes
+      hole_count: 2
+      pattern: symmetric_2_horizontal
+      reason: Example prompt includes two symmetric mounting holes.
+    center_cutout:
+      state: requested_by_user
+      reason: Example prompt includes a centered rectangular cutout.
+    rounded_corners:
+      state: defaulted_by_system
+      reason: Bundled example uses rounded corners as a documented default style.
+    edge_fillets:
+      state: omitted
+      reason: Edge fillets are omitted unless explicitly requested.

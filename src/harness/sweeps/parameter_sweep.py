@@ -14,6 +14,7 @@ from harness.topology import build_volume_delta_report, inspect_shape
 from intentforge.features import is_feature_active
 from intentforge.generator.cadquery_generator import build_l_bracket, build_wall_bracket, export_model
 from intentforge.output_manager import create_run_context, feature_state_names, json_safe_paths
+from intentforge.paths import project_root as _intentforge_project_root
 from intentforge.schemas import ParameterTable, ValidationReport
 from intentforge.validator.geometry_validator import validate_l_bracket, validate_wall_bracket
 
@@ -28,7 +29,7 @@ FAILURE_TYPES = (
 
 
 def _project_root() -> Path:
-    return Path(__file__).resolve().parents[2]
+    return _intentforge_project_root()
 
 
 def _default_config_path() -> Path:
