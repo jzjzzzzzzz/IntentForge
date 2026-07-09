@@ -938,10 +938,12 @@ def _doctor_command() -> int:
         import_detail = str(exc)
     core_checks.append(("intentforge import", import_ok, import_detail))
 
-    examples_dir = project_root / "examples"
     benchmark_dir = project_root / "benchmark"
-    core_checks.append(("examples directory", examples_dir.is_dir(), str(examples_dir)))
     core_checks.append(("benchmark directory", benchmark_dir.is_dir(), str(benchmark_dir)))
+
+    examples_dir = project_root / "examples"
+    examples_detail = str(examples_dir) if examples_dir.is_dir() else "not found (dev-only; not included in PyPI install)"
+    optional_checks.append(("examples directory", examples_dir.is_dir(), examples_detail))
 
     output_ok, output_detail = _check_output_writable(project_root / "output")
     core_checks.append(("output directory writable", output_ok, output_detail))

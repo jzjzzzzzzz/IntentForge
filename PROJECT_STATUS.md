@@ -101,6 +101,13 @@ Release verification:
 - `python -m pytest`
 - Last recorded result for v0.10.2: 397 passed, 1 skipped
 
+PyPI publish status:
+
+- v0.10.2 published to PyPI via GitHub Actions OIDC Trusted Publisher
+- `pip install intentforge` verified clean from /tmp venv (site-packages import confirmed)
+- `intentforge[api]`: fastapi and uvicorn install correctly
+- `intentforge doctor`: passes after post-publish fix (examples/ downgraded to optional warning)
+
 CadQuery-dependent tests require the optional CAD dependency.
 
 API tests require the optional API dependency (fastapi + uvicorn + httpx).
