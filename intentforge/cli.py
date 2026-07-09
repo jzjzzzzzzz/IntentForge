@@ -1206,35 +1206,10 @@ def _technical_harness_command(quick: bool, include_demo: bool) -> int:
 
 
 def _serve_command(host: str, port: int, token: str | None) -> int:
-    """Start the IntentForge HTTP API server."""
+    """Start the IntentForge HTTP API server (delegates to intentforge.api.server)."""
 
-    try:
-        import uvicorn  # noqa: F401
-    except ImportError:
-        print(
-            "Error: uvicorn is required to run the IntentForge HTTP API server.\n"
-            "Install it with: python -m pip install -e '.[api]'",
-            file=sys.stderr,
-        )
-        return 1
-
-    # Set token: CLI flag > env var > no auth.
-    effective_token = token or os.environ.get("INTENTFORGE_API_TOKEN")
-    if effective_token:
-        os.environ["INTENTFORGE_API_TOKEN"] = effective_token
-        print("API auth enabled (token set).")
-    else:
-        print("API auth disabled (no token configured).")
-
-    from intentforge.api.app import create_app
-
-    app = create_app()
-
-    print(f"IntentForge API server starting on http://{host}:{port}")
-    print(f"API docs: http://{host}:{port}/docs")
-
-    uvicorn.run(app, host=host, port=port)
-    return 0
+    from intentforge.api.server import serve
+    return serve(host=host, port=port, token=token)
 
 
 def _build_parser() -> ArgumentParser:
@@ -1493,8 +1468,8 @@ def _build_parser() -> ArgumentParser:
     serve_parser.add_argument(
         "--port",
         type=int,
-        default=8000,
-        help="Bind port (default: 8000).",
+        default=8765,
+        help="Bind port (default: 8765).",
     )
     serve_parser.add_argument(
         "--token",

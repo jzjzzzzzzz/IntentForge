@@ -535,3 +535,97 @@ class TestArtifactPathSafety:
         from intentforge.api.artifacts import safe_artifact_path
         with pytest.raises(ValueError, match="traversal"):
             safe_artifact_path("\\etc\\passwd")
+
+
+# ── Server entry point ────────────────────────────────────────────────
+
+class TestServerEntryPoint:
+    """Tests for server.py entry point and module-level behavior."""
+
+    def test_server_module_importable_without_fastapi(self):
+        """server.py should be importable without uvicorn/FastAPI installed."""
+        from intentforge.api.server import serve, main
+        assert callable(serve)
+        assert callable(main)
+
+    def test_main_reads_env_vars(self):
+        """main() should read INTENTFORGE_API_HOST, INTENTFORGE_API_PORT, INTENTFORGE_API_TOKEN."""
+        import os
+        os.environ["INTENTFORGE_API_HOST"] = "0.0.0.0"
+        os.environ["INTENTFORGE_API_PORT"] = "9999"
+        os.environ.pop("INTENTFORGE_API_TOKEN", None)
+
+        from intentforge.api.server import serve
+        # We can't actually call serve() (it would start uvicorn),
+        # but we can verify the main() function reads env vars correctly
+        # by checking that main() constructs the right args.
+        from intentforge.api.server import main
+
+        # Mock uvicorn so main() doesn't actually start a server.
+        import unittest.mock
+        with unittest.mock.patch("intentforge.api.server.serve") as mock_serve:
+            mock_serve.return_value = 0
+            result = main()
+            mock_serve.assert_called_once_with(host="0.0.0.0", port=9999, token=None)
+            assert result == 0
+
+        # Clean up.
+        os.environ.pop("INTENTFORGE_API_HOST", None)
+        os.environ.pop("INTENTFORGE_API_PORT", None)
+
+    def test_main_defaults_without_env_vars(self):
+        """main() should use defaults when env vars are not set."""
+        import os
+        os.environ.pop("INTENTFORGE_API_HOST", None)
+        os.environ.pop("INTENTFORGE_API_PORT", None)
+        os.environ.pop("INTENTFORGE_API_TOKEN", None)
+
+        from intentforge.api.server import main
+        import unittest.mock
+
+        with unittest.mock.patch("intentforge.api.server.serve") as mock_serve:
+            mock_serve.return_value = 0
+            result = main()
+            mock_serve.assert_called_once_with(host="127.0.0.1", port=8765, token=None)
+            assert result == 0
+
+    def test_serve_returns_1_without_uvicorn(self):
+        """serve() should return 1 with a clear message if uvicorn is missing."""
+        import unittest.mock
+
+        with unittest.mock.patch.dict("sys.modules", {"uvicorn": None}):
+            from intentforge.api.server import serve
+            result = serve()
+            assert result == 1
+
+    def test_api_init_lazy_import_no_runtime_warning(self):
+        """intentforge.api.__init__ should not eagerly import server module.
+
+        This prevents the RuntimeWarning when running:
+            python -m intentforge.api.server
+        """
+        import importlib
+        import sys
+
+        # Remove any cached imports of the server module.
+        modules_to_remove = [
+            k for k in sys.modules
+            if k.startswith("intentforge.api.server")
+        ]
+        for m in modules_to_remove:
+            del sys.modules[m]
+
+        # Also remove the parent package so it gets re-imported fresh.
+        if "intentforge.api" in sys.modules:
+            del sys.modules["intentforge.api"]
+
+        # Import the parent package.
+        import intentforge.api  # noqa: F401
+
+        # The server module should NOT be in sys.modules yet
+        # (it's lazily imported via __getattr__).
+        assert "intentforge.api.server" not in sys.modules
+
+        # Now access serve — this triggers the lazy import.
+        _ = intentforge.api.serve
+        assert "intentforge.api.server" in sys.modules

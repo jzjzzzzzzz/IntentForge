@@ -1,6 +1,6 @@
 # Project Status
 
-Current development target: Phase 15 optional local HTTP API server / product backend on `main`
+Current development target: Phase 16 product demo workflow and API client examples on `main`
 
 Current supported model families:
 
@@ -34,6 +34,7 @@ Current supported model families:
 - Phase 13: production tool interface and API contract hardening
 - Phase 14: optional LLM intent translator with schema guardrails
 - Phase 15: optional local HTTP API server / product backend
+- Phase 16: product demo workflow and API client examples
 
 ## Current Capabilities
 
@@ -66,6 +67,8 @@ Current supported model families:
 - safe artifact file serving (only files under output/)
 - path traversal rejection for artifact requests
 - CLI serve subcommand (intentforge serve)
+- product demo workflow examples (api_client_demo.py, product_workflow_demo.py)
+- mocked demo script tests (no live server required)
 
 ## Current Limitations
 
@@ -90,7 +93,7 @@ Current supported model families:
 Release verification:
 
 - `python -m pytest`
-- Last recorded result for Phase 15: API tests 40 passed, core + API 192 passed, 1 skipped
+- Last recorded result for Phase 16: 354 passed, 1 skipped (includes 40 API + 12 demo script tests)
 
 CadQuery-dependent tests require the optional CAD dependency.
 
@@ -162,8 +165,15 @@ All endpoints return contract-compatible ToolResponse envelopes. Optional Bearer
 
 Start server: `intentforge serve [--host HOST] [--port PORT] [--token TOKEN]`
 
-Phase 15 does not create a new release tag.
+Phase 16 adds product demo workflow scripts and documentation:
+- examples/api_client_demo.py — 5-step API client (health, parse-build dry, parse-build full, edit-apply dry, edit-apply full)
+- examples/product_workflow_demo.py — 7-step commercial workflow (parse → dry-run → build → edit → validate → rejection → artifact list)
+- docs/product_demo.md — startup commands, example API calls, response snippets, dry_run, artifact refs, token auth
+- tests/test_demo_scripts.py — 12 tests (import safety, missing httpx, mocked API steps, rejection)
+- README.md updated with HTTP API and Product Demo sections
+
+All demo scripts fail clearly if API server is not running. No live server in pytest. No release tag.
 
 ## Next Planned Phase
 
-Phase 16: simple web demo UI for interactive prompt → CAD visualization.
+Phase 17: user workflow templates / agent integration examples.

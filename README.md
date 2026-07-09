@@ -379,9 +379,14 @@ intentforge serve
 # or:  python -m intentforge.api.server
 # with auth:  intentforge serve --token my-secret-token
 # custom host/port:  intentforge serve --host 0.0.0.0 --port 9000
+
+# Environment variables for python -m entry point:
+# INTENTFORGE_API_HOST  (default: 127.0.0.1)
+# INTENTFORGE_API_PORT  (default: 8765)
+# INTENTFORGE_API_TOKEN (optional Bearer auth token)
 ```
 
-API docs are at `http://127.0.0.1:8000/docs`.
+API docs are at `http://127.0.0.1:8765/docs`.
 
 Key endpoints:
 

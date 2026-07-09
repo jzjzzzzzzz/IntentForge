@@ -169,8 +169,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="IntentForge API client demo")
     parser.add_argument(
         "--base-url",
-        default="http://127.0.0.1:8000",
-        help="IntentForge API base URL (default: http://127.0.0.1:8000)",
+        default="http://127.0.0.1:8765",
+        help="IntentForge API base URL (default: http://127.0.0.1:8765)",
     )
     parser.add_argument(
         "--token",

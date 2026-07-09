@@ -11,10 +11,15 @@ how to run it.
 # Install API dependencies (if not already installed)
 python -m pip install -e ".[api]"
 
-# Start the local server (default: http://127.0.0.1:8000)
+# Start the local server via python -m entry point (reads env vars):
 python -m intentforge.api.server
 
-# Or via CLI:
+# Environment variables for python -m entry point:
+# INTENTFORGE_API_HOST   (default: 127.0.0.1)
+# INTENTFORGE_API_PORT   (default: 8765)
+# INTENTFORGE_API_TOKEN  (optional Bearer auth token)
+
+# Or via CLI subcommand:
 intentforge serve
 
 # With optional token auth:
@@ -24,7 +29,7 @@ intentforge serve --token my-secret-token
 intentforge serve --host 0.0.0.0 --port 9000
 ```
 
-Interactive API docs are available at `http://127.0.0.1:8000/docs` (Swagger UI).
+Interactive API docs are available at `http://127.0.0.1:8765/docs` (Swagger UI).
 
 ## Running the Demo Scripts
 
@@ -197,45 +202,45 @@ production SaaS, add a proper auth middleware in front of the API server.
 
 ```bash
 # Health check
-curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:8765/health
 
 # Parse a prompt
-curl -X POST http://127.0.0.1:8000/v1/parse \
+curl -X POST http://127.0.0.1:8765/v1/parse \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Make a wall-mounted bracket 120mm wide 60mm tall with two screw holes."}'
 
 # Parse-build with dry_run
-curl -X POST http://127.0.0.1:8000/v1/parse-build \
+curl -X POST http://127.0.0.1:8765/v1/parse-build \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Make a wall-mounted bracket 120mm wide 60mm tall with two screw holes.", "dry_run": true}'
 
 # Parse-build (full)
-curl -X POST http://127.0.0.1:8000/v1/parse-build \
+curl -X POST http://127.0.0.1:8765/v1/parse-build \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Make a wall-mounted bracket 120mm wide 60mm tall with two screw holes."}'
 
 # Edit-apply with dry_run
-curl -X POST http://127.0.0.1:8000/v1/edit-apply \
+curl -X POST http://127.0.0.1:8765/v1/edit-apply \
   -H "Content-Type: application/json" \
   -d '{"target": "bracket", "edit_text": "Make it 150mm wide but keep the same thickness.", "dry_run": true}'
 
 # Edit-apply (full)
-curl -X POST http://127.0.0.1:8000/v1/edit-apply \
+curl -X POST http://127.0.0.1:8765/v1/edit-apply \
   -H "Content-Type: application/json" \
   -d '{"target": "bracket", "edit_text": "Make it 150mm wide but keep the same thickness."}'
 
 # List recent runs
-curl http://127.0.0.1:8000/v1/runs/recent?kind=parsed_runs&limit=3
+curl http://127.0.0.1:8765/v1/runs/recent?kind=parsed_runs&limit=3
 
 # Get run metadata
-curl http://127.0.0.1:8000/v1/runs/parsed_runs/<run_id>
+curl http://127.0.0.1:8765/v1/runs/parsed_runs/<run_id>
 
 # Retrieve an artifact file
-curl http://127.0.0.1:8000/v1/artifacts/output/.../bracket.step
+curl http://127.0.0.1:8765/v1/artifacts/output/.../bracket.step
 
 # With auth
 curl -H "Authorization: Bearer my-secret-token" \
-  http://127.0.0.1:8000/v1/parse-build \
+  http://127.0.0.1:8765/v1/parse-build \
   -d '{"prompt": "..."}'
 ```
 
