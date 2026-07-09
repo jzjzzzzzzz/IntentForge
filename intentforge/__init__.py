@@ -1,6 +1,6 @@
 """IntentForge package."""
 
-__version__ = "0.1.0"
+__version__ = "0.10.1"
 
 SUPPORTED_FAMILY = "wall_mounted_bracket"
 

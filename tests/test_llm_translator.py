@@ -182,16 +182,28 @@ def test_cli_llm_parse_with_mock_provider_runs() -> None:
     assert result == 0
 
 
-def test_cli_llm_parse_without_provider_returns_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cli_llm_parse_without_provider_returns_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("INTENTFORGE_CONFIG_PATH", str(tmp_path / "missing.json"))
     monkeypatch.delenv("INTENTFORGE_LLM_PROVIDER", raising=False)
+    monkeypatch.delenv("INTENTFORGE_LLM_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
     result = main(["llm-parse", "Make a wall-mounted bracket 120 mm wide with two screw holes."])
 
     assert result == 1
 
 
-def test_mcp_llm_parse_build_provider_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_mcp_llm_parse_build_provider_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("INTENTFORGE_CONFIG_PATH", str(tmp_path / "missing.json"))
     monkeypatch.delenv("INTENTFORGE_LLM_PROVIDER", raising=False)
+    monkeypatch.delenv("INTENTFORGE_LLM_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
     result = tools.llm_parse_build_cad_prompt("Make a wall-mounted bracket with two screw holes.")
 

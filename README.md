@@ -105,6 +105,8 @@ brew tap jzjzzzzzzz/intentforge
 brew install intentforge
 ```
 
+Direct `brew install intentforge` without `brew tap` works only after the formula is accepted into Homebrew core. Until then, external users must install from the project tap first.
+
 CadQuery is optional for non-CAD parser tests, but required for real STEP/STL generation:
 
 ```bash
@@ -117,7 +119,15 @@ Optional MCP support is installed separately:
 python -m pip install -e ".[mcp]"
 ```
 
-Optional LLM provider configuration uses environment variables only. See `.env.example`; do not commit real keys.
+Optional LLM translation can be configured from the interactive client. You do not need to edit files by hand:
+
+```bash
+intentforge interactive
+# then follow the first-run setup prompt, or run:
+config setup
+```
+
+IntentForge also accepts `OPENAI_API_KEY` and the `INTENTFORGE_LLM_*` environment variables for non-interactive use. Do not commit real keys.
 
 For the interactive terminal client (Claude Code-like experience):
 
@@ -430,6 +440,8 @@ Start the interactive session:
 intentforge interactive
 ```
 
+On first launch, IntentForge offers to configure optional LLM translation. The setup wizard uses up/down arrow selection in an interactive terminal, and falls back to typed choices in scripts. It supports OpenAI, OpenAI-compatible endpoints, the deterministic mock provider, or skipping LLM setup entirely. Saved settings are written to `~/.intentforge/config.json` with owner-only permissions where supported, and API keys are masked when displayed.
+
 Available commands inside the session:
 
 | Command | Description |
@@ -442,7 +454,8 @@ Available commands inside the session:
 | `demo` | Run the full product demo |
 | `doctor` | Check environment health |
 | `status` | Show current session context |
-| `config` | Show / edit LLM configuration |
+| `config` | Show masked LLM configuration |
+| `config setup` | Configure OpenAI, compatible, or mock LLM provider |
 | `history` | Show command history |
 | `quit` | Exit session |
 

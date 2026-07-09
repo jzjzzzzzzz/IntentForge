@@ -47,7 +47,16 @@ prompt/edit text
 
 Core IntentForge does not require an LLM provider.
 
-Environment variables:
+Interactive setup:
+
+```bash
+intentforge interactive
+config setup
+```
+
+The setup wizard stores optional LLM settings in `~/.intentforge/config.json` with owner-only permissions where supported. In an interactive terminal, provider selection uses up/down arrows and Enter; in scripts, the wizard falls back to typed choices. Users can choose OpenAI, an OpenAI-compatible endpoint, the deterministic mock provider, or skip LLM setup. API keys are masked when displayed by `config`.
+
+Environment variables are also supported for non-interactive deployments and take precedence over the saved config:
 
 ```bash
 INTENTFORGE_LLM_PROVIDER=
@@ -55,6 +64,8 @@ INTENTFORGE_LLM_BASE_URL=
 INTENTFORGE_LLM_MODEL=
 INTENTFORGE_LLM_API_KEY=
 ```
+
+For OpenAI specifically, IntentForge also accepts the standard `OPENAI_API_KEY` environment variable and defaults to the OpenAI API base URL when no custom base URL is provided.
 
 Supported provider values:
 

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 import json
-import os
 from typing import Any
 from urllib import request as urllib_request
+
+from intentforge.config import load_llm_config
 
 
 class LLMProviderUnavailableError(RuntimeError):
@@ -91,9 +92,10 @@ class OpenAICompatibleProvider(LLMProvider):
 
 
 def load_provider_from_env() -> LLMProvider | None:
-    """Load an optional LLM provider from environment variables."""
+    """Load an optional LLM provider from env vars or user config."""
 
-    provider_name = os.getenv("INTENTFORGE_LLM_PROVIDER", "").strip().lower()
+    config = load_llm_config()
+    provider_name = config["provider"].strip().lower()
     if not provider_name:
         return None
     if provider_name == "mock":
@@ -101,9 +103,9 @@ def load_provider_from_env() -> LLMProvider | None:
 
         return MockLLMProvider()
     if provider_name in {"openai", "openai-compatible", "compatible"}:
-        api_key = os.getenv("INTENTFORGE_LLM_API_KEY", "")
-        base_url = os.getenv("INTENTFORGE_LLM_BASE_URL", "https://api.openai.com/v1")
-        model = os.getenv("INTENTFORGE_LLM_MODEL", "")
+        api_key = config["api_key"]
+        base_url = config["base_url"]
+        model = config["model"]
         if not api_key or not model:
             raise LLMProviderUnavailableError(
                 "INTENTFORGE_LLM_API_KEY and INTENTFORGE_LLM_MODEL are required for the OpenAI-compatible provider."

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "intentforge"
-version = "0.9.0"
+version = "0.10.1"
 description = "Intent-preserving deterministic CAD pipeline for editable, validated CadQuery models."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -23,6 +23,7 @@ mcp = [
 ]
 api = [
     "fastapi>=0.110",
+    "httpx>=0.27",
     "uvicorn>=0.29",
 ]
 client = [
@@ -30,6 +31,7 @@ client = [
     "prompt_toolkit>=3.0.38",
 ]
 dev = [
+    "httpx>=0.27",
     "pytest>=8.2",
 ]
 

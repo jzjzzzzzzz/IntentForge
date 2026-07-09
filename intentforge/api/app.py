@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 
+from intentforge import __version__
 from intentforge.api.security import optional_token_auth
 from intentforge.api.routes import register_routes
 
@@ -25,7 +26,7 @@ def create_app() -> "fastapi.FastAPI":
     from fastapi import FastAPI
 
     title = "IntentForge API"
-    version = "0.1.0"
+    version = __version__
     description = (
         "Intent-preserving deterministic CAD pipeline — "
         "HTTP API for parse, build, edit, LLM translation, and harness endpoints."

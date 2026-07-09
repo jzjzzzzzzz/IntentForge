@@ -184,6 +184,78 @@ def test_handle_config_empty_env() -> None:
         handle_config(console)
 
 
+def test_config_wizard_saves_openai_settings(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    """Setup wizard should persist OpenAI-compatible settings without file editing."""
+    from intentforge.client.repl import IFConsole, run_config_wizard
+    from intentforge.config import DEFAULT_OPENAI_BASE_URL, DEFAULT_OPENAI_MODEL, load_llm_config
+
+    monkeypatch.setenv("INTENTFORGE_CONFIG_PATH", str(tmp_path / "config.json"))
+    monkeypatch.delenv("INTENTFORGE_LLM_PROVIDER", raising=False)
+    monkeypatch.delenv("INTENTFORGE_LLM_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    answers = iter(["openai", "", ""])
+
+    def ask(_prompt: str) -> str:
+        return next(answers)
+
+    def ask_secret(_prompt: str) -> str:
+        return "sk-wizard123456789"
+
+    assert run_config_wizard(IFConsole(), ask=ask, ask_secret=ask_secret, show_intro=False) is True
+    config = load_llm_config()
+    assert config["provider"] == "openai-compatible"
+    assert config["base_url"] == DEFAULT_OPENAI_BASE_URL
+    assert config["model"] == DEFAULT_OPENAI_MODEL
+    assert config["api_key"] == "sk-wizard123456789"
+
+
+def test_config_wizard_can_skip(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    """Users can skip optional LLM setup and still use deterministic commands."""
+    from intentforge.client.repl import IFConsole, run_config_wizard
+
+    monkeypatch.setenv("INTENTFORGE_CONFIG_PATH", str(tmp_path / "config.json"))
+
+    assert run_config_wizard(
+        IFConsole(),
+        ask=lambda _prompt: "skip",
+        ask_secret=lambda _prompt: "",
+        show_intro=False,
+    ) is False
+
+
+def test_provider_option_fallback_accepts_number() -> None:
+    """Non-TTY setup fallback should accept numbered choices."""
+    from intentforge.client.repl import PROVIDER_OPTIONS, _ask_option
+
+    assert _ask_option(
+        "Provider",
+        PROVIDER_OPTIONS,
+        "openai",
+        ask=lambda _prompt: "2",
+    ) == "compatible"
+
+
+def test_provider_option_fallback_reprompts_invalid_answer() -> None:
+    """Invalid fallback answers should not silently choose a provider."""
+    from intentforge.client.repl import PROVIDER_OPTIONS, _ask_option
+
+    answers = iter(["bad-provider", "mock"])
+
+    assert _ask_option(
+        "Provider",
+        PROVIDER_OPTIONS,
+        "openai",
+        ask=lambda _prompt: next(answers),
+    ) == "mock"
+
+
+def test_yes_no_fallback_keeps_no_distinct_from_skip() -> None:
+    """Yes/no prompts should parse 'n' as no, not provider skip."""
+    from intentforge.client.repl import _ask_yes_no
+
+    assert _ask_yes_no("Continue?", default=True, ask=lambda _prompt: "n") is False
+
+
 # ── REPL non-interactive tests ───────────────────────────────────────
 
 def test_command_help_list() -> None:

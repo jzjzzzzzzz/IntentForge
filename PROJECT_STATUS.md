@@ -1,6 +1,6 @@
 # Project Status
 
-Current development target: Phase 16 product demo workflow and API client examples on `main`
+Current development target: v0.10.1 release readiness on `main`
 
 Current supported model families:
 
@@ -35,6 +35,7 @@ Current supported model families:
 - Phase 14: optional LLM intent translator with schema guardrails
 - Phase 15: optional local HTTP API server / product backend
 - Phase 16: product demo workflow and API client examples
+- Phase 17: interactive CLI, first-run LLM setup, and Homebrew tap readiness
 
 ## Current Capabilities
 
@@ -69,6 +70,11 @@ Current supported model families:
 - CLI serve subcommand (intentforge serve)
 - product demo workflow examples (api_client_demo.py, product_workflow_demo.py)
 - mocked demo script tests (no live server required)
+- interactive terminal client via `intentforge interactive`
+- first-run setup wizard for optional OpenAI/OpenAI-compatible/mock LLM configuration
+- persistent user config at `~/.intentforge/config.json`
+- `OPENAI_API_KEY` and `INTENTFORGE_LLM_*` provider configuration
+- Homebrew tap install documentation
 
 ## Current Limitations
 
@@ -93,7 +99,7 @@ Current supported model families:
 Release verification:
 
 - `python -m pytest`
-- Last recorded result for Phase 16: 354 passed, 1 skipped (includes 40 API + 12 demo script tests)
+- Last recorded result for v0.10.1: 397 passed, 1 skipped
 
 CadQuery-dependent tests require the optional CAD dependency.
 
@@ -172,8 +178,22 @@ Phase 16 adds product demo workflow scripts and documentation:
 - tests/test_demo_scripts.py — 12 tests (import safety, missing httpx, mocked API steps, rejection)
 - README.md updated with HTTP API and Product Demo sections
 
-All demo scripts fail clearly if API server is not running. No live server in pytest. No release tag.
+All demo scripts fail clearly if API server is not running. No live server in pytest.
+
+## Interactive CLI Status
+
+Phase 17 adds an optional terminal client for user-facing workflows:
+
+- `intentforge interactive` starts the REPL
+- first launch offers optional LLM setup
+- `config setup` can configure OpenAI, an OpenAI-compatible endpoint, the mock provider, or skip LLM setup
+- TTY setup choices use prompt_toolkit-managed arrow-key selection
+- non-TTY setup falls back to typed choices for tests and scripts
+- saved config uses owner-only file permissions where supported
+- API keys are masked when displayed
+
+The deterministic parser, build, edit, benchmark, demo, and API workflows do not require LLM configuration.
 
 ## Next Planned Phase
 
-Phase 17: user workflow templates / agent integration examples.
+Homebrew tap release validation and external installation smoke testing.

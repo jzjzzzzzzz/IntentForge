@@ -34,17 +34,24 @@ skip_no_fastapi = pytest.mark.skipif(
 # ── Global state reset fixture ──────────────────────────────────────
 
 @pytest.fixture(autouse=True)
-def _reset_auth_state():
+def _reset_auth_state(tmp_path: Path):
     """Reset optional_token_auth singleton state before each test."""
     from intentforge.api.security import optional_token_auth
     optional_token_auth._enabled = False
     optional_token_auth._token = None
     os.environ.pop("INTENTFORGE_API_TOKEN", None)
+    os.environ["INTENTFORGE_CONFIG_PATH"] = str(tmp_path / "config.json")
+    os.environ.pop("INTENTFORGE_LLM_PROVIDER", None)
+    os.environ.pop("INTENTFORGE_LLM_API_KEY", None)
+    os.environ.pop("OPENAI_API_KEY", None)
     yield
     optional_token_auth._enabled = False
     optional_token_auth._token = None
     os.environ.pop("INTENTFORGE_API_TOKEN", None)
     os.environ.pop("INTENTFORGE_LLM_PROVIDER", None)
+    os.environ.pop("INTENTFORGE_LLM_API_KEY", None)
+    os.environ.pop("OPENAI_API_KEY", None)
+    os.environ.pop("INTENTFORGE_CONFIG_PATH", None)
 
 
 # ── Helpers ──────────────────────────────────────────────────────────

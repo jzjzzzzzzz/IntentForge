@@ -13,8 +13,19 @@ import json
 import os
 import sys
 import time
+from getpass import getpass
 from pathlib import Path
 from typing import Any
+
+from intentforge.config import (
+    DEFAULT_OPENAI_BASE_URL,
+    DEFAULT_OPENAI_MODEL,
+    default_config_path,
+    llm_configured,
+    load_llm_config,
+    mask_secret,
+    save_llm_config,
+)
 
 # Optional imports — graceful degradation if missing
 try:
@@ -42,12 +53,14 @@ except ImportError:
 # ── Branding ──────────────────────────────────────────────────────────
 
 APP_NAME = "IntentForge"
-VERSION = "0.10.0"
+VERSION = "0.10.1"
 BANNER = f"""
-[cyan]╔══════════════════════════════════════════════════╗[/]
-[cyan]║[/]  [bold white]IntentForge[/] [dim]v{VERSION}[/]                              [cyan]║[/]
-[cyan]║[/]  [dim]Intent-preserving deterministic CAD pipeline[/]    [cyan]║[/]
-[cyan]╚══════════════════════════════════════════════════╝[/]
+[bright_black]..........[/]              [cyan]✦[/]          [bright_black]..........................[/]
+[bright_black]      ·        ░░░[/]       [cyan]▗▄▖[/]        [bright_black]        ░░░░[/]
+[bright_black]   ░░░░░░░      ░░[/]      [cyan]▟██▙[/]       [bold white]IntentForge[/] [dim]v{VERSION}[/]
+[bright_black]    ░░░░░░░░[/]            [cyan]██[/][white]▓▓[/]       [dim]Intent-preserving CAD[/]
+[bright_black]        ░░░       ·[/]     [cyan]▝██▛[/]       [dim]Deterministic. Editable. Validated.[/]
+[bright_black].....................[/]   [cyan]✧[/]      [bright_black]..............................[/]
 """
 
 SIMPLE_BANNER = f"""IntentForge v{VERSION}
@@ -59,7 +72,7 @@ COMMANDS = [
     "edit-parse-apply", "llm-parse", "llm-parse-build",
     "llm-edit-parse", "llm-edit-apply", "demo", "benchmark",
     "doctor", "serve", "help", "quit", "exit", "status",
-    "history", "clear", "config",
+    "history", "clear", "config", "setup",
 ]
 
 COMMAND_HELP = {
@@ -79,11 +92,41 @@ COMMAND_HELP = {
     "status": "Show current session context and model state",
     "history": "Show command history for this session",
     "clear": "Clear screen",
-    "config": "Show / edit LLM configuration",
+    "config": "Show LLM configuration; use 'config setup' to edit",
+    "setup": "Run first-time LLM configuration wizard",
     "help": "Show this help message",
     "quit": "Exit IntentForge",
     "exit": "Exit IntentForge",
 }
+
+PROVIDER_OPTIONS = [
+    (
+        "openai",
+        "OpenAI",
+        "Use api.openai.com; asks for an API key.",
+    ),
+    (
+        "compatible",
+        "OpenAI-compatible endpoint",
+        "Use a custom chat-completions base URL.",
+    ),
+    (
+        "mock",
+        "Mock provider",
+        "No API key; deterministic local testing.",
+    ),
+    (
+        "skip",
+        "Skip LLM setup",
+        "Use deterministic CAD commands only.",
+    ),
+]
+SELECTED_OPTION_MARKER = "●"
+UNSELECTED_OPTION_MARKER = "○"
+OPTION_ROW_PREFIX = "  "
+OPTION_MARKER_WIDTH = 3
+OPTION_LABEL_GAP = "  "
+OPTION_TEXT_INDENT = " " * (len(OPTION_ROW_PREFIX) + OPTION_MARKER_WIDTH + len(OPTION_LABEL_GAP))
 
 
 # ── Console wrapper (works without rich) ─────────────────────────────
@@ -136,6 +179,292 @@ class IFConsole:
             print(f"⏳ {message}")
 
 
+# ── Configuration helpers ───────────────────────────────────────────
+
+def _as_dict(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    if hasattr(value, "model_dump"):
+        return value.model_dump(mode="json")
+    if hasattr(value, "dict"):
+        return value.dict()
+    return {}
+
+
+def _ask_text(prompt: str, default: str = "", *, ask=input) -> str:
+    suffix = f" [{default}]" if default else ""
+    answer = ask(f"{prompt}{suffix}: ").strip()
+    return answer or default
+
+
+def _ask_yes_no(prompt: str, default: bool = True, *, ask=input) -> bool:
+    if ask is input and sys.stdin.isatty() and sys.stdout.isatty():
+        selected = _ask_option(
+            prompt,
+            [
+                ("yes", "Yes", "Continue with this option."),
+                ("no", "No", "Do not continue."),
+            ],
+            "yes" if default else "no",
+            ask=ask,
+        )
+        return selected == "yes"
+
+    suffix = "Y/n" if default else "y/N"
+    answer = ask(f"{prompt} [{suffix}]: ").strip().lower()
+    if not answer:
+        return default
+    return answer in {"y", "yes"}
+
+
+def _normalize_option_answer(
+    answer: str,
+    options: list[tuple[str, str, str]],
+    default: str,
+) -> str | None:
+    normalized = answer.strip().lower()
+    if not normalized:
+        return default
+    if normalized.isdigit():
+        index = int(normalized) - 1
+        if 0 <= index < len(options):
+            return options[index][0]
+        return None
+    option_values = {value for value, _, _ in options}
+    aliases = {}
+    if "skip" in option_values:
+        aliases.update(
+            {
+                "none": "skip",
+                "no": "skip",
+                "openai-compatible": "compatible",
+                "compatible endpoint": "compatible",
+            }
+        )
+    if option_values == {"yes", "no"}:
+        aliases.update({"y": "yes", "n": "no"})
+    normalized = aliases.get(normalized, normalized)
+    for value, label, _ in options:
+        if normalized in {value.lower(), label.lower()}:
+            return value
+    return None
+
+
+def _select_option_with_arrows(
+    prompt: str,
+    options: list[tuple[str, str, str]],
+    default: str,
+) -> str:
+    """Select an option with prompt_toolkit-managed rendering."""
+
+    from prompt_toolkit.application import Application
+    from prompt_toolkit.key_binding import KeyBindings
+    from prompt_toolkit.layout import Layout
+    from prompt_toolkit.layout.containers import Window
+    from prompt_toolkit.layout.controls import FormattedTextControl
+    from prompt_toolkit.styles import Style
+
+    selected_index = next(
+        (idx for idx, option in enumerate(options) if option[0] == default),
+        0,
+    )
+
+    def fragments() -> list[tuple[str, str]]:
+        result: list[tuple[str, str]] = [
+            ("class:prompt", f"{prompt}\n"),
+            ("class:hint", "Use ↑/↓ to move. Press Enter to confirm.\n\n"),
+        ]
+        for idx in range(len(options)):
+            _, label, _ = options[idx]
+            is_selected = idx == selected_index
+            marker = SELECTED_OPTION_MARKER if is_selected else UNSELECTED_OPTION_MARKER
+            style = "class:option.selected" if is_selected else "class:option"
+            result.extend(
+                [
+                    (style, OPTION_ROW_PREFIX),
+                    (style, f"({marker})"),
+                    (style, OPTION_LABEL_GAP),
+                    (style, f"{label}\n"),
+                ]
+            )
+        result.extend(
+            [
+                ("", "\n"),
+                ("class:description", f"{OPTION_TEXT_INDENT}{options[selected_index][2]}"),
+            ]
+        )
+        return result
+
+    def move_selection(next_selected: int) -> None:
+        nonlocal selected_index
+        if next_selected == selected_index:
+            return
+        selected_index = next_selected
+        app.invalidate()
+
+    kb = KeyBindings()
+
+    @kb.add("up")
+    @kb.add("k")
+    @kb.add("p")
+    def _move_up(event) -> None:
+        move_selection((selected_index - 1) % len(options))
+
+    @kb.add("down")
+    @kb.add("j")
+    @kb.add("n")
+    def _move_down(event) -> None:
+        move_selection((selected_index + 1) % len(options))
+
+    @kb.add("enter")
+    def _accept(event) -> None:
+        event.app.exit(result=options[selected_index][0])
+
+    @kb.add("c-c")
+    def _cancel(event) -> None:
+        event.app.exit(exception=KeyboardInterrupt)
+
+    style = Style.from_dict(
+        {
+            "prompt": "bold",
+            "hint": "ansibrightblack",
+            "option": "",
+            "option.selected": "bold",
+            "description": "ansibrightblack",
+        }
+    )
+    control = FormattedTextControl(fragments, focusable=True, show_cursor=False)
+    app: Application[str] = Application(
+        layout=Layout(Window(content=control, dont_extend_height=True)),
+        key_bindings=kb,
+        style=style,
+        full_screen=False,
+        mouse_support=False,
+    )
+    return app.run()
+
+
+def _ask_option(
+    prompt: str,
+    options: list[tuple[str, str, str]],
+    default: str,
+    *,
+    ask=input,
+) -> str:
+    """Choose from named options; uses arrows in TTY and text fallback elsewhere."""
+
+    if ask is input and sys.stdin.isatty() and sys.stdout.isatty():
+        try:
+            return _select_option_with_arrows(prompt, options, default)
+        except (ImportError, OSError):
+            pass
+
+    choices = "/".join(value for value, _, _ in options)
+    while True:
+        answer = _ask_text(f"{prompt} ({choices})", default, ask=ask)
+        value = _normalize_option_answer(answer, options, default)
+        if value is not None:
+            return value
+        print(f"Choose one of: {choices}, or enter 1-{len(options)}.")
+
+
+def _set_current_process_llm_env(config: dict[str, str]) -> None:
+    """Make saved setup usable immediately in the current REPL process."""
+
+    os.environ["INTENTFORGE_LLM_PROVIDER"] = config["provider"]
+    if config.get("base_url"):
+        os.environ["INTENTFORGE_LLM_BASE_URL"] = config["base_url"]
+    if config.get("model"):
+        os.environ["INTENTFORGE_LLM_MODEL"] = config["model"]
+    if config.get("api_key"):
+        os.environ["INTENTFORGE_LLM_API_KEY"] = config["api_key"]
+
+
+def run_config_wizard(
+    console: IFConsole,
+    *,
+    ask=input,
+    ask_secret=getpass,
+    show_intro: bool = True,
+) -> bool:
+    """Run a small first-time setup wizard for optional LLM translation."""
+
+    if show_intro:
+        console.print_panel(
+            "LLM Setup",
+            "\n".join(
+                [
+                    "IntentForge deterministic CAD commands work without an LLM.",
+                    "Optional LLM translation can turn flexible wording into supported intent JSON.",
+                    "The LLM never generates CAD code or bypasses deterministic validation.",
+                ]
+            ),
+        )
+
+    provider_choice = _ask_option(
+        "Provider",
+        PROVIDER_OPTIONS,
+        "openai",
+        ask=ask,
+    )
+    if provider_choice == "skip":
+        console.print("[dim]Skipped optional LLM setup. Deterministic commands remain available.[/]")
+        return False
+
+    if provider_choice == "mock":
+        config_path = save_llm_config(provider="mock")
+        _set_current_process_llm_env(
+            {"provider": "mock", "base_url": "", "model": "", "api_key": ""}
+        )
+        console.print(f"[green]Saved mock LLM config:[/] {config_path}")
+        return True
+
+    provider = "openai-compatible"
+    default_base_url = DEFAULT_OPENAI_BASE_URL if provider_choice == "openai" else ""
+    base_url = _ask_text("Base URL", default_base_url, ask=ask)
+    if not base_url:
+        base_url = DEFAULT_OPENAI_BASE_URL
+    model = _ask_text("Model", DEFAULT_OPENAI_MODEL, ask=ask)
+
+    existing_key = os.environ.get("INTENTFORGE_LLM_API_KEY", "") or os.environ.get("OPENAI_API_KEY", "")
+    if existing_key and _ask_yes_no("Use existing API key from environment?", True, ask=ask):
+        api_key = existing_key
+    else:
+        api_key = ask_secret("API key (input hidden; leave blank to skip): ").strip()
+        if not api_key:
+            console.print("[yellow]No API key saved. Run 'config setup' when ready.[/]")
+            return False
+
+    config_path = save_llm_config(
+        provider=provider,
+        base_url=base_url,
+        model=model,
+        api_key=api_key,
+    )
+    _set_current_process_llm_env(
+        {
+            "provider": provider,
+            "base_url": base_url,
+            "model": model,
+            "api_key": api_key,
+        }
+    )
+    console.print(f"[green]Saved LLM config:[/] {config_path}")
+    return True
+
+
+def offer_initial_setup(console: IFConsole) -> None:
+    """Offer first-run setup without blocking non-interactive invocations."""
+
+    if llm_configured() or not sys.stdin.isatty():
+        return
+    console.print("[dim]Optional OpenAI/LLM translation is not configured.[/]")
+    if _ask_yes_no("Set it up now?", True):
+        run_config_wizard(console, show_intro=False)
+    else:
+        console.print("[dim]You can run 'config setup' later.[/]")
+
+
 # ── Session state ─────────────────────────────────────────────────────
 
 class Session:
@@ -182,15 +511,19 @@ class Session:
 def handle_parse(console: IFConsole, session: Session, prompt_text: str) -> None:
     """Run deterministic parse workflow."""
     from intentforge.workflows import parse_prompt_workflow
-    from intentforge.schemas import IntentSpec
 
     console.print_spinner("Parsing intent...", 0.1)
     try:
         result = parse_prompt_workflow(prompt_text)
-        intent = result.intent
-        session.current_target = intent.object_type
-        session.last_intent = intent.model_dump() if hasattr(intent, "model_dump") else intent.dict()
-        session.last_run_id = result.run_id
+        if not result.get("ok"):
+            _display_error(console, result)
+            session.record("parse", prompt_text, f"error: {result.get('message') or result.get('error_type')}")
+            return
+
+        intent = result["intent"]
+        session.current_target = result.get("object_type") or intent.get("family")
+        session.last_intent = intent
+        session.last_run_id = result.get("run_id") or result.get("request_id")
         session.record("parse", prompt_text, "ok")
 
         _display_intent(console, intent)
@@ -211,16 +544,22 @@ def handle_parse_build(console: IFConsole, session: Session, prompt_text: str,
     console.print_spinner("Starting parse-build workflow...", 0.1)
 
     try:
-        result = parse_build_workflow(prompt_text, dry_run=dry_run)
-        intent = result.intent
-        session.current_target = intent.object_type
-        session.last_intent = intent.model_dump() if hasattr(intent, "model_dump") else intent.dict()
-        session.last_params = result.params.model_dump() if hasattr(result.params, "model_dump") else result.params.dict()
-        session.last_run_id = result.run_id
+        result = parse_build_workflow(prompt_text, session.output_dir, dry_run=dry_run)
+        if not result.get("ok") and "validation_report" not in result:
+            _display_error(console, result)
+            session.record("parse-build", prompt_text, f"error: {result.get('message') or result.get('error_type')}")
+            return
+
+        intent = result["intent"]
+        params = result["parameters"]
+        session.current_target = result.get("object_type") or intent.get("family")
+        session.last_intent = intent
+        session.last_params = params
+        session.last_run_id = result.get("run_id") or result.get("request_id")
         session.record("parse-build", prompt_text, "ok")
 
         _display_intent(console, intent)
-        _display_params(console, result.params)
+        _display_params(console, params)
         _display_build_result(console, result, dry_run)
     except Exception as e:
         console.print(f"[red]Error:[/] {e}")
@@ -240,11 +579,19 @@ def handle_edit(console: IFConsole, session: Session, target: str,
     console.print_spinner(f"Editing {effective_target}...", 0.1)
 
     try:
-        result = edit_parse_apply_workflow(effective_target, edit_text)
-        session.current_target = effective_target
-        session.last_intent = result.updated_intent.model_dump() if hasattr(result.updated_intent, "model_dump") else result.updated_intent.dict()
-        session.last_params = result.updated_params.model_dump() if hasattr(result.updated_params, "model_dump") else result.updated_params.dict()
-        session.last_run_id = result.run_id
+        result = edit_parse_apply_workflow(effective_target, edit_text, session.output_dir)
+        if not result.get("ok") and not result.get("accepted"):
+            _display_edit_result(console, result)
+            session.record("edit-parse-apply", edit_text, f"error: {result.get('message') or result.get('error_type')}")
+            return
+
+        session.current_target = result.get("object_type") or effective_target
+        edit_report = result.get("edit_report", {})
+        metadata = edit_report.get("metadata", {}) if isinstance(edit_report, dict) else {}
+        updated_params = metadata.get("updated_parameter_table")
+        if updated_params:
+            session.last_params = updated_params
+        session.last_run_id = result.get("run_id") or result.get("request_id")
         session.record("edit-parse-apply", edit_text, "ok")
 
         _display_edit_result(console, result)
@@ -257,19 +604,28 @@ def handle_llm_parse(console: IFConsole, session: Session, prompt_text: str) -> 
     """Run LLM translation + deterministic parse workflow."""
     from intentforge.llm import load_provider_from_env, translate_prompt_to_intent
 
-    provider = load_provider_from_env()
+    try:
+        provider = load_provider_from_env()
+    except Exception as e:
+        console.print(f"[yellow]LLM provider is not usable:[/] {e}")
+        return
     if provider is None:
-        console.print("[yellow]No LLM provider configured. Set INTENTFORGE_LLM_* env vars or run 'config'.[/]")
+        console.print("[yellow]No LLM provider configured. Run 'config setup' or set OPENAI_API_KEY.[/]")
         return
 
     console.print_spinner("Translating via LLM...", 0.5)
 
     try:
-        result = translate_prompt_to_intent(provider, prompt_text)
-        intent = result.intent
-        session.current_target = intent.object_type
-        session.last_intent = intent.model_dump() if hasattr(intent, "model_dump") else intent.dict()
-        session.last_run_id = result.run_id
+        result = translate_prompt_to_intent(prompt_text, provider)
+        if not result.get("ok"):
+            _display_error(console, result, label="LLM Error")
+            session.record("llm-parse", prompt_text, f"error: {result.get('message') or result.get('error_type')}")
+            return
+
+        intent = result["intent"]
+        session.current_target = result.get("object_type") or intent.get("family")
+        session.last_intent = intent
+        session.last_run_id = result.get("run_id") or result.get("request_id")
         session.record("llm-parse", prompt_text, "ok")
 
         _display_intent(console, intent)
@@ -284,24 +640,34 @@ def handle_llm_parse_build(console: IFConsole, session: Session,
     """Run LLM translation + parse + build workflow."""
     from intentforge.llm import load_provider_from_env, translate_prompt_to_build
 
-    provider = load_provider_from_env()
+    try:
+        provider = load_provider_from_env()
+    except Exception as e:
+        console.print(f"[yellow]LLM provider is not usable:[/] {e}")
+        return
     if provider is None:
-        console.print("[yellow]No LLM provider configured.[/]")
+        console.print("[yellow]No LLM provider configured. Run 'config setup' or set OPENAI_API_KEY.[/]")
         return
 
     console.print_spinner("Translating via LLM + building...", 0.5)
 
     try:
-        result = translate_prompt_to_build(provider, prompt_text, dry_run=dry_run)
-        intent = result.intent
-        session.current_target = intent.object_type
-        session.last_intent = intent.model_dump() if hasattr(intent, "model_dump") else intent.dict()
-        session.last_params = result.params.model_dump() if hasattr(result.params, "model_dump") else result.params.dict()
-        session.last_run_id = result.run_id
+        result = translate_prompt_to_build(prompt_text, provider, session.output_dir, dry_run=dry_run)
+        if not result.get("ok") and "validation_report" not in result:
+            _display_error(console, result, label="LLM Build Error")
+            session.record("llm-parse-build", prompt_text, f"error: {result.get('message') or result.get('error_type')}")
+            return
+
+        intent = result["intent"]
+        params = result["parameters"]
+        session.current_target = result.get("object_type") or intent.get("family")
+        session.last_intent = intent
+        session.last_params = params
+        session.last_run_id = result.get("run_id") or result.get("request_id")
         session.record("llm-parse-build", prompt_text, "ok")
 
         _display_intent(console, intent)
-        _display_params(console, result.params)
+        _display_params(console, params)
         _display_build_result(console, result, dry_run)
         console.print("[green]✓ LLM translation + build successful[/]")
     except Exception as e:
@@ -346,7 +712,7 @@ def handle_doctor(console: IFConsole) -> None:
         checks.append(("MCP", False, "install with: pip install -e '.[mcp]'"))
 
     # Check LLM config
-    llm_provider = os.environ.get("INTENTFORGE_LLM_PROVIDER", "")
+    llm_provider = load_llm_config()["provider"]
     if llm_provider:
         checks.append(("LLM Provider", True, llm_provider))
     else:
@@ -377,27 +743,19 @@ def handle_doctor(console: IFConsole) -> None:
 
 def handle_config(console: IFConsole) -> None:
     """Show current LLM configuration."""
-    keys = [
-        "INTENTFORGE_LLM_PROVIDER",
-        "INTENTFORGE_LLM_BASE_URL",
-        "INTENTFORGE_LLM_MODEL",
-        "INTENTFORGE_LLM_API_KEY",
-        "INTENTFORGE_OUTPUT_DIR",
-        "INTENTFORGE_API_HOST",
-        "INTENTFORGE_API_PORT",
-        "INTENTFORGE_API_TOKEN",
+    config = load_llm_config()
+    lines = [
+        f"  Config file = {default_config_path()}",
+        f"  LLM configured = {str(llm_configured()).lower()}",
+        f"  Provider = {config['provider'] or '[dim](not set)[/]'}",
+        f"  Base URL = {config['base_url'] or '[dim](not set)[/]'}",
+        f"  Model = {config['model'] or '[dim](not set)[/]'}",
+        f"  API key = {mask_secret(config['api_key']) if config['api_key'] else '[dim](not set)[/]'}",
+        f"  Output dir = {os.environ.get('INTENTFORGE_OUTPUT_DIR', 'output')}",
+        f"  API token = {mask_secret(os.environ.get('INTENTFORGE_API_TOKEN', '')) if os.environ.get('INTENTFORGE_API_TOKEN') else '[dim](not set)[/]'}",
+        "",
+        "Run 'config setup' to configure or update the optional LLM provider.",
     ]
-    lines = []
-    for key in keys:
-        val = os.environ.get(key, "")
-        # Mask API key
-        if "API_KEY" in key and val:
-            masked = val[:6] + "..." + val[-4:] if len(val) > 10 else "***"
-            lines.append(f"  {key} = {masked}")
-        elif val:
-            lines.append(f"  {key} = {val}")
-        else:
-            lines.append(f"  {key} = [dim](not set)[/]")
 
     console.print_panel("Configuration", "\n".join(lines))
 
@@ -433,11 +791,30 @@ def handle_history(console: IFConsole, session: Session) -> None:
 
 # ── Display helpers ───────────────────────────────────────────────────
 
+def _display_error(console: IFConsole, result: dict[str, Any], label: str = "Error") -> None:
+    error = result.get("error") or {}
+    message = (
+        error.get("message")
+        or result.get("message")
+        or result.get("error_type")
+        or "Command failed."
+    )
+    lines = [f"[red]{message}[/]"]
+    error_type = error.get("error_type") or result.get("error_type")
+    if error_type:
+        lines.append(f"Error type: {error_type}")
+    if error.get("suggested_action"):
+        lines.append(f"Suggested action: {error['suggested_action']}")
+    if result.get("request_id"):
+        lines.append(f"Request ID: {result['request_id']}")
+    console.print_panel(label, "\n".join(lines), style="red")
+
+
 def _display_intent(console: IFConsole, intent: Any) -> None:
     """Pretty-print parsed intent."""
-    data = intent.model_dump() if hasattr(intent, "model_dump") else intent.dict()
+    data = _as_dict(intent)
 
-    obj_type = data.get("object_type", "?")
+    obj_type = data.get("object_type") or data.get("family") or "?"
     units = data.get("units", "mm")
     assumptions = data.get("assumptions", [])
     unknowns = data.get("unknowns", [])
@@ -479,8 +856,8 @@ def _display_intent(console: IFConsole, intent: Any) -> None:
 
 def _display_params(console: IFConsole, params: Any) -> None:
     """Pretty-print parameter table."""
-    data = params.model_dump() if hasattr(params, "model_dump") else params.dict()
-    parameters = data.get("parameters", {})
+    data = _as_dict(params)
+    parameters = data.get("parameters", [])
 
     if HAS_RICH:
         table = Table(title="Parameters", show_header=True)
@@ -490,23 +867,36 @@ def _display_params(console: IFConsole, params: Any) -> None:
         table.add_column("Source")
         table.add_column("Locked")
 
-        for name, pdata in parameters.items():
-            if isinstance(pdata, dict):
-                val = pdata.get("value", "?")
-                unit = pdata.get("unit", "")
-                source = pdata.get("source", "?")
-                locked = pdata.get("locked", False)
-                lock_icon = "[red]🔒[/]" if locked else "[dim]—[/]"
-                source_color = "cyan" if source == "user_specified" else "yellow" if source == "default" else "dim"
-                table.add_row(name, str(val), unit, source, lock_icon)
+        for name, pdata in _iter_parameters(parameters):
+            val = pdata.get("value", "?")
+            unit = pdata.get("unit", "")
+            source = pdata.get("source", "?")
+            locked = pdata.get("locked", False)
+            lock_icon = "[red]🔒[/]" if locked else "[dim]—[/]"
+            table.add_row(name, str(val), unit or "", source, lock_icon)
         console.print_table(table)
     else:
-        for name, pdata in parameters.items():
+        for name, pdata in _iter_parameters(parameters):
+            val = pdata.get("value", "?")
+            unit = pdata.get("unit", "")
+            source = pdata.get("source", "?")
+            print(f"  {name} = {val} {unit} ({source})")
+
+
+def _iter_parameters(parameters: Any) -> list[tuple[str, dict[str, Any]]]:
+    if isinstance(parameters, dict):
+        return [
+            (name, pdata)
+            for name, pdata in parameters.items()
+            if isinstance(pdata, dict)
+        ]
+    if isinstance(parameters, list):
+        rows = []
+        for pdata in parameters:
             if isinstance(pdata, dict):
-                val = pdata.get("value", "?")
-                unit = pdata.get("unit", "")
-                source = pdata.get("source", "?")
-                print(f"  {name} = {val} {unit} ({source})")
+                rows.append((str(pdata.get("name", "?")), pdata))
+        return rows
+    return []
 
 
 def _display_build_result(console: IFConsole, result: Any, dry_run: bool) -> None:
@@ -515,50 +905,57 @@ def _display_build_result(console: IFConsole, result: Any, dry_run: bool) -> Non
         console.print("[yellow]Dry run — no STEP/STL files exported[/]")
         return
 
+    data = _as_dict(result)
     lines = []
-    if hasattr(result, "cad_exported") and result.cad_exported:
+    latest_outputs = data.get("latest_outputs", {})
+    if data.get("cad_exported"):
         lines.append("[green]✓ STEP/STL files exported[/]")
-    elif hasattr(result, "step_path") and result.step_path:
-        lines.append(f"[green]✓ STEP:[/] {result.step_path}")
-        if hasattr(result, "stl_path") and result.stl_path:
-            lines.append(f"[green]✓ STL:[/]  {result.stl_path}")
+        if latest_outputs.get("step"):
+            lines.append(f"[green]STEP:[/] {latest_outputs['step']}")
+        if latest_outputs.get("stl"):
+            lines.append(f"[green]STL:[/]  {latest_outputs['stl']}")
     else:
         lines.append("[dim]No CAD export (CadQuery not available)[/]")
 
-    if hasattr(result, "validation_report"):
-        vr = result.validation_report
-        if vr and hasattr(vr, "checks"):
-            passed = sum(1 for c in vr.checks if c.passed)
-            total = len(vr.checks)
-            lines.append(f"[bold]Validation:[/] {passed}/{total} checks passed")
-            if passed < total:
-                failed = [c for c in vr.checks if not c.passed]
-                for c in failed[:3]:
-                    lines.append(f"  [red]✗[/] {c.name}: expected {c.expected}, got {c.actual}")
+    validation_report = data.get("validation_report") or {}
+    checks = validation_report.get("checks", []) if isinstance(validation_report, dict) else []
+    if checks:
+        passed = sum(1 for c in checks if isinstance(c, dict) and c.get("status") in {"pass", "warning"})
+        total = len(checks)
+        lines.append(f"[bold]Validation:[/] {passed}/{total} checks passed")
+        if passed < total:
+            failed = [c for c in checks if isinstance(c, dict) and c.get("status") == "fail"]
+            for c in failed[:3]:
+                lines.append(f"  [red]✗[/] {c.get('name', '?')}: {c.get('message', 'failed')}")
 
     console.print_panel("Build Result", "\n".join(lines))
 
 
 def _display_edit_result(console: IFConsole, result: Any) -> None:
     """Pretty-print edit result."""
+    data = _as_dict(result)
     lines = []
 
-    if hasattr(result, "edit_report"):
-        er = result.edit_report
-        if isinstance(er, dict):
-            changes = er.get("changes", [])
-            preserved = er.get("preserved", [])
-            lines.append(f"[bold]Changes:[/] {len(changes)} parameter(s) modified")
-            for c in changes[:5]:
-                lines.append(f"  [cyan]→[/] {c}")
-            lines.append(f"[bold]Preserved:[/] {len(preserved)} parameter(s) unchanged")
-            for p in preserved[:3]:
-                lines.append(f"  [green]✓[/] {p}")
+    if not data.get("accepted", data.get("ok", False)):
+        lines.append(f"[red]{data.get('message', 'Edit was rejected.')}[/]")
 
-    if hasattr(result, "updated_intent"):
-        lines.append(f"\n[bold]Updated intent:[/] {result.updated_intent.object_type}")
+    er = data.get("edit_report")
+    if isinstance(er, dict):
+        changes = er.get("changed_parameters", [])
+        preserved = er.get("preserved_parameters", [])
+        lines.append(f"[bold]Changes:[/] {len(changes)} parameter(s) modified")
+        for c in changes[:5]:
+            lines.append(f"  [cyan]→[/] {c}")
+        lines.append(f"[bold]Preserved:[/] {len(preserved)} parameter(s) unchanged")
+        for p in preserved[:3]:
+            lines.append(f"  [green]✓[/] {p}")
 
-    console.print_panel("Edit Result", "\n".join(lines))
+    if data.get("object_type"):
+        lines.append(f"\n[bold]Object type:[/] {data['object_type']}")
+    if data.get("persistent_output_dir"):
+        lines.append(f"[bold]Output:[/] {data['persistent_output_dir']}")
+
+    console.print_panel("Edit Result", "\n".join(lines) or "No edit details available.")
 
 
 # ── Input parser ──────────────────────────────────────────────────────
@@ -622,9 +1019,11 @@ def run_interactive() -> None:
         print(SIMPLE_BANNER)
 
     # LLM status hint
-    llm_provider = os.environ.get("INTENTFORGE_LLM_PROVIDER", "")
+    offer_initial_setup(console)
+    llm_config = load_llm_config()
+    llm_provider = llm_config["provider"]
     if llm_provider:
-        console.print(f"[dim]LLM: {llm_provider} ({os.environ.get('INTENTFORGE_LLM_MODEL', '?')})[/]")
+        console.print(f"[dim]LLM: {llm_provider} ({llm_config['model'] or 'no model'})[/]")
     else:
         console.print("[dim]LLM: not configured (core features still work)[/]")
 
@@ -634,7 +1033,7 @@ def run_interactive() -> None:
     history_file = Path.home() / ".intentforge" / "cli_history"
     history_file.parent.mkdir(parents=True, exist_ok=True)
 
-    if HAS_PROMPT_TOOLKIT:
+    if HAS_PROMPT_TOOLKIT and sys.stdin.isatty():
         completer = WordCompleter(COMMANDS, ignore_case=True)
         psession = PromptSession(
             history=FileHistory(str(history_file)),
@@ -694,7 +1093,13 @@ def run_interactive() -> None:
             handle_doctor(console)
 
         elif cmd == "config":
-            handle_config(console)
+            if args and args[0] in {"setup", "init", "edit"}:
+                run_config_wizard(console)
+            else:
+                handle_config(console)
+
+        elif cmd == "setup":
+            run_config_wizard(console)
 
         elif cmd == "parse":
             if not args:
