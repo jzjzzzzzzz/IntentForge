@@ -362,6 +362,62 @@ output/harness/technical_harness_summary.txt
 output/harness/technical_harness_runs/<run_id>/
 ```
 
+## HTTP API Server
+
+IntentForge ships an optional local HTTP API server (Phase 15).  It is a thin FastAPI layer over the same deterministic workflows, returning contract-compatible `ToolResponse` envelopes on every endpoint.
+
+Install API dependencies:
+
+```bash
+python -m pip install -e ".[api]"
+```
+
+Start the server:
+
+```bash
+intentforge serve
+# or:  python -m intentforge.api.server
+# with auth:  intentforge serve --token my-secret-token
+# custom host/port:  intentforge serve --host 0.0.0.0 --port 9000
+```
+
+API docs are at `http://127.0.0.1:8000/docs`.
+
+Key endpoints:
+
+- `GET /health` — health check
+- `POST /v1/parse` — deterministic prompt parsing
+- `POST /v1/parse-build` — parse, build STEP/STL, validate (supports `dry_run`)
+- `POST /v1/edit-apply` — parse and apply edit (supports `dry_run`)
+- `POST /v1/llm/parse` / `/llm/parse-build` / `/llm/edit-parse` / `/llm/edit-apply` — optional LLM translation
+- `GET /v1/runs/recent` / `/runs/{kind}/{run_id}` — run metadata
+- `GET /v1/artifacts/{path}` — safe artifact file serving
+
+See [docs/api_contract.md](docs/api_contract.md) and [docs/product_demo.md](docs/product_demo.md).
+
+## Product Demo Workflow
+
+Two demo scripts show how a real user or external agent would call IntentForge end-to-end via the HTTP API:
+
+```bash
+# Start the server first:
+intentforge serve
+
+# Minimal 5-step API client demo:
+python examples/api_client_demo.py
+
+# Full 7-step product workflow demo (parse → dry-run → build → edit → validate → rejection → artifact list):
+python examples/product_workflow_demo.py
+```
+
+Both scripts fail clearly if the API server is not running.  With auth:
+
+```bash
+python examples/api_client_demo.py --token my-secret-token
+```
+
+See [docs/product_demo.md](docs/product_demo.md) for the full walkthrough.
+
 Phase 12 adds this harness command only; it does not create a new release tag.
 
 ## MCP Usage
