@@ -66,7 +66,7 @@ def _import_cadquery() -> Any:
     except ImportError as exc:
         raise CadQueryUnavailableError(
             "CadQuery is required to build or export CAD models. "
-            "Install it with: python -m pip install -e '.[cad]'"
+            "Install it with: python -m pip install \"intentforge[cad]\""
         ) from exc
     return cq
 

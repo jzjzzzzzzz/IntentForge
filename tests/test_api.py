@@ -27,7 +27,7 @@ import pytest
 
 skip_no_fastapi = pytest.mark.skipif(
     not FASTAPI_AVAILABLE,
-    reason="FastAPI and httpx are required for API tests. Install with: pip install -e '.[api]'",
+    reason="FastAPI and httpx are required for API tests. Install with: python -m pip install \"intentforge[api]\"",
 )
 
 

@@ -5,7 +5,7 @@ IntentForge includes an optional MCP wrapper so coding agents can call the deter
 ## Installation
 
 ```bash
-python -m pip install -e ".[mcp]"
+python -m pip install "intentforge[mcp]"
 ```
 
 Core IntentForge functionality does not require MCP. MCP tests that require the protocol package may be skipped when the optional dependency is unavailable.

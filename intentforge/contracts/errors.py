@@ -66,7 +66,7 @@ def suggested_action_for_error(error_type: str, message: str = "") -> str:
 
     normalized = normalize_error_type(error_type, message)
     if normalized == "CadBackendUnavailableError":
-        return "Install the CadQuery optional dependency with: python -m pip install -e '.[cad]'."
+        return "Install the CadQuery optional dependency with: python -m pip install \"intentforge[cad]\"."
     if normalized == "UnsupportedObjectError":
         return "Use one of the supported model families: wall_mounted_bracket or l_bracket."
     if normalized == "UnsupportedGeometryError":

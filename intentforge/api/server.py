@@ -36,7 +36,7 @@ def serve(host: str = "127.0.0.1", port: int = 8765, token: str | None = None) -
     except ImportError:
         print(
             "Error: uvicorn is required to run the IntentForge HTTP API server.\n"
-            "Install it with: python -m pip install -e '.[api]'",
+            "Install it with: python -m pip install \"intentforge[api]\"",
             file=sys.stderr,
         )
         return 1

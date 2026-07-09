@@ -90,33 +90,30 @@ Unsupported by design in this phase:
 
 ## Installation
 
-Create an environment and install the development dependencies:
+Create an environment and install the released package:
 
 ```bash
 python -m venv .venv
 . .venv/bin/activate
-python -m pip install -r requirements.txt
+python -m pip install intentforge
 ```
 
-Or install via Homebrew (macOS):
+Or install the source tree in editable mode for development:
 
 ```bash
-brew tap jzjzzzzzzz/intentforge
-brew install intentforge
+python -m pip install -e .
 ```
-
-Direct `brew install intentforge` without `brew tap` works only after the formula is accepted into Homebrew core. Until then, external users must install from the project tap first.
 
 CadQuery is optional for non-CAD parser tests, but required for real STEP/STL generation:
 
 ```bash
-python -m pip install -e ".[cad]"
+python -m pip install "intentforge[cad]"
 ```
 
 Optional MCP support is installed separately:
 
 ```bash
-python -m pip install -e ".[mcp]"
+python -m pip install "intentforge[mcp]"
 ```
 
 Optional LLM translation can be configured from the interactive client. You do not need to edit files by hand:
@@ -124,7 +121,7 @@ Optional LLM translation can be configured from the interactive client. You do n
 ```bash
 intentforge interactive
 # then follow the first-run setup prompt, or run:
-config setup
+intentforge config setup
 ```
 
 IntentForge also accepts `OPENAI_API_KEY` and the `INTENTFORGE_LLM_*` environment variables for non-interactive use. Do not commit real keys.
@@ -132,7 +129,7 @@ IntentForge also accepts `OPENAI_API_KEY` and the `INTENTFORGE_LLM_*` environmen
 For the interactive terminal client (Claude Code-like experience):
 
 ```bash
-python -m pip install -e ".[client]"
+python -m pip install "intentforge[client]"
 intentforge interactive
 ```
 
@@ -393,7 +390,7 @@ IntentForge ships an optional local HTTP API server (Phase 15).  It is a thin Fa
 Install API dependencies:
 
 ```bash
-python -m pip install -e ".[api]"
+python -m pip install "intentforge[api]"
 ```
 
 Start the server:
@@ -431,7 +428,7 @@ IntentForge ships an optional interactive terminal client (like Claude Code's ex
 Install client dependencies:
 
 ```bash
-python -m pip install -e ".[client]"
+python -m pip install "intentforge[client]"
 ```
 
 Start the interactive session:

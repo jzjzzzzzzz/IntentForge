@@ -1,7 +1,7 @@
 """Optional FastAPI HTTP API layer for IntentForge.
 
 This module is only usable when the ``api`` optional extra is installed:
-    python -m pip install -e '.[api]'
+    python -m pip install "intentforge[api]"
 
 All endpoints return contract-compatible ToolResponse envelopes.
 """

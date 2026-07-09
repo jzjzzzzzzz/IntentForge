@@ -9,7 +9,7 @@ how to run it.
 
 ```bash
 # Install API dependencies (if not already installed)
-python -m pip install -e ".[api]"
+python -m pip install "intentforge[api]"
 
 # Start the local server via python -m entry point (reads env vars):
 python -m intentforge.api.server

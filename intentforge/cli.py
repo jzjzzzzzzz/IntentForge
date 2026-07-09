@@ -900,7 +900,7 @@ def _package_installed(module_name: str) -> bool:
 def _cadquery_required_message(command: str) -> str:
     return (
         f"CadQuery is required to run `{command}` because it builds and validates real CAD models. "
-        "Install it with: python -m pip install -e '.[cad]'"
+        "Install it with: python -m pip install \"intentforge[cad]\""
     )
 
 

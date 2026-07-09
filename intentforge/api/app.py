@@ -20,7 +20,7 @@ def create_app() -> "fastapi.FastAPI":
     except ImportError as exc:
         raise RuntimeError(
             "The optional FastAPI dependency is required to run the IntentForge HTTP API. "
-            "Install it with: python -m pip install -e '.[api]'"
+            "Install it with: python -m pip install \"intentforge[api]\""
         ) from exc
 
     from fastapi import FastAPI

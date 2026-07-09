@@ -697,19 +697,19 @@ def handle_doctor(console: IFConsole) -> None:
         import cadquery
         checks.append(("CadQuery", True, cadquery.__version__))
     except ImportError:
-        checks.append(("CadQuery", False, "install with: pip install -e '.[cad]'"))
+        checks.append(("CadQuery", False, "install with: python -m pip install \"intentforge[cad]\""))
 
     try:
         import fastapi
         checks.append(("FastAPI", True, fastapi.__version__))
     except ImportError:
-        checks.append(("FastAPI", False, "install with: pip install -e '.[api]'"))
+        checks.append(("FastAPI", False, "install with: python -m pip install \"intentforge[api]\""))
 
     try:
         import mcp
         checks.append(("MCP", True, "available"))
     except ImportError:
-        checks.append(("MCP", False, "install with: pip install -e '.[mcp]'"))
+        checks.append(("MCP", False, "install with: python -m pip install \"intentforge[mcp]\""))
 
     # Check LLM config
     llm_provider = load_llm_config()["provider"]

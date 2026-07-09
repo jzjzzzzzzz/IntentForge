@@ -62,7 +62,7 @@ def serve_artifact_file(relative_path: str) -> "fastapi.responses.FileResponse":
     except ImportError as exc:
         raise RuntimeError(
             "FastAPI is required for artifact file serving. "
-            "Install it with: python -m pip install -e '.[api]'"
+            "Install it with: python -m pip install \"intentforge[api]\""
         ) from exc
 
     safe_path = safe_artifact_path(relative_path)
