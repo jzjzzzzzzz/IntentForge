@@ -26,6 +26,15 @@ from intentforge.generator.cadquery_generator import (
     build_wall_bracket,
     export_model,
 )
+from intentforge.llm import (
+    LLMProviderUnavailableError,
+    MockLLMProvider,
+    load_provider_from_env,
+    translate_edit_apply,
+    translate_edit_to_request,
+    translate_prompt_to_build,
+    translate_prompt_to_intent,
+)
 from intentforge.output_manager import (
     build_run_metadata,
     create_parsed_run_context,
@@ -329,6 +338,147 @@ def _parse_build_command(prompt_parts: list[str], dry_run: bool = False) -> int:
     print(f"Persistent output dir: {result['persistent_output_dir']}")
     print(f"Validation valid: {str(result['validation_valid']).lower()}")
     return 0 if result["validation_valid"] else 1
+
+
+def _load_llm_provider_for_cli(mock_provider: bool):
+    if mock_provider:
+        return MockLLMProvider()
+    try:
+        return load_provider_from_env()
+    except LLMProviderUnavailableError:
+        raise
+
+
+def _print_tool_error(result: dict) -> None:
+    print(f"Request ID: {result.get('request_id')}")
+    print(f"Operation: {result.get('operation')}")
+    print(f"OK: {str(result.get('ok')).lower()}")
+    error = result.get("error") or {}
+    print(f"Error type: {error.get('error_type') or result.get('error_type')}")
+    print(f"Message: {error.get('message') or result.get('message')}")
+    if error.get("suggested_action"):
+        print(f"Suggested action: {error['suggested_action']}")
+
+
+def _llm_parse_command(prompt_parts: list[str], mock_provider: bool = False) -> int:
+    prompt = " ".join(prompt_parts)
+    provider = _load_llm_provider_for_cli(mock_provider)
+    result = translate_prompt_to_intent(prompt, provider)
+    output_root = _project_root() / "output"
+    if not result["ok"]:
+        _print_tool_error(result)
+        return 1
+    latest_path = output_root / "llm_parsed_intent.json"
+    metadata_path = output_root / "llm_parse_metadata.json"
+    _write_json_data(result, latest_path)
+    _write_json_data(
+        {
+            "request_id": result["request_id"],
+            "operation": result["operation"],
+            "object_type": result["object_type"],
+            "normalized_prompt": result["normalized_prompt"],
+            "warnings": result["warnings"],
+        },
+        metadata_path,
+    )
+    print("LLM intent translation completed.")
+    print(f"Request ID: {result['request_id']}")
+    print(f"Object type: {result['object_type']}")
+    print(f"Operation: {result['operation']}")
+    print(f"Normalized prompt: {result['normalized_prompt']}")
+    print(f"LLM parsed intent: {latest_path}")
+    print(f"LLM metadata: {metadata_path}")
+    return 0
+
+
+def _llm_parse_build_command(prompt_parts: list[str], mock_provider: bool = False, dry_run: bool = False) -> int:
+    prompt = " ".join(prompt_parts)
+    provider = _load_llm_provider_for_cli(mock_provider)
+    result = translate_prompt_to_build(prompt, provider, _project_root() / "output", dry_run=dry_run)
+    if not result["ok"] and "validation_valid" not in result:
+        _print_tool_error(result)
+        return 1
+    print("LLM parse-build completed.")
+    print(f"Request ID: {result['request_id']}")
+    print(f"Run ID: {result['run_id']}")
+    print(f"Object type: {result['object_type']}")
+    print(f"Dry run: {str(result['dry_run']).lower()}")
+    print(f"CAD exported: {str(result.get('cad_exported', False)).lower()}")
+    print(f"Validation valid: {str(result.get('validation_valid')).lower()}")
+    print(f"Persistent output dir: {result.get('persistent_output_dir')}")
+    if result.get("latest_outputs"):
+        print("Latest outputs:")
+        for name, path in result["latest_outputs"].items():
+            print(f"  - {name}: {path}")
+    return 0 if result.get("validation_valid") else 1
+
+
+def _llm_object_type(value: str) -> str:
+    if value == "bracket":
+        return "wall_mounted_bracket"
+    return value
+
+
+def _llm_edit_parse_command(object_type: str, edit_parts: list[str], mock_provider: bool = False) -> int:
+    edit_text = " ".join(edit_parts)
+    provider = _load_llm_provider_for_cli(mock_provider)
+    normalized_object_type = _llm_object_type(object_type)
+    result = translate_edit_to_request(edit_text, normalized_object_type, provider)
+    output_root = _project_root() / "output"
+    if not result["ok"]:
+        _print_tool_error(result)
+        return 1
+    latest_path = output_root / "llm_parsed_edit.json"
+    metadata_path = output_root / "llm_edit_parse_metadata.json"
+    _write_json_data(result, latest_path)
+    _write_json_data(
+        {
+            "request_id": result["request_id"],
+            "operation": result["operation"],
+            "object_type": result["object_type"],
+            "normalized_edit_text": result["normalized_edit_text"],
+            "warnings": result["warnings"],
+        },
+        metadata_path,
+    )
+    print("LLM edit translation completed.")
+    print(f"Request ID: {result['request_id']}")
+    print(f"Object type: {result['object_type']}")
+    print(f"Operation: {result['operation']}")
+    print(f"Normalized edit: {result['normalized_edit_text']}")
+    print(f"LLM parsed edit: {latest_path}")
+    print(f"LLM metadata: {metadata_path}")
+    return 0
+
+
+def _llm_edit_apply_command(object_type: str, edit_parts: list[str], mock_provider: bool = False, dry_run: bool = False) -> int:
+    edit_text = " ".join(edit_parts)
+    provider = _load_llm_provider_for_cli(mock_provider)
+    normalized_object_type = _llm_object_type(object_type)
+    result = translate_edit_apply(
+        edit_text,
+        normalized_object_type,
+        provider,
+        _project_root() / "output",
+        dry_run=dry_run,
+    )
+    if not result["ok"] and "accepted" not in result:
+        _print_tool_error(result)
+        return 1
+    print("LLM edit apply completed.")
+    print(f"Request ID: {result['request_id']}")
+    print(f"Run ID: {result.get('run_id')}")
+    print(f"Object type: {result.get('object_type')}")
+    print(f"Accepted: {str(result.get('accepted')).lower()}")
+    print(f"Dry run: {str(result.get('dry_run', dry_run)).lower()}")
+    print(f"CAD exported: {str(result.get('cad_exported', False)).lower()}")
+    if result.get("validation_valid") is not None:
+        print(f"Validation valid: {str(result['validation_valid']).lower()}")
+    if not result.get("accepted", False):
+        print(result.get("message", "Edit was rejected."))
+        return 1
+    print(f"Persistent output dir: {result.get('persistent_output_dir')}")
+    return 0 if result.get("validation_valid", True) else 1
 
 
 def _edit_parse_output_paths(run_dir: Path) -> tuple[dict[str, Path], dict[str, Path]]:
@@ -1132,6 +1282,70 @@ def _build_parser() -> ArgumentParser:
         help="Parse, apply in memory, and validate without exporting edited STEP/STL files.",
     )
 
+    llm_parse = subparsers.add_parser(
+        "llm-parse",
+        help="Use an optional LLM provider to translate a prompt into guarded IntentForge intent JSON.",
+    )
+    llm_parse.add_argument("prompt", nargs="+", help="Prompt text to translate.")
+    llm_parse.add_argument(
+        "--mock-provider",
+        action="store_true",
+        help="Use the deterministic mock LLM provider.",
+    )
+
+    llm_parse_build = subparsers.add_parser(
+        "llm-parse-build",
+        help="LLM-translate a prompt, guard the schema, then build through the deterministic CAD core.",
+    )
+    llm_parse_build.add_argument("prompt", nargs="+", help="Prompt text to translate and build.")
+    llm_parse_build.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate feasibility without exporting STEP/STL files.",
+    )
+    llm_parse_build.add_argument(
+        "--mock-provider",
+        action="store_true",
+        help="Use the deterministic mock LLM provider.",
+    )
+
+    llm_edit_parse = subparsers.add_parser(
+        "llm-edit-parse",
+        help="Use an optional LLM provider to translate edit text into guarded edit JSON.",
+    )
+    llm_edit_parse.add_argument(
+        "object_type",
+        choices=["wall_mounted_bracket", "bracket", "l_bracket"],
+        help="Supported target object type.",
+    )
+    llm_edit_parse.add_argument("edit_text", nargs="+", help="Edit text to translate.")
+    llm_edit_parse.add_argument(
+        "--mock-provider",
+        action="store_true",
+        help="Use the deterministic mock LLM provider.",
+    )
+
+    llm_edit_apply = subparsers.add_parser(
+        "llm-edit-apply",
+        help="LLM-translate an edit, guard it, then apply through the deterministic CAD core.",
+    )
+    llm_edit_apply.add_argument(
+        "object_type",
+        choices=["wall_mounted_bracket", "bracket", "l_bracket"],
+        help="Supported target object type.",
+    )
+    llm_edit_apply.add_argument("edit_text", nargs="+", help="Edit text to translate and apply.")
+    llm_edit_apply.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate the edit without exporting STEP/STL files.",
+    )
+    llm_edit_apply.add_argument(
+        "--mock-provider",
+        action="store_true",
+        help="Use the deterministic mock LLM provider.",
+    )
+
     benchmark = subparsers.add_parser(
         "benchmark",
         help="Run the deterministic IntentForge benchmark suite.",
@@ -1259,6 +1473,14 @@ def main(argv: list[str] | None = None) -> int:
             return _edit_parse_command(args.edit_text)
         if args.command == "edit-parse-apply":
             return _edit_parse_apply_command(args.example, args.edit_text, args.dry_run)
+        if args.command == "llm-parse":
+            return _llm_parse_command(args.prompt, args.mock_provider)
+        if args.command == "llm-parse-build":
+            return _llm_parse_build_command(args.prompt, args.mock_provider, args.dry_run)
+        if args.command == "llm-edit-parse":
+            return _llm_edit_parse_command(args.object_type, args.edit_text, args.mock_provider)
+        if args.command == "llm-edit-apply":
+            return _llm_edit_apply_command(args.object_type, args.edit_text, args.mock_provider, args.dry_run)
         if args.command == "benchmark":
             if not _package_installed("cadquery"):
                 print(_cadquery_required_message("benchmark"))
@@ -1285,6 +1507,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "technical-harness":
             return _technical_harness_command(args.quick, args.include_demo)
     except CadQueryUnavailableError as exc:
+        parser.exit(1, f"{exc}\n")
+    except LLMProviderUnavailableError as exc:
         parser.exit(1, f"{exc}\n")
     except UnsupportedObjectError as exc:
         parser.exit(1, f"{exc}\n")

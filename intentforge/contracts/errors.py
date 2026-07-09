@@ -16,6 +16,7 @@ StandardErrorType = Literal[
     "EditRejectedError",
     "AmbiguousRequestError",
     "ArtifactError",
+    "LLMProviderUnavailableError",
     "InternalError",
 ]
 
@@ -37,6 +38,8 @@ def normalize_error_type(error_type: str, message: str = "") -> StandardErrorTyp
     lowered = message.lower()
     if error_type in {"CadQueryUnavailableError", "ImportError", "ModuleNotFoundError"}:
         return "CadBackendUnavailableError"
+    if error_type == "LLMProviderUnavailableError":
+        return "LLMProviderUnavailableError"
     if error_type == "UnsupportedObjectError":
         if any(token in lowered for token in ("curved", "adjustable", "sheet-metal", "freeform", "coordinates")):
             return "UnsupportedGeometryError"
@@ -78,6 +81,8 @@ def suggested_action_for_error(error_type: str, message: str = "") -> str:
         return "Review failed validation checks and adjust parameters before exporting CAD."
     if normalized == "ArtifactError":
         return "Check that the requested artifact or run metadata path exists and is readable."
+    if normalized == "LLMProviderUnavailableError":
+        return "Configure an optional LLM provider or use the mock provider for deterministic local testing."
     return "Inspect the response metadata and retry with a narrower supported request."
 
 

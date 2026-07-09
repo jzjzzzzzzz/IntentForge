@@ -1,6 +1,6 @@
 # Project Status
 
-Current development target: Phase 13 production tool interface and API contract hardening on `main`
+Current development target: Phase 14 optional LLM intent translator with schema guardrails on `main`
 
 Current supported model families:
 
@@ -31,6 +31,7 @@ Current supported model families:
 - Phase 11.4: edit preservation harness
 - Phase 11.5: adversarial rejection harness
 - Phase 12: technical harness orchestrator and quality gates
+- Phase 13: production tool interface and API contract hardening
 
 ## Current Capabilities
 
@@ -56,6 +57,8 @@ Current supported model families:
 - return standard tool/API response envelopes with request IDs
 - return standard artifact references and structured error objects
 - support dry-run parse-build and edit-apply workflows without STEP/STL export
+- optionally translate prompts and edits with an LLM provider
+- guard LLM output before deterministic CAD workflows run
 
 ## Current Limitations
 
@@ -65,7 +68,9 @@ Current supported model families:
 - no curved or adjustable L-brackets
 - inside fillet intent is represented and validated, but robust inside-corner fillet geometry is future work
 - no GUI
-- no LLM calls
+- no required LLM calls in the deterministic core
+- LLM support is optional and disabled unless a provider is configured
+- LLM output cannot directly generate CadQuery code or CAD geometry
 - no desktop CAD control
 - no arbitrary CAD
 - no topological feature detection from solids yet
@@ -116,6 +121,21 @@ Phase 13 standardizes external workflow and MCP responses with:
 
 Phase 13 is interface hardening only. It does not create a new release tag.
 
+## LLM Translator Status
+
+Phase 14 adds an optional provider interface, schema guardrails, mock provider, CLI commands, and MCP tools for LLM-based intent translation.
+
+LLM commands:
+
+- `python -m intentforge.cli llm-parse "..."`
+- `python -m intentforge.cli llm-parse-build "..."`
+- `python -m intentforge.cli llm-edit-parse l_bracket "..."`
+- `python -m intentforge.cli llm-edit-apply l_bracket "..."`
+
+If no provider is configured, these commands return `LLMProviderUnavailableError`. Tests use `MockLLMProvider` only and make no real API calls.
+
+Phase 14 is translator hardening only. It does not create a new release tag.
+
 ## Next Planned Phase
 
-Complete Phase 13 verification, then continue hardening integration boundaries before adding any new CAD capabilities.
+Complete Phase 14 verification, then continue hardening agent integration boundaries before adding any new CAD capabilities.

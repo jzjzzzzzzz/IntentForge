@@ -59,6 +59,7 @@ Standard public error types are:
 - `EditRejectedError`
 - `AmbiguousRequestError`
 - `ArtifactError`
+- `LLMProviderUnavailableError`
 - `InternalError`
 
 The implementation may preserve older compatibility keys such as `error_type` and `message` at the top level.
@@ -116,6 +117,34 @@ Dry-run behavior:
 - does not export STEP/STL files
 - returns `dry_run: true`
 - returns `cad_exported: false`
+
+LLM parse-build and LLM edit-apply commands also support dry-run. In those paths, the LLM translation and schema guard run first, then the deterministic core checks feasibility without exporting CAD.
+
+## LLM Translator Responses
+
+Optional LLM commands use the same response envelope:
+
+- `llm_parse`
+- `llm_parse_build`
+- `llm_edit_parse`
+- `llm_edit_apply`
+
+If no provider is configured, they return:
+
+```json
+{
+  "ok": false,
+  "operation": "llm_parse",
+  "error": {
+    "error_type": "LLMProviderUnavailableError",
+    "message": "No LLM provider is configured.",
+    "recoverable": true
+  },
+  "cad_exported": false
+}
+```
+
+The LLM never generates CadQuery code or CAD geometry. It only returns structured JSON that must pass schema guardrails before deterministic workflows run.
 
 ## Example Parse-Build Response
 
@@ -175,4 +204,4 @@ MCP tool functions call the same shared workflows as the CLI. Their responses in
 - `validation`
 - `error` on failure
 
-The MCP wrapper does not call an LLM and does not duplicate parser, generator, validator, or editor logic.
+The MCP wrapper does not duplicate parser, generator, validator, editor, or LLM translator logic.

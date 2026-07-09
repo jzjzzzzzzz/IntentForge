@@ -13,7 +13,7 @@ wall_mounted_bracket / mounting plate
 l_bracket / right angle bracket
 ```
 
-IntentForge currently uses Python, Pydantic schemas, CadQuery, pytest, deterministic regex parsing, and optional MCP wrappers. It does not call an LLM.
+IntentForge currently uses Python, Pydantic schemas, CadQuery, pytest, deterministic regex parsing, optional MCP wrappers, and an optional LLM intent translator. The deterministic CAD core does not depend on an LLM.
 
 ## Pipeline
 
@@ -69,6 +69,7 @@ Supported features:
 - structured edit JSON
 - benchmark suite
 - optional MCP wrapper
+- optional LLM intent translator with schema guardrails
 
 Unsupported by design in this phase:
 
@@ -79,7 +80,8 @@ Unsupported by design in this phase:
 - curved or adjustable L-brackets
 - sheet-metal unfold patterns
 - robust geometric inside-corner filleting for L-brackets
-- LLM parsing
+- required LLM parsing in the deterministic core
+- LLM-generated CAD code or direct LLM geometry generation
 - GUI
 - SolidWorks, Fusion, or FreeCAD desktop control
 - freeform hole placement
@@ -107,6 +109,8 @@ Optional MCP support is installed separately:
 ```bash
 python -m pip install -e ".[mcp]"
 ```
+
+Optional LLM provider configuration uses environment variables only. See `.env.example`; do not commit real keys.
 
 Run the test suite:
 
@@ -189,6 +193,17 @@ Run an edit without exporting edited STEP/STL files:
 python -m intentforge.cli edit-parse-apply bracket "Make it 150 mm wide but keep the same thickness." --dry-run
 ```
 
+Use the optional LLM translator with the deterministic mock provider:
+
+```bash
+python -m intentforge.cli llm-parse "Make a wall-mounted bracket 120 mm wide with two screw holes." --mock-provider
+python -m intentforge.cli llm-parse-build "Make a wall-mounted bracket 120 mm wide, 60 mm tall, with two screw holes." --dry-run --mock-provider
+python -m intentforge.cli llm-edit-parse l_bracket "Add a triangular gusset." --mock-provider
+python -m intentforge.cli llm-edit-apply l_bracket "Add a triangular gusset." --dry-run --mock-provider
+```
+
+Without a configured provider, LLM commands return a structured `LLMProviderUnavailableError`.
+
 Run the parametric sweep harness:
 
 ```bash
@@ -255,6 +270,12 @@ Workflow and MCP outputs use a standard response envelope with `ok`, `request_id
 Rejected prompts and edits are recoverable tool responses with `ok: false`, `cad_exported: false`, and no standard artifact refs. Compatibility keys such as `latest_outputs`, `persistent_outputs`, `validation_valid`, and `message` are still preserved.
 
 See [docs/api_contract.md](docs/api_contract.md).
+
+## LLM Translator
+
+The LLM translator is optional. It may translate prompts or edits into structured IntentForge JSON, but it never writes CadQuery code and never directly generates CAD. Schema guardrails reject unsupported families, unsupported geometry, unsupported hole counts, arbitrary coordinates, and vague optimization requests before deterministic workflows can build or edit anything.
+
+See [docs/llm_translator.md](docs/llm_translator.md).
 
 ## Edit Preservation Harness
 
@@ -351,7 +372,7 @@ IntentForge can be exposed as an optional MCP tool server for coding agents:
 python -m mcp_server.server
 ```
 
-The MCP server is a thin wrapper around existing deterministic workflows. It does not duplicate parser, generator, validator, or editor logic, and it does not call an LLM.
+The MCP server is a thin wrapper around existing workflows. It does not duplicate parser, generator, validator, or editor logic. Optional LLM MCP tools only translate structured intent and still pass through schema guardrails.
 
 Available tool functions include:
 
@@ -373,7 +394,7 @@ License: Apache-2.0. See `LICENSE`.
 ```text
 benchmark/      Deterministic benchmark corpus and runner
 demo/           Release demo script and notes
-docs/           Architecture, design intent, validation, benchmark, MCP, and roadmap docs
+docs/           Architecture, design intent, validation, benchmark, LLM, MCP, and roadmap docs
 examples/       Bundled wall-bracket and L-bracket prompt, intent, parameters, constraints, feature plan, and edit examples
 harness/        Topology, volume delta, sweep, edit-preservation, adversarial, and orchestrator harnesses
 intentforge/    Core schemas, parser, planner, generator, validator, editor, workflows, and CLI

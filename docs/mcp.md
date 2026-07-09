@@ -28,10 +28,12 @@ The wrapper exposes tools for:
 - building bundled wall-bracket or L-bracket examples
 - listing recent parsed or edit runs
 - retrieving run metadata
+- optional LLM intent translation
+- optional LLM translate-build and translate-apply workflows
 
 ## Design
 
-The MCP layer is intentionally thin. It calls `intentforge.workflows` and returns structured results. It does not duplicate parser, generator, validator, or editor logic, and it does not call an LLM.
+The MCP layer is intentionally thin. It calls shared IntentForge workflows and returns structured results. It does not duplicate parser, generator, validator, editor, or LLM translator logic.
 
 MCP responses include family data through workflow results such as `object_type`, parsed intent metadata, and run metadata where applicable.
 
@@ -56,3 +58,16 @@ Rejected prompts and edits return `ok: false` and a recoverable error object. Re
 `parse_build_cad_prompt` and `parse_apply_edit_prompt` accept `dry_run` so callers can validate feasibility without exporting STEP/STL artifacts.
 
 See `docs/api_contract.md` for the shared contract details.
+
+## Optional LLM Tools
+
+Additional MCP tool functions are available:
+
+- `llm_parse_cad_prompt`
+- `llm_parse_build_cad_prompt`
+- `llm_parse_edit_prompt`
+- `llm_parse_apply_edit_prompt`
+
+These tools load an optional provider from environment variables. If no provider is configured, they return `ok=false` with `LLMProviderUnavailableError`.
+
+The LLM tools only translate intent or edit JSON. They do not generate CadQuery code or bypass deterministic validation and schema guardrails.
