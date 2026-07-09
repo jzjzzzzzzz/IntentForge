@@ -117,5 +117,41 @@
     "expected_changed_parameters": [
       "mounting_hole_spacing_mm"
     ]
+  },
+  {
+    "id": "edit_011",
+    "type": "edit_parse_apply",
+    "target": "bracket",
+    "edit_text": "Add holes outside the plate.",
+    "expected_ok": false,
+    "expected_accepted": false,
+    "expected_error_contains": "measurable"
+  },
+  {
+    "id": "edit_012",
+    "type": "edit_parse_apply",
+    "target": "bracket",
+    "edit_text": "Use 200 mm holes on a 100 mm bracket.",
+    "expected_ok": false,
+    "expected_accepted": false,
+    "expected_error_contains": "hole diameter"
+  },
+  {
+    "id": "edit_013",
+    "type": "edit_parse_apply",
+    "target": "bracket",
+    "edit_text": "Make the thickness negative.",
+    "expected_ok": false,
+    "expected_accepted": false,
+    "expected_error_contains": "measurable"
+  },
+  {
+    "id": "edit_014",
+    "type": "edit_parse_apply",
+    "target": "bracket",
+    "edit_text": "Optimize the bracket.",
+    "expected_ok": false,
+    "expected_accepted": false,
+    "expected_error_contains": "measurable"
   }
 ]

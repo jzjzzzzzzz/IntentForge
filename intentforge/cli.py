@@ -16,6 +16,7 @@ from harness.topology import (
     write_shape_inspection_report,
     write_volume_delta_report,
 )
+from harness.adversarial import run_adversarial_harness
 from harness.sweeps import run_parametric_sweep
 from harness.edits import run_edit_preservation_harness
 from intentforge.editor.edit_intent_handler import apply_edit_request, write_edit_report
@@ -794,6 +795,7 @@ def _doctor_command() -> int:
     print("  - volume-delta")
     print("  - sweep")
     print("  - edit-harness")
+    print("  - adversarial-harness")
 
     core_ok = all(ok for _, ok, _ in core_checks)
     print(f"Doctor result: {'core checks passed' if core_ok else 'core checks failed'}")
@@ -956,6 +958,30 @@ def _edit_harness_command(max_chains: int | None, no_export: bool) -> int:
     return 0 if not failed_ids else 1
 
 
+def _adversarial_harness_command(max_cases: int | None) -> int:
+    result = run_adversarial_harness(
+        _project_root() / "output",
+        max_cases=max_cases,
+    )
+    print(f"Adversarial rejection run: {result['run_id']}")
+    print(f"Total cases: {result['total_cases']}")
+    print(f"Passed: {result['passed']}")
+    print(f"Failed: {result['failed']}")
+    print(f"Rejection success rate: {result['rejection_success_rate']:.4f}")
+    print("Categories:")
+    for category, counts in result["categories"].items():
+        print(f"  - {category}: passed {counts['passed']}, failed {counts['failed']}, total {counts['total']}")
+    print("Failure types:")
+    for failure_type, count in result["failure_types"].items():
+        print(f"  - {failure_type}: {count}")
+    print(f"Report path: {result['report_path']}")
+    print(f"Summary path: {result['summary_path']}")
+    print(f"Persistent output dir: {result['persistent_output_dir']}")
+    failed_ids = [case["id"] for case in result["failed_cases"]]
+    print(f"Failed case IDs: {', '.join(failed_ids) if failed_ids else 'none'}")
+    return 0 if result["failed"] == 0 else 1
+
+
 def _build_parser() -> ArgumentParser:
     parser = ArgumentParser(prog="intentforge")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -1100,6 +1126,17 @@ def _build_parser() -> ArgumentParser:
         help="Skip STEP/STL export for edit chains.",
     )
 
+    adversarial_harness = subparsers.add_parser(
+        "adversarial-harness",
+        help="Run adversarial rejection checks.",
+    )
+    adversarial_harness.add_argument(
+        "--max-cases",
+        type=int,
+        default=None,
+        help="Maximum number of adversarial cases to run.",
+    )
+
     return parser
 
 
@@ -1145,6 +1182,8 @@ def main(argv: list[str] | None = None) -> int:
             return _sweep_command(args.max_cases_per_family, args.no_export)
         if args.command == "edit-harness":
             return _edit_harness_command(args.max_chains, args.no_export)
+        if args.command == "adversarial-harness":
+            return _adversarial_harness_command(args.max_cases)
     except CadQueryUnavailableError as exc:
         parser.exit(1, f"{exc}\n")
     except UnsupportedObjectError as exc:

@@ -67,6 +67,30 @@ VAGUE_PROMPT_PATTERNS = [
     r"\bcheaper\b",
 ]
 
+INVALID_PROMPT_PATTERNS = [
+    (
+        r"\b(?:(?:add|use|make|with|to)\s+)?(?:three|3|five|5|six|6|seven|7|eight|8|nine|9|\d{2,})\s+"
+        r"(?:screw\s+|mounting\s+|corner\s+)?holes?\b",
+        "Invalid bracket constraint: unsupported hole counts are not supported.",
+    ),
+    (
+        r"\bholes?\s+outside\s+(?:the\s+)?plate\b",
+        "Invalid bracket constraint: holes must stay inside the plate.",
+    ),
+    (
+        r"\b(?:freeform|arbitrary)\s+(?:screw\s+|mounting\s+)?holes?.*\b(?:coordinates|placement)\b",
+        "Unsupported mounting hole pattern: freeform hole coordinates are not supported.",
+    ),
+    (
+        r"\b(?:negative\s+thickness|thickness\s+negative)\b",
+        "Invalid bracket constraint: thickness must be greater than zero.",
+    ),
+    (
+        r"\b(?:sheet[-\s]?metal\s+)?flat\s+pattern\b",
+        "Unsupported geometry for current phase: sheet-metal flat patterns are not supported.",
+    ),
+]
+
 
 class UnsupportedObjectError(ValueError):
     """Raised when the prompt asks for an unsupported CAD object type."""
@@ -117,6 +141,20 @@ def _reject_unsupported_if_needed(text: str) -> None:
             raise UnsupportedObjectError(
                 "Unsupported prompt for Phase 5. Please provide a measurable parameter or supported feature change."
             )
+
+    for pattern, message in INVALID_PROMPT_PATTERNS:
+        if re.search(pattern, text):
+            raise UnsupportedObjectError(message)
+
+    hole_vs_plate = re.search(
+        r"\b(?:use|make|add)\s+(?P<hole>\d+(?:\.\d+)?)\s*(?:mm|millimeters?|millimetres?)\s+holes?\s+"
+        r"(?:on|in)\s+a\s+(?P<plate>\d+(?:\.\d+)?)\s*(?:mm|millimeters?|millimetres?)\s+bracket\b",
+        text,
+    )
+    if hole_vs_plate and float(hole_vs_plate.group("hole")) >= float(hole_vs_plate.group("plate")):
+        raise UnsupportedObjectError(
+            "Invalid bracket constraint: hole diameter must be smaller than the plate dimensions."
+        )
 
     for object_name in UNSUPPORTED_OBJECTS:
         if re.search(rf"\b{re.escape(object_name)}s?\b", text):
@@ -757,6 +795,17 @@ def parse_bracket_prompt(prompt: str) -> ParsedPrompt:
         "cutout_height": _dimension_value(text, "cutout_height", ["cutout height", "opening height"]),
         "edge_fillet_radius": _dimension_value(text, "edge_fillet_radius", ["edge fillet radius", "fillet radius"]),
     }
+    if (
+        holes_mentioned
+        and extracted["hole_diameter"] is not None
+        and (
+            (extracted["width"] is not None and extracted["hole_diameter"] >= extracted["width"])
+            or (extracted["height"] is not None and extracted["hole_diameter"] >= extracted["height"])
+        )
+    ):
+        raise UnsupportedObjectError(
+            "Invalid bracket constraint: hole diameter must be smaller than the plate dimensions."
+        )
 
     values: dict[str, float | int] = {}
     sources: dict[str, str] = {}

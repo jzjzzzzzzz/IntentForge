@@ -255,11 +255,47 @@ def test_missing_material_and_load_requirement_are_unknowns() -> None:
 
 @pytest.mark.parametrize("prompt", [
     "Make a gear with 24 teeth.",
+    "Make an enclosure.",
+    "Make a drone frame.",
+    "Make a hinge bracket.",
     "Create an enclosure for a PCB.",
     "Design a shaft coupler with two set screws.",
 ])
 def test_unsupported_objects_are_rejected(prompt: str) -> None:
     with pytest.raises(UnsupportedObjectError, match="Unsupported object type"):
+        parse_prompt(prompt)
+
+
+@pytest.mark.parametrize("prompt", [
+    "Make a curved L-bracket.",
+    "Make an adjustable bracket.",
+    "Make a sheet-metal flat pattern.",
+    "Add freeform holes at arbitrary coordinates.",
+])
+def test_unsupported_geometry_prompts_are_rejected(prompt: str) -> None:
+    with pytest.raises(UnsupportedObjectError):
+        parse_prompt(prompt)
+
+
+@pytest.mark.parametrize("prompt", [
+    "Make it stronger.",
+    "Make it cheaper.",
+    "Make it better.",
+    "Optimize the bracket.",
+])
+def test_ambiguous_optimization_prompts_are_rejected(prompt: str) -> None:
+    with pytest.raises(UnsupportedObjectError, match="measurable"):
+        parse_prompt(prompt)
+
+
+@pytest.mark.parametrize("prompt", [
+    "Add three holes.",
+    "Add holes outside the plate.",
+    "Use 200 mm holes on a 100 mm bracket.",
+    "Make the thickness negative.",
+])
+def test_invalid_constraint_prompts_are_rejected(prompt: str) -> None:
+    with pytest.raises(UnsupportedObjectError, match="Invalid|Unsupported"):
         parse_prompt(prompt)
 
 

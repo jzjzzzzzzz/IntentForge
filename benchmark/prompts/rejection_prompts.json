@@ -54,5 +54,82 @@
     "prompt": "Create an enclosure for a PCB.",
     "expected_ok": false,
     "expected_error_contains": "Unsupported object type"
+  },
+  {
+    "id": "reject_009",
+    "type": "parse",
+    "prompt": "Make an enclosure.",
+    "expected_ok": false,
+    "expected_error_contains": "Unsupported object type"
+  },
+  {
+    "id": "reject_010",
+    "type": "parse",
+    "prompt": "Make a hinge bracket.",
+    "expected_ok": false,
+    "expected_error_contains": "Unsupported object type"
+  },
+  {
+    "id": "reject_011",
+    "type": "parse",
+    "prompt": "Make it stronger.",
+    "expected_ok": false,
+    "expected_error_contains": "measurable"
+  },
+  {
+    "id": "reject_012",
+    "type": "parse",
+    "prompt": "Make it better.",
+    "expected_ok": false,
+    "expected_error_contains": "measurable"
+  },
+  {
+    "id": "reject_013",
+    "type": "parse",
+    "prompt": "Optimize the bracket.",
+    "expected_ok": false,
+    "expected_error_contains": "measurable"
+  },
+  {
+    "id": "reject_014",
+    "type": "parse",
+    "prompt": "Make a sheet-metal flat pattern.",
+    "expected_ok": false,
+    "expected_error_contains": "flat patterns"
+  },
+  {
+    "id": "reject_015",
+    "type": "parse",
+    "prompt": "Add freeform holes at arbitrary coordinates.",
+    "expected_ok": false,
+    "expected_error_contains": "freeform hole coordinates"
+  },
+  {
+    "id": "reject_016",
+    "type": "parse",
+    "prompt": "Add three holes.",
+    "expected_ok": false,
+    "expected_error_contains": "unsupported hole counts"
+  },
+  {
+    "id": "reject_017",
+    "type": "parse",
+    "prompt": "Add holes outside the plate.",
+    "expected_ok": false,
+    "expected_error_contains": "inside the plate"
+  },
+  {
+    "id": "reject_018",
+    "type": "parse",
+    "prompt": "Use 200 mm holes on a 100 mm bracket.",
+    "expected_ok": false,
+    "expected_error_contains": "hole diameter"
+  },
+  {
+    "id": "reject_019",
+    "type": "parse",
+    "prompt": "Make the thickness negative.",
+    "expected_ok": false,
+    "expected_error_contains": "thickness"
   }
 ]

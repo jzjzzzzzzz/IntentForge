@@ -115,7 +115,7 @@
     "type": "parse",
     "prompt": "Make a wall-mounted bracket with three mounting holes.",
     "expected_ok": false,
-    "expected_error_contains": "Supported hole counts are 0, 2, and 4"
+    "expected_error_contains": "unsupported hole counts"
   },
   {
     "id": "hole_009",

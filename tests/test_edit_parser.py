@@ -138,9 +138,53 @@ def test_rejects_vague_edit() -> None:
         parse_edit_request("Make it better.")
 
 
+@pytest.mark.parametrize("text", [
+    "Make it stronger.",
+    "Make it cheaper.",
+    "Make it better.",
+    "Optimize the bracket.",
+])
+def test_rejects_ambiguous_optimization_edits(text: str) -> None:
+    with pytest.raises(UnsupportedEditError, match="measurable"):
+        parse_edit_request(text)
+
+
 def test_rejects_unsupported_object_edit() -> None:
     with pytest.raises(UnsupportedEditError, match="Unsupported object"):
         parse_edit_request("Turn it into a gear.")
+
+
+@pytest.mark.parametrize("text", [
+    "Make a gear with 24 teeth.",
+    "Make an enclosure.",
+    "Make a drone frame.",
+    "Make a hinge bracket.",
+])
+def test_rejects_unsupported_object_edit_examples(text: str) -> None:
+    with pytest.raises(UnsupportedEditError, match="Unsupported object"):
+        parse_edit_request(text)
+
+
+@pytest.mark.parametrize("text", [
+    "Make a curved L-bracket.",
+    "Make an adjustable bracket.",
+    "Make a sheet-metal flat pattern.",
+    "Add freeform holes at arbitrary coordinates.",
+])
+def test_rejects_unsupported_geometry_edits(text: str) -> None:
+    with pytest.raises(UnsupportedEditError, match="Unsupported|measurable"):
+        parse_edit_request(text)
+
+
+@pytest.mark.parametrize("text", [
+    "Add three holes.",
+    "Add holes outside the plate.",
+    "Use 200 mm holes on a 100 mm bracket.",
+    "Make the thickness negative.",
+])
+def test_rejects_invalid_constraint_edits(text: str) -> None:
+    with pytest.raises(UnsupportedEditError, match="Invalid|Unsupported|two or four holes|measurable"):
+        parse_edit_request(text)
 
 
 def test_parses_change_to_four_mounting_holes() -> None:

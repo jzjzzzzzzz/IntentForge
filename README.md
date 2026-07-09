@@ -189,6 +189,12 @@ Run the edit preservation harness:
 python -m intentforge.cli edit-harness
 ```
 
+Run the adversarial rejection harness:
+
+```bash
+python -m intentforge.cli adversarial-harness
+```
+
 ## Demo
 
 Run the release demo:
@@ -255,6 +261,26 @@ Persistent run artifacts are written to:
 output/harness/edit_preservation_runs/<run_id>/
 ```
 
+## Adversarial Rejection Harness
+
+The adversarial rejection harness verifies that unsupported objects, unsupported geometry, vague optimization requests, invalid dimensions, unsupported hole counts, and unsafe fallback prompts are rejected clearly.
+
+It checks that rejected cases include an error message and do not export STEP/STL files.
+
+Run it with:
+
+```bash
+python -m intentforge.cli adversarial-harness
+```
+
+Reports are written to:
+
+```text
+output/harness/adversarial_report.json
+output/harness/adversarial_summary.txt
+output/harness/adversarial_runs/<run_id>/
+```
+
 ## MCP Usage
 
 IntentForge can be exposed as an optional MCP tool server for coding agents:
@@ -287,7 +313,7 @@ benchmark/      Deterministic benchmark corpus and runner
 demo/           Release demo script and notes
 docs/           Architecture, design intent, validation, benchmark, MCP, and roadmap docs
 examples/       Bundled wall-bracket and L-bracket prompt, intent, parameters, constraints, feature plan, and edit examples
-harness/        Topology, volume delta, sweep, and edit-preservation harnesses
+harness/        Topology, volume delta, sweep, edit-preservation, and adversarial rejection harnesses
 intentforge/    Core schemas, parser, planner, generator, validator, editor, workflows, and CLI
 mcp_server/     Optional MCP wrapper around core workflows
 output/         Generated artifacts

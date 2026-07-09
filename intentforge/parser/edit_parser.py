@@ -26,7 +26,7 @@ VAGUE_EDIT_PATTERNS = [
     r"\bmake it better\b",
     r"\bmake it stronger\b",
     r"\bmake it more beautiful\b",
-    r"\boptimi[sz]e it\b",
+    r"\boptimi[sz]e(?:\s+it|\s+(?:the\s+)?bracket)?\b",
     r"\bmake it cheaper\b",
     r"\bcurved\s+l[-\s]?bracket\b",
     r"\b(?:sheet\s+metal|sheetmetal)\s+flat\s+pattern\b",
@@ -36,6 +36,9 @@ VAGUE_EDIT_PATTERNS = [
     r"\bcircular\s+(?:screw\s+|mounting\s+|corner\s+)?holes?\b",
     r"\bdiagonal\s+(?:screw\s+|mounting\s+|corner\s+)?holes?\b",
     r"\barbitrary\s+(?:hole\s+)?(?:coordinates|placement|pattern)\b",
+    r"\b(?:freeform|arbitrary)\s+(?:screw\s+|mounting\s+)?holes?.*\b(?:coordinates|placement)\b",
+    r"\bholes?\s+outside\s+(?:the\s+)?plate\b",
+    r"\b(?:negative\s+thickness|thickness\s+negative)\b",
 ]
 
 NUMBER_UNIT = r"(?P<value>\d+(?:\.\d+)?)\s*(?:mm|millimeters?|millimetres?)"
@@ -56,6 +59,15 @@ def _reject_unsupported(text: str) -> None:
             raise UnsupportedEditError(
                 "Unsupported edit for Phase 6. Please provide a measurable parameter or supported feature change."
             )
+    hole_vs_plate = re.search(
+        r"\b(?:use|make|add)\s+(?P<hole>\d+(?:\.\d+)?)\s*(?:mm|millimeters?|millimetres?)\s+holes?\s+"
+        r"(?:on|in)\s+a\s+(?P<plate>\d+(?:\.\d+)?)\s*(?:mm|millimeters?|millimetres?)\s+bracket\b",
+        text,
+    )
+    if hole_vs_plate and float(hole_vs_plate.group("hole")) >= float(hole_vs_plate.group("plate")):
+        raise UnsupportedEditError(
+            "Invalid bracket constraint: hole diameter must be smaller than the plate dimensions."
+        )
 
 
 def _number(pattern: str, text: str, value_group: str = "value") -> float | None:
@@ -238,7 +250,7 @@ def _parse_hole_count(text: str) -> int | None:
         return 4
     if re.search(r"\btwo[-\s]hole\s+pattern\b", text):
         return 2
-    word_numbers = {"one": 1, "two": 2, "three": 3, "four": 4}
+    word_numbers = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
     for word, count in word_numbers.items():
         if re.search(rf"\b(?:(?:add|to|use)\s+|change\s+it\s+to\s+)?{word}\s+(?:corner\s+)?(?:screw|mounting|corner)?\s*holes?\b", text):
             return count

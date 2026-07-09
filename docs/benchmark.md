@@ -69,6 +69,12 @@ Run the edit preservation harness:
 python -m intentforge.cli edit-harness
 ```
 
+Run the adversarial rejection harness:
+
+```bash
+python -m intentforge.cli adversarial-harness
+```
+
 The sweep builds generated parameter tables, runs CadQuery generation, geometry validation, topology inspection, and volume delta checks. Expected invalid combinations are classified as `expected_rejection` rather than unexpected failures.
 
 Latest reports are written to:
@@ -82,4 +88,12 @@ Persistent run artifacts are written to:
 
 ```text
 output/harness/sweep_runs/<run_id>/
+```
+
+Adversarial rejection reports are written to:
+
+```text
+output/harness/adversarial_report.json
+output/harness/adversarial_summary.txt
+output/harness/adversarial_runs/<run_id>/
 ```

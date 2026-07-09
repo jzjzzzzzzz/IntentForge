@@ -1,0 +1,572 @@
+[
+  {
+    "id": "adv_001",
+    "category": "unsupported_object",
+    "mode": "parse",
+    "input": "Make a gear with 24 teeth.",
+    "expected_rejected": true,
+    "expected_error_contains": "Unsupported object",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_002",
+    "category": "unsupported_object",
+    "mode": "parse_build",
+    "input": "Make an enclosure.",
+    "expected_rejected": true,
+    "expected_error_contains": "Unsupported object",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_003",
+    "category": "unsupported_object",
+    "mode": "parse",
+    "input": "Make a drone frame.",
+    "expected_rejected": true,
+    "expected_error_contains": "Unsupported object",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_004",
+    "category": "unsupported_object",
+    "mode": "parse_build",
+    "input": "Make a hinge bracket.",
+    "expected_rejected": true,
+    "expected_error_contains": "Unsupported object",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_005",
+    "category": "unsupported_object",
+    "mode": "parse",
+    "input": "Make a shaft coupler.",
+    "expected_rejected": true,
+    "expected_error_contains": "Unsupported object",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_006",
+    "category": "unsupported_object",
+    "mode": "parse_build",
+    "input": "Make a gear-shaped wall bracket.",
+    "expected_rejected": true,
+    "expected_error_contains": "Unsupported object",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_007",
+    "category": "unsupported_object",
+    "mode": "parse",
+    "input": "Make a drone frame mounting plate.",
+    "expected_rejected": true,
+    "expected_error_contains": "Unsupported object",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_008",
+    "category": "unsupported_object",
+    "mode": "edit_parse",
+    "input": "Make a gear with 24 teeth.",
+    "expected_rejected": true,
+    "expected_error_contains": "Unsupported object",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_009",
+    "category": "unsupported_object",
+    "mode": "edit_parse_apply",
+    "target": "bracket",
+    "input": "Make an enclosure.",
+    "expected_rejected": true,
+    "expected_error_contains": "Unsupported object",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_010",
+    "category": "unsupported_object",
+    "mode": "edit_parse",
+    "input": "Make a drone frame.",
+    "expected_rejected": true,
+    "expected_error_contains": "Unsupported object",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_011",
+    "category": "unsupported_object",
+    "mode": "edit_parse_apply",
+    "target": "bracket",
+    "input": "Make a hinge bracket.",
+    "expected_rejected": true,
+    "expected_error_contains": "Unsupported object",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_012",
+    "category": "unsupported_object",
+    "mode": "edit_parse",
+    "input": "Turn it into a shaft coupler.",
+    "expected_rejected": true,
+    "expected_error_contains": "Unsupported object",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_013",
+    "category": "unsupported_geometry",
+    "mode": "parse",
+    "input": "Make a curved L-bracket.",
+    "expected_rejected": true,
+    "expected_error_contains": "Curved",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_014",
+    "category": "unsupported_geometry",
+    "mode": "parse_build",
+    "input": "Make an adjustable bracket.",
+    "expected_rejected": true,
+    "expected_error_contains": "Unsupported object",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_015",
+    "category": "unsupported_geometry",
+    "mode": "parse",
+    "input": "Make a sheet-metal flat pattern.",
+    "expected_rejected": true,
+    "expected_error_contains": "flat patterns",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_016",
+    "category": "unsupported_geometry",
+    "mode": "parse_build",
+    "input": "Add freeform holes at arbitrary coordinates.",
+    "expected_rejected": true,
+    "expected_error_contains": "freeform",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_017",
+    "category": "unsupported_geometry",
+    "mode": "parse",
+    "input": "Make an L-bracket with arbitrary hole coordinates.",
+    "expected_rejected": true,
+    "expected_error_contains": "Freeform",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_018",
+    "category": "unsupported_geometry",
+    "mode": "parse_build",
+    "input": "Make an L-bracket flat pattern.",
+    "expected_rejected": true,
+    "expected_error_contains": "Sheet-metal",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_019",
+    "category": "unsupported_geometry",
+    "mode": "edit_parse",
+    "input": "Make a curved L-bracket.",
+    "expected_rejected": true,
+    "expected_error_contains": "measurable",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_020",
+    "category": "unsupported_geometry",
+    "mode": "edit_parse_apply",
+    "target": "l_bracket",
+    "input": "Make an adjustable bracket.",
+    "expected_rejected": true,
+    "expected_error_contains": "Unsupported object",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_021",
+    "category": "unsupported_geometry",
+    "mode": "edit_parse",
+    "input": "Make a sheet-metal flat pattern.",
+    "expected_rejected": true,
+    "expected_error_contains": "measurable",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_022",
+    "category": "unsupported_geometry",
+    "mode": "edit_parse_apply",
+    "target": "l_bracket",
+    "input": "Add freeform holes at arbitrary coordinates.",
+    "expected_rejected": true,
+    "expected_error_contains": "measurable",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_023",
+    "category": "vague_or_optimization",
+    "mode": "parse",
+    "input": "Make it stronger.",
+    "expected_rejected": true,
+    "expected_error_contains": "measurable",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_024",
+    "category": "vague_or_optimization",
+    "mode": "parse_build",
+    "input": "Make it cheaper.",
+    "expected_rejected": true,
+    "expected_error_contains": "measurable",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_025",
+    "category": "vague_or_optimization",
+    "mode": "parse",
+    "input": "Make it better.",
+    "expected_rejected": true,
+    "expected_error_contains": "measurable",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_026",
+    "category": "vague_or_optimization",
+    "mode": "parse_build",
+    "input": "Optimize the bracket.",
+    "expected_rejected": true,
+    "expected_error_contains": "measurable",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_027",
+    "category": "vague_or_optimization",
+    "mode": "edit_parse",
+    "input": "Make it stronger.",
+    "expected_rejected": true,
+    "expected_error_contains": "measurable",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_028",
+    "category": "vague_or_optimization",
+    "mode": "edit_parse_apply",
+    "target": "bracket",
+    "input": "Make it cheaper.",
+    "expected_rejected": true,
+    "expected_error_contains": "measurable",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_029",
+    "category": "vague_or_optimization",
+    "mode": "edit_parse",
+    "input": "Make it better.",
+    "expected_rejected": true,
+    "expected_error_contains": "measurable",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_030",
+    "category": "vague_or_optimization",
+    "mode": "edit_parse_apply",
+    "target": "bracket",
+    "input": "Optimize the bracket.",
+    "expected_rejected": true,
+    "expected_error_contains": "measurable",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_031",
+    "category": "vague_or_optimization",
+    "mode": "parse",
+    "input": "Make it more beautiful.",
+    "expected_rejected": true,
+    "expected_error_contains": "measurable",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_032",
+    "category": "vague_or_optimization",
+    "mode": "edit_parse",
+    "input": "Make it more beautiful.",
+    "expected_rejected": true,
+    "expected_error_contains": "measurable",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_033",
+    "category": "invalid_dimensions",
+    "mode": "parse_build",
+    "input": "Make the thickness negative.",
+    "expected_rejected": true,
+    "expected_error_contains": "thickness",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_034",
+    "category": "invalid_dimensions",
+    "mode": "parse",
+    "input": "Use 200 mm holes on a 100 mm bracket.",
+    "expected_rejected": true,
+    "expected_error_contains": "hole diameter",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_035",
+    "category": "invalid_dimensions",
+    "mode": "parse_build",
+    "input": "Make a wall-mounted bracket 100 mm wide with 200 mm holes.",
+    "expected_rejected": true,
+    "expected_error_contains": "hole diameter",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_036",
+    "category": "invalid_dimensions",
+    "mode": "parse",
+    "input": "Add holes outside the plate.",
+    "expected_rejected": true,
+    "expected_error_contains": "inside the plate",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_037",
+    "category": "invalid_dimensions",
+    "mode": "edit_parse",
+    "input": "Make the thickness negative.",
+    "expected_rejected": true,
+    "expected_error_contains": "measurable",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_038",
+    "category": "invalid_dimensions",
+    "mode": "edit_parse",
+    "input": "Use 200 mm holes on a 100 mm bracket.",
+    "expected_rejected": true,
+    "expected_error_contains": "hole diameter",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_039",
+    "category": "invalid_dimensions",
+    "mode": "edit_parse_apply",
+    "target": "bracket",
+    "input": "Add holes outside the plate.",
+    "expected_rejected": true,
+    "expected_error_contains": "measurable",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_040",
+    "category": "invalid_dimensions",
+    "mode": "parse_build",
+    "input": "Make a mounting plate with holes outside the plate.",
+    "expected_rejected": true,
+    "expected_error_contains": "inside the plate",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_041",
+    "category": "invalid_dimensions",
+    "mode": "edit_parse_apply",
+    "target": "bracket",
+    "input": "Use 200 mm holes on a 100 mm bracket.",
+    "expected_rejected": true,
+    "expected_error_contains": "hole diameter",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_042",
+    "category": "invalid_dimensions",
+    "mode": "parse",
+    "input": "Make a wall-mounted bracket with negative thickness.",
+    "expected_rejected": true,
+    "expected_error_contains": "thickness",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_043",
+    "category": "unsupported_hole_counts",
+    "mode": "parse",
+    "input": "Add three holes.",
+    "expected_rejected": true,
+    "expected_error_contains": "unsupported hole counts",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_044",
+    "category": "unsupported_hole_counts",
+    "mode": "parse_build",
+    "input": "Make a wall-mounted bracket with three holes.",
+    "expected_rejected": true,
+    "expected_error_contains": "unsupported hole counts",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_045",
+    "category": "unsupported_hole_counts",
+    "mode": "parse",
+    "input": "Make a bracket with five holes.",
+    "expected_rejected": true,
+    "expected_error_contains": "unsupported hole counts",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_046",
+    "category": "unsupported_hole_counts",
+    "mode": "parse_build",
+    "input": "Make a wall-mounted bracket with 5 mounting holes.",
+    "expected_rejected": true,
+    "expected_error_contains": "unsupported hole counts",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_047",
+    "category": "unsupported_hole_counts",
+    "mode": "edit_parse",
+    "input": "Add three holes.",
+    "expected_rejected": true,
+    "expected_error_contains": "two or four holes",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_048",
+    "category": "unsupported_hole_counts",
+    "mode": "edit_parse_apply",
+    "target": "bracket",
+    "input": "Change it to three mounting holes.",
+    "expected_rejected": true,
+    "expected_error_contains": "two or four holes",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_049",
+    "category": "unsupported_hole_counts",
+    "mode": "edit_parse",
+    "input": "Add five holes.",
+    "expected_rejected": true,
+    "expected_error_contains": "two or four holes",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_050",
+    "category": "unsupported_hole_counts",
+    "mode": "edit_parse_apply",
+    "target": "bracket",
+    "input": "Change it to five mounting holes.",
+    "expected_rejected": true,
+    "expected_error_contains": "two or four holes",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_051",
+    "category": "unsupported_hole_counts",
+    "mode": "parse",
+    "input": "Make an L-bracket with three holes on the base leg.",
+    "expected_rejected": true,
+    "expected_error_contains": "0 or 2 holes",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_052",
+    "category": "unsupported_hole_counts",
+    "mode": "parse_build",
+    "input": "Make an L-bracket with five holes.",
+    "expected_rejected": true,
+    "expected_error_contains": "0 or 2 holes",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_053",
+    "category": "unsafe_fallback_checks",
+    "mode": "parse_build",
+    "input": "Make a gear-shaped wall bracket with two holes.",
+    "expected_rejected": true,
+    "expected_error_contains": "Unsupported object",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_054",
+    "category": "unsafe_fallback_checks",
+    "mode": "parse",
+    "input": "Make a drone frame mounting plate.",
+    "expected_rejected": true,
+    "expected_error_contains": "Unsupported object",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_055",
+    "category": "unsafe_fallback_checks",
+    "mode": "parse_build",
+    "input": "Make an enclosure-style wall-mounted bracket.",
+    "expected_rejected": true,
+    "expected_error_contains": "Unsupported object",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_056",
+    "category": "unsafe_fallback_checks",
+    "mode": "parse",
+    "input": "Make a hinge bracket mounting plate.",
+    "expected_rejected": true,
+    "expected_error_contains": "Unsupported object",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_057",
+    "category": "unsafe_fallback_checks",
+    "mode": "edit_parse",
+    "input": "Turn it into a gear-shaped wall bracket.",
+    "expected_rejected": true,
+    "expected_error_contains": "Unsupported object",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_058",
+    "category": "unsafe_fallback_checks",
+    "mode": "edit_parse_apply",
+    "target": "bracket",
+    "input": "Make it a drone frame mounting plate.",
+    "expected_rejected": true,
+    "expected_error_contains": "Unsupported object",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_059",
+    "category": "unsafe_fallback_checks",
+    "mode": "parse",
+    "input": "Make a wall bracket with arbitrary hole coordinates.",
+    "expected_rejected": true,
+    "expected_error_contains": "Unsupported",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_060",
+    "category": "unsafe_fallback_checks",
+    "mode": "parse_build",
+    "input": "Make a wall-mounted bracket with circular hole pattern.",
+    "expected_rejected": true,
+    "expected_error_contains": "Unsupported",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_061",
+    "category": "unsafe_fallback_checks",
+    "mode": "edit_parse",
+    "input": "Add circular hole pattern.",
+    "expected_rejected": true,
+    "expected_error_contains": "measurable",
+    "expected_cad_exported": false
+  },
+  {
+    "id": "adv_062",
+    "category": "unsafe_fallback_checks",
+    "mode": "edit_parse_apply",
+    "target": "bracket",
+    "input": "Add diagonal mounting holes.",
+    "expected_rejected": true,
+    "expected_error_contains": "measurable",
+    "expected_cad_exported": false
+  }
+]
