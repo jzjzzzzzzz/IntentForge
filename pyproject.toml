@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "intentforge"
-version = "0.10.1"
+version = "0.10.2"
 description = "Intent-preserving deterministic CAD pipeline for editable, validated CadQuery models."
 readme = "README.md"
 license = "MIT"
@@ -40,6 +40,12 @@ intentforge = "intentforge.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["intentforge*", "mcp_server*", "benchmark*", "harness*"]
+
+[tool.setuptools.package-data]
+"benchmark" = ["prompts/*.json", "expected/*.json"]
+"harness.adversarial" = ["*.json"]
+"harness.edits" = ["*.json"]
+"harness.sweeps" = ["*.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

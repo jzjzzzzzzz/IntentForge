@@ -1,6 +1,6 @@
 # Project Status
 
-Current development target: v0.10.1 release readiness on `main`
+Current development target: v0.10.2 PyPI publish readiness on `main`
 
 Current supported model families:
 
@@ -99,7 +99,7 @@ Current supported model families:
 Release verification:
 
 - `python -m pytest`
-- Last recorded result for v0.10.1: 397 passed, 1 skipped
+- Last recorded result for v0.10.2: 397 passed, 1 skipped
 
 CadQuery-dependent tests require the optional CAD dependency.
 
@@ -196,4 +196,4 @@ The deterministic parser, build, edit, benchmark, demo, and API workflows do not
 
 ## Next Planned Phase
 
-Homebrew tap release validation and external installation smoke testing.
+PyPI publish: tag v0.10.2, configure OIDC Trusted Publisher on PyPI, push tag to trigger GitHub Actions publish workflow.
