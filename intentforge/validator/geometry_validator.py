@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from harness.topology import inspect_shape
+from harness.topology import inspect_shape, recognize_features
 from harness.topology.volume_delta import volume_delta_checks_for_model
 from intentforge.features import (
     feature_flags_for_parameter_table,
@@ -615,6 +615,28 @@ def _topology_metadata(model: object, family: str, include_topology: bool) -> di
     return {"topology": report.model_dump(mode="json")}
 
 
+def _feature_recognition_metadata(
+    model: object,
+    parameter_table: ParameterTable,
+    include_feature_recognition: bool,
+) -> dict[str, Any]:
+    if not include_feature_recognition:
+        return {}
+    try:
+        return {"feature_recognition": recognize_features(model, parameter_table)}
+    except Exception as exc:  # pragma: no cover - CAD/kernel failures vary by backend
+        return {
+            "feature_recognition": {
+                "object_type": parameter_table.family,
+                "recognized_features": {},
+                "topology_checks": {},
+                "passed": False,
+                "warnings": [f"Feature recognition could not be completed: {exc}"],
+                "metadata": {"recognizer": "topology_feature_recognizer_phase_18"},
+            }
+        }
+
+
 def validate_wall_bracket(
     model: object,
     parameter_table: ParameterTable,
@@ -622,6 +644,7 @@ def validate_wall_bracket(
     *,
     include_topology: bool = True,
     include_volume_delta: bool = True,
+    include_feature_recognition: bool = True,
 ) -> ValidationReport:
     """Validate a generated wall-mounted bracket against named parameters."""
 
@@ -718,6 +741,7 @@ def validate_wall_bracket(
             "feature_flags": feature_flags,
             "volume_delta_checks": volume_delta_records,
             **_topology_metadata(model, SUPPORTED_FAMILY, include_topology),
+            **_feature_recognition_metadata(model, parameter_table, include_feature_recognition),
         },
     )
 
@@ -979,6 +1003,7 @@ def validate_l_bracket(
     *,
     include_topology: bool = True,
     include_volume_delta: bool = True,
+    include_feature_recognition: bool = True,
 ) -> ValidationReport:
     """Validate a generated L-bracket against named parameters."""
 
@@ -1069,6 +1094,7 @@ def validate_l_bracket(
             "feature_flags": feature_flags,
             "volume_delta_checks": volume_delta_records,
             **_topology_metadata(model, L_BRACKET_FAMILY, include_topology),
+            **_feature_recognition_metadata(model, parameter_table, include_feature_recognition),
         },
     )
 
@@ -1091,6 +1117,7 @@ def validate_geometry(
     *,
     include_topology: bool = True,
     include_volume_delta: bool = True,
+    include_feature_recognition: bool = True,
 ) -> ValidationReport:
     """Backward-compatible geometry validation wrapper."""
 
@@ -1100,10 +1127,12 @@ def validate_geometry(
             parameters,
             include_topology=include_topology,
             include_volume_delta=include_volume_delta,
+            include_feature_recognition=include_feature_recognition,
         )
     return validate_wall_bracket(
         model,
         parameters,
         include_topology=include_topology,
         include_volume_delta=include_volume_delta,
+        include_feature_recognition=include_feature_recognition,
     )

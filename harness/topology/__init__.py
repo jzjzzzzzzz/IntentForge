@@ -1,5 +1,16 @@
 """Topology inspection helpers for CadQuery/OpenCascade shapes."""
 
+from harness.topology.feature_recognizer import (
+    recognize_center_cutout,
+    recognize_features,
+    recognize_l_bracket_features,
+    recognize_l_bracket_gusset,
+    recognize_solid_connectivity,
+    recognize_through_holes,
+    recognize_wall_bracket_features,
+    write_feature_recognition_report,
+    write_feature_recognition_summary,
+)
 from harness.topology.shape_inspector import inspect_shape, write_shape_inspection_report
 from harness.topology.volume_delta import (
     build_volume_delta_report,
@@ -24,7 +35,16 @@ __all__ = [
     "estimate_wall_bracket_hole_volume",
     "inspect_shape",
     "make_volume_delta_check",
+    "recognize_center_cutout",
+    "recognize_features",
+    "recognize_l_bracket_features",
+    "recognize_l_bracket_gusset",
+    "recognize_solid_connectivity",
+    "recognize_through_holes",
+    "recognize_wall_bracket_features",
     "volume_delta_checks_for_model",
+    "write_feature_recognition_report",
+    "write_feature_recognition_summary",
     "write_shape_inspection_report",
     "write_volume_delta_report",
 ]

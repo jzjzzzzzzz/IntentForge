@@ -1,6 +1,6 @@
 # Project Status
 
-Current development target: v0.10.2 PyPI publish readiness on `main`
+Current development target: Phase 18 topology feature recognition and design review reports on `main`
 
 Current supported model families:
 
@@ -36,6 +36,7 @@ Current supported model families:
 - Phase 15: optional local HTTP API server / product backend
 - Phase 16: product demo workflow and API client examples
 - Phase 17: interactive CLI, first-run LLM setup, and Homebrew tap readiness
+- Phase 18: topology-informed feature recognition and design review reports
 
 ## Current Capabilities
 
@@ -56,6 +57,9 @@ Current supported model families:
 - expose workflows through optional MCP tools
 - run a deterministic benchmark suite
 - run topology inspection and volume delta harnesses
+- recognize generated topology features for supported families
+- include feature recognition metadata in geometry validation reports
+- generate design review reports for supported examples
 - run parametric sweep, edit preservation, and adversarial rejection harnesses
 - run a unified technical harness with quality gates
 - return standard tool/API response envelopes with request IDs
@@ -89,7 +93,8 @@ Current supported model families:
 - LLM output cannot directly generate CadQuery code or CAD geometry
 - no desktop CAD control
 - no arbitrary CAD
-- no topological feature detection from solids yet
+- no full industrial CAD feature recognition from arbitrary solids
+- Phase 18 feature recognition is topology-informed, parameter-aware, and limited to generated supported families
 - deterministic parser only
 - no freeform hole placement
 - HTTP API does not serve generated CAD files for download yet (artifact endpoint serves files under output/)
@@ -130,6 +135,8 @@ Technical harness command:
 - `python -m intentforge.cli technical-harness --include-demo`
 
 Default quality gates require benchmark, sweep, and edit preservation rates of at least `0.95`, adversarial rejection success of `1.0`, zero unsafe acceptances, and zero unexpected failures or exceptions.
+
+Phase 18 adds a warning-oriented feature recognition section to the technical harness. It reports feature recognition pass rate and warning count without making approximate recognition a strict release gate.
 
 ## API Contract Status
 

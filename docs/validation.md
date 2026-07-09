@@ -17,8 +17,28 @@ Geometry validation checks the generated CadQuery model against the parameter ta
 - corner radius limits
 - edge fillet radius limits
 - exported STEP/STL file existence and size
+- topology metrics in validation metadata when CadQuery inspection is available
+- feature recognition metadata for supported generated features
 
-Bounding-box checks use the generated CadQuery model. Hole, cutout, and L-bracket per-leg hole checks are parameter-based in this phase.
+Bounding-box checks use the generated CadQuery model. Hole, cutout, and L-bracket per-leg hole sizing checks remain parameter-based, with topology-informed feature recognition recorded separately in report metadata.
+
+## Feature Recognition Metadata
+
+Phase 18 adds topology-informed feature recognition to geometry validation metadata:
+
+```text
+validation_report.metadata["feature_recognition"]
+```
+
+The recognizer inspects CadQuery/OpenCascade topology where available:
+
+- cylindrical face candidates for through holes
+- internal planar faces near the center cutout
+- solid count and validity for connected L-bracket legs
+- sloped planar faces for triangular gussets where practical
+- basic face, edge, and solid topology consistency
+
+Feature recognition is conservative. If the recognizer is not confident, it records structured warnings instead of pretending success. Ordinary validation does not crash when recognition cannot be completed.
 
 ## Intent Validation
 
@@ -37,6 +57,6 @@ Intent validation checks whether the structured design state is internally consi
 
 ## Current Limits
 
-IntentForge does not yet perform robust topological detection of holes, cutouts, or fillets directly from the solid. It validates those features from the parameter table, feature flags, and feature plan. This is intentional for the current phase because unreliable geometry recognition would create false confidence.
+IntentForge does not yet perform full industrial CAD feature recognition from arbitrary solids. Phase 18 recognition is topology-informed, parameter-aware, and limited to generated `wall_mounted_bracket` and `l_bracket` models.
 
 For L-brackets, inside fillet intent is represented in parameters and validation, but robust geometric inside-corner filleting is future work.

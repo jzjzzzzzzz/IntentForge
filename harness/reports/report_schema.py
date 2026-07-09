@@ -48,3 +48,16 @@ class ShapeInspectionReport(BaseModel):
     metrics: list[TopologyMetric] = Field(default_factory=list)
     warnings: list[TopologyWarning] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class FeatureRecognitionReport(BaseModel):
+    """Structured topology-informed feature recognition report."""
+
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+    object_type: str = Field(..., min_length=1)
+    recognized_features: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    topology_checks: dict[str, Any] = Field(default_factory=dict)
+    passed: bool = True
+    warnings: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)

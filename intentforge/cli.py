@@ -13,6 +13,9 @@ import yaml
 from harness.topology import (
     build_volume_delta_report,
     inspect_shape,
+    recognize_features,
+    write_feature_recognition_report,
+    write_feature_recognition_summary,
     write_shape_inspection_report,
     write_volume_delta_report,
 )
@@ -44,8 +47,13 @@ from intentforge.output_manager import (
     write_run_metadata,
 )
 from intentforge.parser import UnsupportedEditError, UnsupportedObjectError, parse_edit_request, parse_prompt
+from intentforge.reports.design_review import (
+    generate_design_review_report,
+    write_design_review_report,
+    write_design_review_summary,
+)
 from intentforge.schemas import ConstraintGraph, FeaturePlan, IntentSpec, ParameterTable, ValidationReport
-from intentforge.validator.geometry_validator import validate_wall_bracket, write_validation_report
+from intentforge.validator.geometry_validator import validate_geometry, validate_wall_bracket, write_validation_report
 from intentforge.validator.intent_validator import validate_wall_bracket_intent
 from intentforge.workflows import (
     build_example_workflow,
@@ -105,6 +113,14 @@ def _load_bracket_intent() -> IntentSpec:
 
 def _load_bracket_feature_plan() -> FeaturePlan:
     return FeaturePlan.model_validate(_load_json_example("bracket_feature_plan.json"))
+
+
+def _load_l_bracket_intent() -> IntentSpec:
+    return IntentSpec.model_validate(_load_json_example("l_bracket_intent.json"))
+
+
+def _load_l_bracket_feature_plan() -> FeaturePlan:
+    return FeaturePlan.model_validate(_load_json_example("l_bracket_feature_plan.json"))
 
 
 def _load_bracket_constraints() -> ConstraintGraph:
@@ -1051,6 +1067,140 @@ def _build_example_model_for_table(parameter_table: ParameterTable):
     return build_wall_bracket(parameter_table)
 
 
+def _example_intent_for_family(family: str) -> IntentSpec:
+    if family == "l_bracket":
+        return _load_l_bracket_intent()
+    if family == "wall_mounted_bracket":
+        return _load_bracket_intent()
+    raise ValueError(f"Unsupported model family: {family}")
+
+
+def _example_feature_plan_for_family(family: str) -> FeaturePlan:
+    if family == "l_bracket":
+        return _load_l_bracket_feature_plan()
+    if family == "wall_mounted_bracket":
+        return _load_bracket_feature_plan()
+    raise ValueError(f"Unsupported model family: {family}")
+
+
+def _write_text_data(text: str, path: Path) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def _recognize_features_command(family: str, output: str | None = None, no_export: bool = False) -> int:
+    del no_export
+    parameter_table = _example_parameter_table_for_family(family)
+    feature_plan = _example_feature_plan_for_family(family)
+    model = _build_example_model_for_table(parameter_table)
+
+    harness_root = _project_root() / "output" / "harness"
+    run_context = create_run_context(f"feature-recognition {family}", harness_root, "feature_recognition_runs")
+    latest_report_path = Path(output) if output else harness_root / "feature_recognition_report.json"
+    if not latest_report_path.is_absolute():
+        latest_report_path = _project_root() / latest_report_path
+    latest_summary_path = harness_root / "feature_recognition_summary.txt"
+    persistent_report_path = run_context.run_dir / "feature_recognition_report.json"
+    persistent_summary_path = run_context.run_dir / "feature_recognition_summary.txt"
+
+    report = recognize_features(model, parameter_table, feature_plan)
+    report["run_id"] = run_context.run_id
+    report["created_at"] = run_context.created_at.isoformat()
+    report["output_paths"] = json_safe_paths(
+        {
+            "latest_report": latest_report_path,
+            "latest_summary": latest_summary_path,
+            "persistent_report": persistent_report_path,
+            "persistent_summary": persistent_summary_path,
+        }
+    )
+    write_feature_recognition_report(report, latest_report_path)
+    write_feature_recognition_report(report, persistent_report_path)
+    write_feature_recognition_summary(report, latest_summary_path)
+    write_feature_recognition_summary(report, persistent_summary_path)
+
+    print(f"Feature recognition run: {run_context.run_id}")
+    print(f"Object type: {parameter_table.family}")
+    print(f"Passed: {str(report['passed']).lower()}")
+    print("Recognized features:")
+    for name, result in report["recognized_features"].items():
+        count = ""
+        if "expected_count" in result or "recognized_count" in result:
+            count = f", expected={result.get('expected_count')}, recognized={result.get('recognized_count')}"
+        print(f"  - {name}: passed={str(result.get('passed')).lower()}, confidence={result.get('confidence')}{count}")
+    print(f"Warnings: {len(report['warnings'])}")
+    print(f"Latest report: {latest_report_path}")
+    print(f"Latest summary: {latest_summary_path}")
+    print(f"Persistent report: {persistent_report_path}")
+    print(f"Persistent summary: {persistent_summary_path}")
+    return 0 if report["passed"] else 1
+
+
+def _design_review_command(family: str) -> int:
+    parameter_table = _example_parameter_table_for_family(family)
+    intent = _example_intent_for_family(family)
+    feature_plan = _example_feature_plan_for_family(family)
+    model = _build_example_model_for_table(parameter_table)
+    topology_report = inspect_shape(model, family=parameter_table.family)
+    validation_report = validate_geometry(model, parameter_table)
+    active_features, omitted_features = feature_state_names(parameter_table)
+    volume_delta_report = build_volume_delta_report(
+        parameter_table,
+        model,
+        active_features=active_features,
+        omitted_features=omitted_features,
+    )
+    feature_recognition_report = recognize_features(model, parameter_table, feature_plan)
+
+    output_root = _project_root() / "output"
+    run_context = create_run_context(f"design-review {family}", output_root, "design_review_runs")
+    latest_report_path = output_root / "design_review_report.json"
+    latest_summary_path = output_root / "design_review_summary.md"
+    persistent_report_path = run_context.run_dir / "design_review_report.json"
+    persistent_summary_path = run_context.run_dir / "design_review_summary.md"
+    artifacts = [
+        {"kind": "design_review_report", "path": str(latest_report_path), "persistent": False, "object_type": family},
+        {"kind": "design_review_summary", "path": str(latest_summary_path), "persistent": False, "object_type": family},
+        {"kind": "design_review_report", "path": str(persistent_report_path), "persistent": True, "object_type": family},
+        {"kind": "design_review_summary", "path": str(persistent_summary_path), "persistent": True, "object_type": family},
+    ]
+    report = generate_design_review_report(
+        intent_spec=intent,
+        parameter_table=parameter_table,
+        feature_plan=feature_plan,
+        validation_report=validation_report,
+        topology_report=topology_report,
+        volume_delta_report=volume_delta_report,
+        feature_recognition_report=feature_recognition_report,
+        artifacts=artifacts,
+        run_id=run_context.run_id,
+    )
+    report["output_paths"] = json_safe_paths(
+        {
+            "latest_report": latest_report_path,
+            "latest_summary": latest_summary_path,
+            "persistent_report": persistent_report_path,
+            "persistent_summary": persistent_summary_path,
+        }
+    )
+    write_design_review_report(report, latest_report_path)
+    write_design_review_summary(report, latest_summary_path)
+    write_design_review_report(report, persistent_report_path)
+    write_design_review_summary(report, persistent_summary_path)
+
+    print(f"Design review run: {run_context.run_id}")
+    print(f"Object type: {parameter_table.family}")
+    print(f"Validation valid: {str(validation_report.valid).lower()}")
+    print(f"Feature recognition passed: {str(feature_recognition_report['passed']).lower()}")
+    print(f"Warnings: {len(report['warnings'])}")
+    print(f"Latest report: {latest_report_path}")
+    print(f"Latest summary: {latest_summary_path}")
+    print(f"Persistent report: {persistent_report_path}")
+    print(f"Persistent summary: {persistent_summary_path}")
+    return 0 if validation_report.valid and feature_recognition_report["passed"] else 1
+
+
 def _volume_delta_command(family: str) -> int:
     parameter_table = _example_parameter_table_for_family(family)
     model = _build_example_model_for_table(parameter_table)
@@ -1192,6 +1342,8 @@ def _technical_harness_command(quick: bool, include_demo: bool) -> int:
     print(f"Sweep pass rate: {metrics['sweep_pass_rate']:.4f}")
     print(f"Edit preservation rate: {metrics['edit_preservation_rate']:.4f}")
     print(f"Adversarial rejection success rate: {metrics['adversarial_rejection_success_rate']:.4f}")
+    print(f"Feature recognition pass rate: {metrics.get('feature_recognition_pass_rate', 0.0):.4f}")
+    print(f"Feature recognition warnings: {metrics.get('feature_recognition_warning_count', 0)}")
     if result["failed_gates"]:
         print("Failed gates:")
         for gate in result["failed_gates"]:
@@ -1390,6 +1542,36 @@ def _build_parser() -> ArgumentParser:
         help="Supported model family to build and inspect.",
     )
 
+    recognize_features_parser = subparsers.add_parser(
+        "recognize-features",
+        help="Recognize topology-level engineering features for a bundled example model.",
+    )
+    recognize_features_parser.add_argument(
+        "family",
+        choices=["wall_mounted_bracket", "l_bracket"],
+        help="Supported model family to build and recognize.",
+    )
+    recognize_features_parser.add_argument(
+        "--output",
+        default=None,
+        help="Optional latest feature recognition report path.",
+    )
+    recognize_features_parser.add_argument(
+        "--no-export",
+        action="store_true",
+        help="Accepted for symmetry with harness commands; feature recognition does not export CAD.",
+    )
+
+    design_review = subparsers.add_parser(
+        "design-review",
+        help="Generate a design review report for a bundled example model.",
+    )
+    design_review.add_argument(
+        "family",
+        choices=["wall_mounted_bracket", "l_bracket"],
+        help="Supported model family to review.",
+    )
+
     volume_delta = subparsers.add_parser(
         "volume-delta",
         help="Run approximate volume delta checks for a bundled example model.",
@@ -1532,6 +1714,10 @@ def main(argv: list[str] | None = None) -> int:
             return _doctor_command()
         if args.command == "inspect-shape":
             return _inspect_shape_command(args.family)
+        if args.command == "recognize-features":
+            return _recognize_features_command(args.family, args.output, args.no_export)
+        if args.command == "design-review":
+            return _design_review_command(args.family)
         if args.command == "volume-delta":
             return _volume_delta_command(args.family)
         if args.command == "sweep":

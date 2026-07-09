@@ -70,6 +70,8 @@ Supported features:
 - benchmark suite
 - optional MCP wrapper
 - optional LLM intent translator with schema guardrails
+- topology-informed feature recognition for supported generated models
+- design review reports that summarize intent, parameters, validation, topology, recognized features, warnings, and artifacts
 
 Unsupported by design in this phase:
 
@@ -86,7 +88,7 @@ Unsupported by design in this phase:
 - SolidWorks, Fusion, or FreeCAD desktop control
 - freeform hole placement
 - circular or diagonal hole patterns
-- topological hole detection from exported solids
+- full industrial CAD feature recognition from arbitrary solids
 
 ## Installation
 
@@ -250,6 +252,20 @@ python -m intentforge.cli technical-harness --quick
 python -m intentforge.cli technical-harness --include-demo
 ```
 
+Recognize expected features from generated CadQuery topology:
+
+```bash
+python -m intentforge.cli recognize-features wall_mounted_bracket
+python -m intentforge.cli recognize-features l_bracket
+```
+
+Generate a user-facing design review report:
+
+```bash
+python -m intentforge.cli design-review wall_mounted_bracket
+python -m intentforge.cli design-review l_bracket
+```
+
 ## Demo
 
 Run the release demo:
@@ -350,9 +366,17 @@ output/harness/adversarial_summary.txt
 output/harness/adversarial_runs/<run_id>/
 ```
 
+## Feature Recognition And Design Review
+
+Feature recognition inspects generated CadQuery/OpenCascade topology for supported engineering features: through holes, center cutout, L-bracket solid connectivity, and triangular gusset where practical. It is topology-informed and conservative. Low-confidence findings are reported as warnings instead of pretending to be industrial-grade feature recognition.
+
+Design review reports combine structured intent, parameters, feature plan, validation checks, topology metrics, volume delta checks, feature recognition, warnings, artifacts, and known limitations.
+
+See [docs/feature_recognition.md](docs/feature_recognition.md) and [docs/design_review.md](docs/design_review.md).
+
 ## Technical Harness
 
-The technical harness orchestrator runs the benchmark, parametric sweep, edit preservation harness, adversarial rejection harness, volume delta checks, and shape inspection checks as one quality gate suite.
+The technical harness orchestrator runs the benchmark, parametric sweep, edit preservation harness, adversarial rejection harness, volume delta checks, shape inspection checks, and feature recognition checks as one quality gate suite.
 
 Run a faster local check:
 

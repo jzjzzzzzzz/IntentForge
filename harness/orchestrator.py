@@ -15,7 +15,14 @@ from benchmark.run_benchmark import run_benchmark
 from harness.adversarial import run_adversarial_harness
 from harness.edits import run_edit_preservation_harness
 from harness.sweeps import run_parametric_sweep
-from harness.topology import build_volume_delta_report, inspect_shape, write_shape_inspection_report
+from harness.topology import (
+    build_volume_delta_report,
+    inspect_shape,
+    recognize_features,
+    write_feature_recognition_report,
+    write_feature_recognition_summary,
+    write_shape_inspection_report,
+)
 from intentforge.generator.cadquery_generator import (
     CadQueryUnavailableError,
     build_l_bracket,
@@ -260,6 +267,43 @@ def _shape_inspection_section(run_dir: Path) -> dict[str, Any]:
     }
 
 
+def _feature_recognition_section(run_dir: Path) -> dict[str, Any]:
+    recognition_dir = run_dir / "feature_recognition"
+    reports: dict[str, dict[str, Any]] = {}
+    warning_count = 0
+    failed_families: list[str] = []
+
+    for family in SUPPORTED_MODEL_FAMILIES:
+        parameter_table = _load_example_parameters(family)
+        model = _build_example_model(parameter_table)
+        report = recognize_features(model, parameter_table)
+        report_path = recognition_dir / f"{family}_feature_recognition_report.json"
+        summary_path = recognition_dir / f"{family}_feature_recognition_summary.txt"
+        write_feature_recognition_report(report, report_path)
+        write_feature_recognition_summary(report, summary_path)
+        warning_count += len(report.get("warnings", []) or [])
+        if not report.get("passed", False):
+            failed_families.append(family)
+        reports[family] = {
+            "passed": bool(report.get("passed", False)),
+            "warning_count": len(report.get("warnings", []) or []),
+            "recognized_features": report.get("recognized_features", {}),
+            "topology_checks": report.get("topology_checks", {}),
+            "report_path": str(report_path),
+            "summary_path": str(summary_path),
+        }
+
+    pass_rate = (len(SUPPORTED_MODEL_FAMILIES) - len(failed_families)) / len(SUPPORTED_MODEL_FAMILIES)
+    return {
+        "passed": True,
+        "warning_only": True,
+        "pass_rate": pass_rate,
+        "warning_count": warning_count,
+        "families": reports,
+        "failed_families": failed_families,
+    }
+
+
 def _demo_section(output_root: Path) -> dict[str, Any]:
     from intentforge.demo_runner import run_demo
 
@@ -298,6 +342,7 @@ def _build_metrics(sections: dict[str, dict[str, Any]]) -> dict[str, float | int
     adversarial = sections.get("adversarial_rejection", {})
     volume = sections.get("volume_delta", {})
     shape = sections.get("shape_inspection", {})
+    feature_recognition = sections.get("feature_recognition", {})
     demo = sections.get("demo", {})
 
     unexpected_failure_count = int(benchmark.get("failed_cases", 0) or 0)
@@ -322,6 +367,8 @@ def _build_metrics(sections: dict[str, dict[str, Any]]) -> dict[str, float | int
         "sweep_pass_rate": float(sweep.get("pass_rate", 0.0) or 0.0),
         "edit_preservation_rate": float(edit.get("edit_preservation_rate", 0.0) or 0.0),
         "adversarial_rejection_success_rate": float(adversarial.get("rejection_success_rate", 0.0) or 0.0),
+        "feature_recognition_pass_rate": float(feature_recognition.get("pass_rate", 0.0) or 0.0),
+        "feature_recognition_warning_count": int(feature_recognition.get("warning_count", 0) or 0),
         "unexpected_failure_count": unexpected_failure_count,
         "unsafe_acceptance_count": unsafe_acceptance_count,
         "unexpected_exception_count": unexpected_exception_count,
@@ -377,6 +424,8 @@ def _build_summary(report: dict[str, Any]) -> str:
         f"  - sweep_pass_rate: {metrics['sweep_pass_rate']:.4f}",
         f"  - edit_preservation_rate: {metrics['edit_preservation_rate']:.4f}",
         f"  - adversarial_rejection_success_rate: {metrics['adversarial_rejection_success_rate']:.4f}",
+        f"  - feature_recognition_pass_rate: {float(metrics.get('feature_recognition_pass_rate', 0.0)):.4f}",
+        f"  - feature_recognition_warning_count: {int(metrics.get('feature_recognition_warning_count', 0))}",
         f"  - unexpected_failure_count: {metrics['unexpected_failure_count']}",
         f"  - unsafe_acceptance_count: {metrics['unsafe_acceptance_count']}",
         f"  - unexpected_exception_count: {metrics['unexpected_exception_count']}",
@@ -457,6 +506,10 @@ def run_technical_harness(
         "shape_inspection": _run_section(
             "shape_inspection",
             lambda: _shape_inspection_section(run_context.run_dir),
+        ),
+        "feature_recognition": _run_section(
+            "feature_recognition",
+            lambda: _feature_recognition_section(run_context.run_dir),
         ),
     }
     if include_demo:

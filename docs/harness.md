@@ -14,6 +14,7 @@ It runs:
 - adversarial rejection harness
 - volume delta checks for both supported families
 - shape inspection checks for both supported families
+- topology-informed feature recognition checks for both supported families
 - optional demo workflow when requested
 
 Run a faster check with a reduced sweep:
@@ -100,8 +101,25 @@ Run it with:
 python -m intentforge.cli sweep --max-cases-per-family 30
 ```
 
-## Topology and Volume Harnesses
+## Topology, Feature, and Volume Harnesses
 
 IntentForge also includes topology inspection and volume delta checks to support future topology-aware validation work.
 
-These are intentionally parameter- and intent-driven today. They do not replace the existing validation pipeline.
+Feature recognition adds a conservative topology-informed layer for expected generated features:
+
+```bash
+python -m intentforge.cli recognize-features wall_mounted_bracket
+python -m intentforge.cli recognize-features l_bracket
+```
+
+Reports are written to:
+
+```text
+output/harness/feature_recognition_report.json
+output/harness/feature_recognition_summary.txt
+output/harness/feature_recognition_runs/<run_id>/
+```
+
+Recognition currently covers through holes, wall-bracket center cutout, L-bracket connected solid topology, and triangular gusset where practical. Low-confidence recognition produces warnings instead of being treated as a strict quality gate.
+
+These harnesses do not replace the existing validation pipeline. They add topology-informed evidence for design review and future stronger validation.
