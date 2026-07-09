@@ -26,7 +26,18 @@ class OpenAICompatibleProvider(LLMProvider):
 
     This provider is optional and is never used in tests unless explicitly
     configured by environment variables.
+
+    Compatible with OpenAI, DeepSeek, Moonshot, Qwen, and any service
+    that follows the OpenAI Chat Completions API format.  The ``developer``
+    role (OpenAI-specific) is mapped to ``system`` for providers that
+    do not support it.
     """
+
+    # Roles that are OpenAI-specific and must be mapped to supported
+    # equivalents for broader provider compatibility.
+    _ROLE_MAP = {
+        "developer": "system",
+    }
 
     def __init__(
         self,
@@ -41,14 +52,24 @@ class OpenAICompatibleProvider(LLMProvider):
         self.model = model
         self.timeout_seconds = timeout_seconds
 
+    @staticmethod
+    def _normalize_messages(messages: list[dict[str, str]]) -> list[dict[str, str]]:
+        """Map unsupported roles to their nearest compatible equivalent."""
+        normalized: list[dict[str, str]] = []
+        for msg in messages:
+            role = msg.get("role", "user")
+            mapped_role = OpenAICompatibleProvider._ROLE_MAP.get(role, role)
+            normalized.append({"role": mapped_role, "content": msg.get("content", "")})
+        return normalized
+
     def complete_json(self, messages: list[dict[str, str]], schema_name: str) -> dict[str, Any]:
         url = f"{self.base_url}/chat/completions"
+        normalized = self._normalize_messages(messages)
         payload = {
             "model": self.model,
-            "messages": messages,
+            "messages": normalized,
             "temperature": 0,
             "response_format": {"type": "json_object"},
-            "metadata": {"schema_name": schema_name},
         }
         data = json.dumps(payload).encode("utf-8")
         req = urllib_request.Request(

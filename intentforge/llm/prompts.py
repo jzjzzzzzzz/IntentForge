@@ -26,11 +26,21 @@ Return this JSON shape:
   "object_type": "wall_mounted_bracket | l_bracket | unsupported_name",
   "units": "mm",
   "parameters": {},
-  "feature_flags": {},
+  "feature_flags": {
+    "mounting_holes": {
+      "state": "requested_by_user",
+      "reason": "Prompt mentioned screw holes.",
+      "hole_count": 2
+    }
+  },
   "assumptions": [],
   "unknowns": [],
   "warnings": []
 }
+
+IMPORTANT: Each feature flag MUST be an object with at least "state" and "reason" keys.
+Do NOT use plain strings like "requested_by_user" for feature flags.
+Always use: {"state": "...", "reason": "..."}.
 
 Feature flag states must be one of:
 - requested_by_user
@@ -38,7 +48,7 @@ Feature flag states must be one of:
 - omitted
 
 For wall_mounted_bracket, supported optional features are:
-- mounting_holes
+- mounting_holes (include "hole_count" key: 2 or 4)
 - center_cutout
 - rounded_corners
 - edge_fillets
@@ -46,8 +56,8 @@ For wall_mounted_bracket, supported optional features are:
 For l_bracket, supported optional features are:
 - base_leg
 - vertical_leg
-- base_mounting_holes
-- vertical_mounting_holes
+- base_mounting_holes (include "hole_count" key: 0 or 2)
+- vertical_mounting_holes (include "hole_count" key: 0 or 2)
 - inside_fillet
 - outside_edge_fillets
 - triangular_gusset

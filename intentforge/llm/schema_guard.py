@@ -112,11 +112,28 @@ def _parameters(data: dict[str, Any]) -> dict[str, Any]:
     return parameters
 
 
+def _normalize_feature_flags(feature_flags: dict[str, Any]) -> dict[str, Any]:
+    """Auto-normalize LLM feature flags that arrive as plain strings.
+
+    Some LLMs (DeepSeek, Moonshot, etc.) return feature flags as plain
+    state strings (e.g. ``"requested_by_user"``) instead of objects with
+    ``state`` and ``reason`` keys.  This function converts them to the
+    proper object format so downstream validation can proceed.
+    """
+    normalized: dict[str, Any] = {}
+    for name, flag in feature_flags.items():
+        if isinstance(flag, str) and flag in FEATURE_STATES:
+            normalized[name] = {"state": flag, "reason": f"LLM returned state '{flag}' for {name}."}
+        else:
+            normalized[name] = flag
+    return normalized
+
+
 def _feature_flags(data: dict[str, Any]) -> dict[str, Any]:
     feature_flags = data.get("feature_flags", {})
     if not isinstance(feature_flags, dict):
         raise LLMSchemaGuardError("feature_flags must be a JSON object.")
-    return feature_flags
+    return _normalize_feature_flags(feature_flags)
 
 
 def _is_active(flag: Any) -> bool:

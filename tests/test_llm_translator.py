@@ -230,3 +230,91 @@ def test_schema_guard_rejects_invalid_feature_state() -> None:
             },
             "Make a wall-mounted bracket.",
         )
+
+
+# ── Provider compatibility tests ────────────────────────────────────
+
+
+class TestOpenAICompatibleProviderRoleMapping:
+    """Verify that the OpenAI-compatible provider maps unsupported roles."""
+
+    def test_developer_role_mapped_to_system(self) -> None:
+        messages = [
+            {"role": "system", "content": "You are a helper."},
+            {"role": "developer", "content": "Return JSON."},
+            {"role": "user", "content": "Make a bracket."},
+        ]
+        normalized = OpenAICompatibleProvider._normalize_messages(messages)
+        assert normalized[0]["role"] == "system"
+        assert normalized[1]["role"] == "system"  # developer → system
+        assert normalized[2]["role"] == "user"
+
+    def test_unknown_roles_pass_through(self) -> None:
+        messages = [
+            {"role": "assistant", "content": "Here is the result."},
+        ]
+        normalized = OpenAICompatibleProvider._normalize_messages(messages)
+        assert normalized[0]["role"] == "assistant"
+
+    def test_empty_messages_produce_empty_list(self) -> None:
+        normalized = OpenAICompatibleProvider._normalize_messages([])
+        assert normalized == []
+
+
+class TestSchemaGuardFeatureFlagNormalization:
+    """Verify that string-valued feature flags are auto-normalized to objects."""
+
+    def test_string_flag_normalized_to_object(self) -> None:
+        result = validate_intent_translation(
+            {
+                "object_type": "wall_mounted_bracket",
+                "units": "mm",
+                "parameters": {"width": 120, "height": 80, "thickness": 6},
+                "feature_flags": {
+                    "mounting_holes": "requested_by_user",
+                    "center_cutout": "omitted",
+                },
+                "assumptions": [],
+                "unknowns": [],
+                "warnings": [],
+            },
+            "Make a wall-mounted bracket 120mm wide 80mm tall.",
+        )
+        # The normalized prompt should be produced (schema guard passed)
+        assert result.normalized_prompt
+        # The original LLM output had strings, but schema guard normalized them
+        assert result.parsed.intent.family == "wall_mounted_bracket"
+
+    def test_object_flag_passes_unchanged(self) -> None:
+        result = validate_intent_translation(
+            {
+                "object_type": "wall_mounted_bracket",
+                "units": "mm",
+                "parameters": {"width": 120},
+                "feature_flags": {
+                    "mounting_holes": {"state": "requested_by_user", "reason": "Prompt mentioned holes."},
+                },
+                "assumptions": [],
+                "unknowns": [],
+                "warnings": [],
+            },
+            "Make a wall-mounted bracket with holes.",
+        )
+        assert result.normalized_prompt
+
+    def test_invalid_string_flag_rejected(self) -> None:
+        with pytest.raises(LLMSchemaGuardError, match="must be an object"):
+            validate_intent_translation(
+                {
+                    "object_type": "wall_mounted_bracket",
+                    "units": "mm",
+                    "parameters": {"width": 120},
+                    "feature_flags": {
+                        "mounting_holes": "maybe_yes",
+                    },
+                    "assumptions": [],
+                    "unknowns": [],
+                    "warnings": [],
+                },
+                "Make a bracket.",
+            )
