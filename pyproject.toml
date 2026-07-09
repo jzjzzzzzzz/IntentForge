@@ -25,6 +25,10 @@ api = [
     "fastapi>=0.110",
     "uvicorn>=0.29",
 ]
+client = [
+    "rich>=13.0",
+    "prompt_toolkit>=3.0.38",
+]
 dev = [
     "pytest>=8.2",
 ]

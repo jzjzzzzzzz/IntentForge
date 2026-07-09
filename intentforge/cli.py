@@ -1456,6 +1456,11 @@ def _build_parser() -> ArgumentParser:
         help="Include the release demo workflow in the technical harness.",
     )
 
+    interactive_parser = subparsers.add_parser(
+        "interactive",
+        help="Start the interactive IntentForge terminal client (Claude Code-like experience).",
+    )
+
     serve_parser = subparsers.add_parser(
         "serve",
         help="Start the IntentForge HTTP API server (requires fastapi + uvicorn).",
@@ -1535,6 +1540,10 @@ def main(argv: list[str] | None = None) -> int:
             return _adversarial_harness_command(args.max_cases)
         if args.command == "technical-harness":
             return _technical_harness_command(args.quick, args.include_demo)
+        if args.command == "interactive":
+            from intentforge.client.repl import run_interactive
+            run_interactive()
+            return 0
         if args.command == "serve":
             return _serve_command(args.host, args.port, args.token)
     except CadQueryUnavailableError as exc:

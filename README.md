@@ -98,6 +98,13 @@ python -m venv .venv
 python -m pip install -r requirements.txt
 ```
 
+Or install via Homebrew (macOS):
+
+```bash
+brew tap jzjzzzzzzz/intentforge
+brew install intentforge
+```
+
 CadQuery is optional for non-CAD parser tests, but required for real STEP/STL generation:
 
 ```bash
@@ -111,6 +118,13 @@ python -m pip install -e ".[mcp]"
 ```
 
 Optional LLM provider configuration uses environment variables only. See `.env.example`; do not commit real keys.
+
+For the interactive terminal client (Claude Code-like experience):
+
+```bash
+python -m pip install -e ".[client]"
+intentforge interactive
+```
 
 Run the test suite:
 
@@ -399,6 +413,40 @@ Key endpoints:
 - `GET /v1/artifacts/{path}` — safe artifact file serving
 
 See [docs/api_contract.md](docs/api_contract.md) and [docs/product_demo.md](docs/product_demo.md).
+
+## Interactive Terminal Client
+
+IntentForge ships an optional interactive terminal client (like Claude Code's experience) with rich colored output, spinners, session tracking, and auto-completion.
+
+Install client dependencies:
+
+```bash
+python -m pip install -e ".[client]"
+```
+
+Start the interactive session:
+
+```bash
+intentforge interactive
+```
+
+Available commands inside the session:
+
+| Command | Description |
+|---------|-------------|
+| `parse "prompt"` | Parse a natural-language prompt into structured intent |
+| `parse-build [--dry-run] "prompt"` | Parse + generate CAD + export STEP/STL |
+| `edit <target> "edit request"` | Edit an existing model with intent preservation |
+| `llm-parse "prompt"` | LLM-translate prompt (requires LLM config) |
+| `llm-parse-build "prompt"` | LLM-translate + build |
+| `demo` | Run the full product demo |
+| `doctor` | Check environment health |
+| `status` | Show current session context |
+| `config` | Show / edit LLM configuration |
+| `history` | Show command history |
+| `quit` | Exit session |
+
+The client works without `rich` and `prompt_toolkit` — it gracefully falls back to plain text output and basic `input()` prompts.
 
 ## Product Demo Workflow
 
