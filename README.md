@@ -195,6 +195,13 @@ Run the adversarial rejection harness:
 python -m intentforge.cli adversarial-harness
 ```
 
+Run the unified technical harness and quality gates:
+
+```bash
+python -m intentforge.cli technical-harness --quick
+python -m intentforge.cli technical-harness --include-demo
+```
+
 ## Demo
 
 Run the release demo:
@@ -281,6 +288,41 @@ output/harness/adversarial_summary.txt
 output/harness/adversarial_runs/<run_id>/
 ```
 
+## Technical Harness
+
+The technical harness orchestrator runs the benchmark, parametric sweep, edit preservation harness, adversarial rejection harness, volume delta checks, and shape inspection checks as one quality gate suite.
+
+Run a faster local check:
+
+```bash
+python -m intentforge.cli technical-harness --quick
+```
+
+Run the full harness with the demo workflow included:
+
+```bash
+python -m intentforge.cli technical-harness --include-demo
+```
+
+Default quality gates require:
+
+- benchmark pass rate >= 0.95
+- sweep pass rate >= 0.95
+- edit preservation rate >= 0.95
+- adversarial rejection success rate == 1.0
+- unsafe acceptances == 0
+- unexpected failures and exceptions == 0
+
+Reports are written to:
+
+```text
+output/harness/technical_harness_report.json
+output/harness/technical_harness_summary.txt
+output/harness/technical_harness_runs/<run_id>/
+```
+
+Phase 12 adds this harness command only; it does not create a new release tag.
+
 ## MCP Usage
 
 IntentForge can be exposed as an optional MCP tool server for coding agents:
@@ -313,7 +355,7 @@ benchmark/      Deterministic benchmark corpus and runner
 demo/           Release demo script and notes
 docs/           Architecture, design intent, validation, benchmark, MCP, and roadmap docs
 examples/       Bundled wall-bracket and L-bracket prompt, intent, parameters, constraints, feature plan, and edit examples
-harness/        Topology, volume delta, sweep, edit-preservation, and adversarial rejection harnesses
+harness/        Topology, volume delta, sweep, edit-preservation, adversarial, and orchestrator harnesses
 intentforge/    Core schemas, parser, planner, generator, validator, editor, workflows, and CLI
 mcp_server/     Optional MCP wrapper around core workflows
 output/         Generated artifacts

@@ -1,6 +1,44 @@
 # Harness
 
-IntentForge includes three deterministic harness layers that are useful for regression and release work.
+IntentForge includes deterministic harness layers that are useful for regression, release work, and technical quality checks.
+
+## Technical Harness Orchestrator
+
+The technical harness orchestrator runs the existing checks together and applies quality gates. It does not replace the individual harnesses; it calls them and collects their reports into one summary.
+
+It runs:
+
+- benchmark suite
+- parametric sweep harness
+- edit preservation harness
+- adversarial rejection harness
+- volume delta checks for both supported families
+- shape inspection checks for both supported families
+- optional demo workflow when requested
+
+Run a faster check with a reduced sweep:
+
+```bash
+python -m intentforge.cli technical-harness --quick
+```
+
+Run the harness with the demo included:
+
+```bash
+python -m intentforge.cli technical-harness --include-demo
+```
+
+Default quality gates require benchmark, sweep, and edit preservation rates of at least `0.95`, adversarial rejection success of `1.0`, zero unsafe acceptances, and zero unexpected failures or exceptions.
+
+Reports are written to:
+
+```text
+output/harness/technical_harness_report.json
+output/harness/technical_harness_summary.txt
+output/harness/technical_harness_runs/<run_id>/
+```
+
+CadQuery is required because the orchestrator builds, validates, inspects, and compares real CAD models. Phase 12 adds this command without creating a new release tag.
 
 ## Edit Preservation Harness
 

@@ -1,6 +1,6 @@
 # Project Status
 
-Current development target: Phase 10 on `phase-10-l-bracket`
+Current development target: Phase 12 technical harness orchestrator on `main`
 
 Current supported model families:
 
@@ -22,7 +22,14 @@ Current supported model families:
 - Phase 7: MCP wrapper
 - Phase 8: benchmark and regression suite
 - Phase 9: demo, documentation, and release readiness
-- Phase 10: L-bracket model family in progress
+- Phase 10: L-bracket model family
+- Phase 10.5: L-bracket hardening and PR readiness
+- Phase 10.6: developer experience, doctor command, and CI
+- Phase 11.1: shape inspector and topology-informed validation foundation
+- Phase 11.2: volume delta validation harness
+- Phase 11.3: parametric sweep harness
+- Phase 11.4: edit preservation harness
+- Phase 11.5: adversarial rejection harness
 
 ## Current Capabilities
 
@@ -42,6 +49,9 @@ Current supported model families:
 - write traceable latest and persistent outputs
 - expose workflows through optional MCP tools
 - run a deterministic benchmark suite
+- run topology inspection and volume delta harnesses
+- run parametric sweep, edit preservation, and adversarial rejection harnesses
+- run a unified technical harness with quality gates
 
 ## Current Limitations
 
@@ -63,7 +73,7 @@ Current supported model families:
 Release verification:
 
 - `python -m pytest`
-- Last recorded result for Phase 10.5: `194 passed`
+- Last recorded result for Phase 11.5: `267 passed, 1 skipped`
 
 CadQuery-dependent tests require the optional CAD dependency.
 
@@ -72,11 +82,22 @@ CadQuery-dependent tests require the optional CAD dependency.
 Release benchmark:
 
 - `python -m intentforge.cli benchmark`
-- Last recorded result for Phase 10.5: `82 passed, 0 failed`, pass rate `1.0000`
-- Family split: `wall_mounted_bracket` 54 passed, `l_bracket` 28 passed
+- Last recorded result for Phase 11.5: `97 passed, 0 failed`, pass rate `1.0000`
+- Family split: `wall_mounted_bracket` 69 passed, `l_bracket` 28 passed
 
 Benchmark reports are written under `output/benchmark/`.
 
+## Harness Status
+
+Technical harness command:
+
+- `python -m intentforge.cli technical-harness --quick`
+- `python -m intentforge.cli technical-harness --include-demo`
+
+Default quality gates require benchmark, sweep, and edit preservation rates of at least `0.95`, adversarial rejection success of `1.0`, zero unsafe acceptances, and zero unexpected failures or exceptions.
+
+Phase 12 adds the orchestrator command only. It does not create a new release tag.
+
 ## Next Planned Phase
 
-Finish Phase 10 hardening for the L-bracket family, then consider a third model family only after regression coverage stays green.
+Complete Phase 12 verification, then consider future topology-aware validation improvements only after the unified harness stays green.

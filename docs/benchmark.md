@@ -75,6 +75,13 @@ Run the adversarial rejection harness:
 python -m intentforge.cli adversarial-harness
 ```
 
+Run the unified technical harness and quality gates:
+
+```bash
+python -m intentforge.cli technical-harness --quick
+python -m intentforge.cli technical-harness --include-demo
+```
+
 The sweep builds generated parameter tables, runs CadQuery generation, geometry validation, topology inspection, and volume delta checks. Expected invalid combinations are classified as `expected_rejection` rather than unexpected failures.
 
 Latest reports are written to:
@@ -97,3 +104,13 @@ output/harness/adversarial_report.json
 output/harness/adversarial_summary.txt
 output/harness/adversarial_runs/<run_id>/
 ```
+
+Technical harness reports are written to:
+
+```text
+output/harness/technical_harness_report.json
+output/harness/technical_harness_summary.txt
+output/harness/technical_harness_runs/<run_id>/
+```
+
+The technical harness applies quality gates across the benchmark, sweep, edit preservation, adversarial rejection, volume delta, and shape inspection checks. It is intended for pre-merge or pre-release confidence checks. It does not create a release tag.

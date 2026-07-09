@@ -48,6 +48,7 @@ from intentforge.workflows import (
 )
 from benchmark.run_benchmark import run_benchmark
 from intentforge.demo_runner import run_demo
+from harness.orchestrator import run_technical_harness
 
 SUPPORTED_MODEL_FAMILIES = ["wall_mounted_bracket", "l_bracket"]
 
@@ -796,6 +797,7 @@ def _doctor_command() -> int:
     print("  - sweep")
     print("  - edit-harness")
     print("  - adversarial-harness")
+    print("  - technical-harness")
 
     core_ok = all(ok for _, ok, _ in core_checks)
     print(f"Doctor result: {'core checks passed' if core_ok else 'core checks failed'}")
@@ -982,6 +984,38 @@ def _adversarial_harness_command(max_cases: int | None) -> int:
     return 0 if result["failed"] == 0 else 1
 
 
+def _technical_harness_command(quick: bool, include_demo: bool) -> int:
+    if not _package_installed("cadquery"):
+        print(_cadquery_required_message("technical-harness"))
+        return 1
+    result = run_technical_harness(
+        _project_root() / "output",
+        quick=quick,
+        include_demo=include_demo,
+    )
+    metrics = result["metrics"]
+    print(f"Technical harness run: {result['run_id']}")
+    print(f"Overall passed: {str(result['overall_passed']).lower()}")
+    print(f"Quality gates passed: {str(result['quality_gates_passed']).lower()}")
+    print(f"Benchmark pass rate: {metrics['benchmark_pass_rate']:.4f}")
+    print(f"Sweep pass rate: {metrics['sweep_pass_rate']:.4f}")
+    print(f"Edit preservation rate: {metrics['edit_preservation_rate']:.4f}")
+    print(f"Adversarial rejection success rate: {metrics['adversarial_rejection_success_rate']:.4f}")
+    if result["failed_gates"]:
+        print("Failed gates:")
+        for gate in result["failed_gates"]:
+            print(
+                f"  - {gate['gate']}: actual {gate['actual']} "
+                f"must be {gate['operator']} {gate['expected']}"
+            )
+    else:
+        print("Failed gates: none")
+    print(f"Report path: {result['output_paths']['latest_report']}")
+    print(f"Summary path: {result['output_paths']['latest_summary']}")
+    print(f"Persistent output dir: {result['persistent_output_dir']}")
+    return 0 if result["overall_passed"] else 1
+
+
 def _build_parser() -> ArgumentParser:
     parser = ArgumentParser(prog="intentforge")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -1137,6 +1171,21 @@ def _build_parser() -> ArgumentParser:
         help="Maximum number of adversarial cases to run.",
     )
 
+    technical_harness = subparsers.add_parser(
+        "technical-harness",
+        help="Run the unified technical harness and quality gates.",
+    )
+    technical_harness.add_argument(
+        "--quick",
+        action="store_true",
+        help="Run a reduced sweep while still exercising all harness sections.",
+    )
+    technical_harness.add_argument(
+        "--include-demo",
+        action="store_true",
+        help="Include the release demo workflow in the technical harness.",
+    )
+
     return parser
 
 
@@ -1184,6 +1233,8 @@ def main(argv: list[str] | None = None) -> int:
             return _edit_harness_command(args.max_chains, args.no_export)
         if args.command == "adversarial-harness":
             return _adversarial_harness_command(args.max_cases)
+        if args.command == "technical-harness":
+            return _technical_harness_command(args.quick, args.include_demo)
     except CadQueryUnavailableError as exc:
         parser.exit(1, f"{exc}\n")
     except UnsupportedObjectError as exc:
