@@ -1,6 +1,6 @@
 # Project Status
 
-Current development target: Phase 14 optional LLM intent translator with schema guardrails on `main`
+Current development target: Phase 15 optional local HTTP API server / product backend on `main`
 
 Current supported model families:
 
@@ -32,6 +32,8 @@ Current supported model families:
 - Phase 11.5: adversarial rejection harness
 - Phase 12: technical harness orchestrator and quality gates
 - Phase 13: production tool interface and API contract hardening
+- Phase 14: optional LLM intent translator with schema guardrails
+- Phase 15: optional local HTTP API server / product backend
 
 ## Current Capabilities
 
@@ -59,6 +61,11 @@ Current supported model families:
 - support dry-run parse-build and edit-apply workflows without STEP/STL export
 - optionally translate prompts and edits with an LLM provider
 - guard LLM output before deterministic CAD workflows run
+- expose all workflows through an optional FastAPI HTTP API
+- optional Bearer token auth via INTENTFORGE_API_TOKEN
+- safe artifact file serving (only files under output/)
+- path traversal rejection for artifact requests
+- CLI serve subcommand (intentforge serve)
 
 ## Current Limitations
 
@@ -76,15 +83,18 @@ Current supported model families:
 - no topological feature detection from solids yet
 - deterministic parser only
 - no freeform hole placement
+- HTTP API does not serve generated CAD files for download yet (artifact endpoint serves files under output/)
 
 ## Test Status
 
 Release verification:
 
 - `python -m pytest`
-- Last recorded result for Phase 11.5: `267 passed, 1 skipped`
+- Last recorded result for Phase 15: API tests 40 passed, core + API 192 passed, 1 skipped
 
 CadQuery-dependent tests require the optional CAD dependency.
+
+API tests require the optional API dependency (fastapi + uvicorn + httpx).
 
 ## Benchmark Status
 
@@ -105,8 +115,6 @@ Technical harness command:
 
 Default quality gates require benchmark, sweep, and edit preservation rates of at least `0.95`, adversarial rejection success of `1.0`, zero unsafe acceptances, and zero unexpected failures or exceptions.
 
-Phase 12 adds the orchestrator command only. It does not create a new release tag.
-
 ## API Contract Status
 
 Phase 13 standardizes external workflow and MCP responses with:
@@ -118,8 +126,6 @@ Phase 13 standardizes external workflow and MCP responses with:
 - quality gate summaries where relevant
 - structured recoverable errors
 - `dry_run` and `cad_exported` status
-
-Phase 13 is interface hardening only. It does not create a new release tag.
 
 ## LLM Translator Status
 
@@ -134,8 +140,30 @@ LLM commands:
 
 If no provider is configured, these commands return `LLMProviderUnavailableError`. Tests use `MockLLMProvider` only and make no real API calls.
 
-Phase 14 is translator hardening only. It does not create a new release tag.
+## HTTP API Status
+
+Phase 15 adds an optional FastAPI HTTP API server with:
+
+- GET /health — API health check
+- POST /v1/parse — parse a deterministic CAD prompt
+- POST /v1/parse-build — parse, build, export, validate
+- POST /v1/edit-parse — parse a natural-language edit
+- POST /v1/edit-apply — parse and apply an edit
+- POST /v1/llm/parse — LLM-translate a prompt
+- POST /v1/llm/parse-build — LLM-translate, guard, build, validate
+- POST /v1/llm/edit-parse — LLM-translate an edit
+- POST /v1/llm/edit-apply — LLM-translate, guard, apply edit
+- POST /v1/technical-harness — run technical harness
+- GET /v1/runs/recent — list recent runs
+- GET /v1/runs/{kind}/{run_id} — get run metadata
+- GET /v1/artifacts/{path} — serve artifact files (safe, no path traversal)
+
+All endpoints return contract-compatible ToolResponse envelopes. Optional Bearer token auth via INTENTFORGE_API_TOKEN. API tests skip cleanly when fastapi is not installed.
+
+Start server: `intentforge serve [--host HOST] [--port PORT] [--token TOKEN]`
+
+Phase 15 does not create a new release tag.
 
 ## Next Planned Phase
 
-Complete Phase 14 verification, then continue hardening agent integration boundaries before adding any new CAD capabilities.
+Phase 16: simple web demo UI for interactive prompt → CAD visualization.
