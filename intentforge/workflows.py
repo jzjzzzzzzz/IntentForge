@@ -9,8 +9,14 @@ from typing import Any
 import yaml
 
 from intentforge.editor.edit_intent_handler import apply_edit_request, write_edit_report
+from intentforge.contracts import apply_response_contract, ensure_request_id, error_response
 from intentforge.features import feature_flags_for_parameter_table
-from intentforge.generator.cadquery_generator import build_l_bracket, build_wall_bracket, export_model
+from intentforge.generator.cadquery_generator import (
+    CadQueryUnavailableError,
+    build_l_bracket,
+    build_wall_bracket,
+    export_model,
+)
 from intentforge.output_manager import (
     build_run_metadata,
     create_parsed_run_context,
@@ -19,7 +25,7 @@ from intentforge.output_manager import (
     json_safe_paths,
     write_run_metadata,
 )
-from intentforge.parser import UnsupportedEditError, parse_edit_request, parse_prompt
+from intentforge.parser import UnsupportedEditError, UnsupportedObjectError, parse_edit_request, parse_prompt
 from intentforge.schemas import ConstraintGraph, FeaturePlan, IntentSpec, ParameterTable, ValidationReport
 from intentforge.validator.geometry_validator import validate_l_bracket, validate_wall_bracket, write_validation_report
 from intentforge.validator.intent_validator import validate_l_bracket_intent, validate_wall_bracket_intent
@@ -231,6 +237,7 @@ def _edit_run_metadata(
     edit_text: str,
     parsed_edit: dict[str, Any],
     output_paths: dict[str, Any],
+    request_id: str | None = None,
     accepted: bool | None = None,
     validation_valid: bool | None = None,
     object_type: str | None = None,
@@ -239,6 +246,7 @@ def _edit_run_metadata(
 ) -> dict[str, Any]:
     metadata: dict[str, Any] = {
         "run_id": run_context.run_id,
+        "request_id": request_id,
         "command_type": command_type,
         "original_edit_text": edit_text,
         "created_at": run_context.created_at.isoformat(),
@@ -299,10 +307,21 @@ def parse_prompt_workflow(
     output_root: str | Path | None = None,
     *,
     write_outputs: bool = False,
+    request_id: str | None = None,
 ) -> dict[str, Any]:
     """Parse a CAD prompt and optionally write traceable parsed artifacts."""
 
-    parsed = parse_prompt(prompt)
+    request_id = ensure_request_id(request_id)
+    try:
+        parsed = parse_prompt(prompt)
+    except UnsupportedObjectError as exc:
+        return error_response(
+            operation="parse",
+            request_id=request_id,
+            error_type=exc.__class__.__name__,
+            message=str(exc),
+            recoverable=True,
+        )
     active_features, omitted_features = feature_state_names(parsed.parameter_table)
     result: dict[str, Any] = {
         "ok": True,
@@ -317,7 +336,12 @@ def parse_prompt_workflow(
         "omitted_features": omitted_features,
     }
     if not write_outputs:
-        return result
+        return apply_response_contract(
+            result,
+            operation="parse",
+            request_id=request_id,
+            object_type=parsed.intent.family,
+        )
 
     out_root = _output_root(output_root)
     run_context = create_parsed_run_context(prompt, out_root)
@@ -332,6 +356,7 @@ def parse_prompt_workflow(
         warnings=parsed.warnings,
         output_paths={"latest": latest_paths, "persistent": persistent_paths},
     )
+    metadata["request_id"] = request_id
     write_run_metadata(metadata, persistent_paths["run_metadata"])
     result.update(
         {
@@ -342,33 +367,72 @@ def parse_prompt_workflow(
             "run_metadata": metadata,
         }
     )
-    return result
+    return apply_response_contract(
+        result,
+        operation="parse",
+        request_id=request_id,
+        object_type=parsed.intent.family,
+    )
 
 
-def parse_build_workflow(prompt: str, output_root: str | Path | None = None) -> dict[str, Any]:
+def parse_build_workflow(
+    prompt: str,
+    output_root: str | Path | None = None,
+    *,
+    request_id: str | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
     """Parse a prompt, build CAD, export latest and persistent files, and validate."""
 
+    request_id = ensure_request_id(request_id)
     out_root = _output_root(output_root)
-    parsed = parse_prompt(prompt)
+    try:
+        parsed = parse_prompt(prompt)
+    except UnsupportedObjectError as exc:
+        return error_response(
+            operation="parse_build",
+            request_id=request_id,
+            error_type=exc.__class__.__name__,
+            message=str(exc),
+            recoverable=True,
+        )
     run_context = create_parsed_run_context(prompt, out_root)
     latest_paths, persistent_paths = _write_parsed_outputs(parsed, prompt, out_root, run_context.run_dir)
     active_features, omitted_features = feature_state_names(parsed.parameter_table)
 
-    model = _build_model(parsed.parameter_table, parsed.feature_plan)
+    try:
+        model = _build_model(parsed.parameter_table, parsed.feature_plan)
+    except CadQueryUnavailableError as exc:
+        return error_response(
+            operation="parse_build",
+            request_id=request_id,
+            error_type=exc.__class__.__name__,
+            message=str(exc),
+            recoverable=True,
+            object_type=parsed.intent.family,
+            run_id=run_context.run_id,
+        )
     cad_basename = _parsed_cad_basename(parsed.parameter_table.family)
     step_path = out_root / f"{cad_basename}.step"
     stl_path = out_root / f"{cad_basename}.stl"
     persistent_step_path = run_context.run_dir / f"{cad_basename}.step"
     persistent_stl_path = run_context.run_dir / f"{cad_basename}.stl"
-    export_model(model, step_path, stl_path)
-    export_model(model, persistent_step_path, persistent_stl_path)
-    latest_paths = {**latest_paths, "step": step_path, "stl": stl_path}
-    persistent_paths = {**persistent_paths, "step": persistent_step_path, "stl": persistent_stl_path}
+    planned_cad_paths = {
+        "latest_step": step_path,
+        "latest_stl": stl_path,
+        "persistent_step": persistent_step_path,
+        "persistent_stl": persistent_stl_path,
+    }
+    if not dry_run:
+        export_model(model, step_path, stl_path)
+        export_model(model, persistent_step_path, persistent_stl_path)
+        latest_paths = {**latest_paths, "step": step_path, "stl": stl_path}
+        persistent_paths = {**persistent_paths, "step": persistent_step_path, "stl": persistent_stl_path}
 
     validation_report = _validate_geometry(
         model,
         parsed.parameter_table,
-        output_paths={"step": step_path, "stl": stl_path},
+        output_paths=None if dry_run else {"step": step_path, "stl": stl_path},
     )
     validation_filename = _parsed_validation_report_name(parsed.parameter_table.family)
     validation_path = out_root / validation_filename
@@ -384,11 +448,15 @@ def parse_build_workflow(prompt: str, output_root: str | Path | None = None) -> 
                 **validation_report.metadata,
                 "command": "parse-build",
                 "run_id": run_context.run_id,
+                "request_id": request_id,
                 "parsed_prompt": prompt,
-                "step_path": str(step_path),
-                "stl_path": str(stl_path),
-                "persistent_step_path": str(persistent_step_path),
-                "persistent_stl_path": str(persistent_stl_path),
+                "dry_run": dry_run,
+                "cad_exported": not dry_run,
+                "planned_cad_paths": _paths_for_json(planned_cad_paths),
+                "step_path": None if dry_run else str(step_path),
+                "stl_path": None if dry_run else str(stl_path),
+                "persistent_step_path": None if dry_run else str(persistent_step_path),
+                "persistent_stl_path": None if dry_run else str(persistent_stl_path),
                 "shared_validation_report_path": str(shared_validation_path),
                 "persistent_validation_report_path": str(persistent_validation_path),
             }
@@ -410,9 +478,13 @@ def parse_build_workflow(prompt: str, output_root: str | Path | None = None) -> 
         validation_valid=validation_report.valid,
         output_paths={"latest": latest_paths, "persistent": persistent_paths},
     )
+    metadata["request_id"] = request_id
+    metadata["dry_run"] = dry_run
+    metadata["cad_exported"] = not dry_run
+    metadata["planned_cad_paths"] = _paths_for_json(planned_cad_paths)
     write_run_metadata(metadata, persistent_paths["run_metadata"])
 
-    return {
+    result = {
         "ok": validation_report.valid,
         "run_id": run_context.run_id,
         "object_type": parsed.intent.family,
@@ -425,13 +497,27 @@ def parse_build_workflow(prompt: str, output_root: str | Path | None = None) -> 
         "unknowns": parsed.intent.unknowns,
         "validation_valid": validation_report.valid,
         "validation_report": validation_report.model_dump(mode="json"),
+        "cad_exported": not dry_run,
+        "dry_run": dry_run,
         "latest_outputs": _paths_for_json(latest_paths),
         "persistent_outputs": _paths_for_json(persistent_paths),
+        "planned_outputs": _paths_for_json(planned_cad_paths),
         "persistent_output_dir": str(run_context.run_dir),
         "active_features": active_features,
         "omitted_features": omitted_features,
         "run_metadata": metadata,
     }
+    if not validation_report.valid:
+        result["error_type"] = "ValidationFailedError"
+        result["message"] = validation_report.summary
+    return apply_response_contract(
+        result,
+        operation="parse_build",
+        request_id=request_id,
+        object_type=parsed.intent.family,
+        validation_report=validation_report,
+        dry_run=dry_run,
+    )
 
 
 def _parse_edit_text(edit_text: str, parameter_table: ParameterTable | None = None) -> tuple[dict[str, Any], bool]:
@@ -454,9 +540,11 @@ def edit_parse_workflow(
     *,
     write_outputs: bool = False,
     parameter_table: ParameterTable | None = None,
+    request_id: str | None = None,
 ) -> dict[str, Any]:
     """Parse a natural-language edit and optionally write trace outputs."""
 
+    request_id = ensure_request_id(request_id)
     parsed_edit, parsed_ok = _parse_edit_text(edit_text, parameter_table)
     result: dict[str, Any] = {
         "ok": parsed_ok,
@@ -469,10 +557,15 @@ def edit_parse_workflow(
             {
                 "error_type": "UnsupportedEditError",
                 "message": parsed_edit.get("error", "Unsupported edit request."),
+                "cad_exported": False,
             }
         )
     if not write_outputs:
-        return result
+        return apply_response_contract(
+            result,
+            operation="edit_parse",
+            request_id=request_id,
+        )
 
     out_root = _output_root(output_root)
     run_context = create_run_context(edit_text, out_root, "edit_parse_runs")
@@ -483,6 +576,7 @@ def edit_parse_workflow(
         command_type="edit-parse",
         edit_text=edit_text,
         parsed_edit=parsed_edit,
+        request_id=request_id,
         accepted=parsed_ok,
         output_paths={"latest": latest_paths, "persistent": persistent_paths},
     )
@@ -496,20 +590,34 @@ def edit_parse_workflow(
             "run_metadata": metadata,
         }
     )
-    return result
+    return apply_response_contract(
+        result,
+        operation="edit_parse",
+        request_id=request_id,
+    )
 
 
-def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Path | None = None) -> dict[str, Any]:
+def edit_parse_apply_workflow(
+    target: str,
+    edit_text: str,
+    output_root: str | Path | None = None,
+    *,
+    request_id: str | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
     """Parse and apply a natural-language edit to the bundled bracket example."""
 
+    request_id = ensure_request_id(request_id)
     if target not in {"bracket", "l_bracket"}:
-        return {
-            "ok": False,
-            "accepted": False,
-            "error_type": "ValueError",
-            "message": f"unsupported target: {target}",
-            "cad_exported": False,
-        }
+        result = error_response(
+            operation="edit_parse_apply",
+            request_id=request_id,
+            error_type="ValueError",
+            message=f"unsupported target: {target}",
+            recoverable=True,
+        )
+        result["accepted"] = False
+        return result
 
     out_root = _output_root(output_root)
     parameter_table, _, _, constraint_graph = _example_bundle(target)
@@ -541,8 +649,10 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
             "metadata": {
                 "command": f"edit-parse-apply {target}",
                 "run_id": run_context.run_id,
+                "request_id": request_id,
                 "original_edit_text": edit_text,
                 "cad_exported": False,
+                "dry_run": dry_run,
             },
         }
         _write_json_data(edit_report, latest_edit_report_path)
@@ -552,6 +662,7 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
             command_type="edit-parse-apply",
             edit_text=edit_text,
             parsed_edit=parsed_edit,
+            request_id=request_id,
             accepted=False,
             object_type=parameter_table.family,
             active_features=original_active_features,
@@ -559,7 +670,7 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
             output_paths={"latest": latest_paths, "persistent": persistent_paths},
         )
         write_run_metadata(metadata, persistent_paths["run_metadata"])
-        return {
+        result = {
             "ok": False,
             "accepted": False,
             "run_id": run_context.run_id,
@@ -574,6 +685,13 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
             "persistent_output_dir": str(run_context.run_dir),
             "run_metadata": metadata,
         }
+        return apply_response_contract(
+            result,
+            operation="edit_parse_apply",
+            request_id=request_id,
+            object_type=parameter_table.family,
+            dry_run=dry_run,
+        )
 
     edit_report = apply_edit_request(parameter_table, parsed_edit, constraint_graph)
     latest_edit_report_path = out_root / "edit_report.json"
@@ -588,10 +706,12 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
                     **edit_report.metadata,
                     "command": f"edit-parse-apply {target}",
                     "run_id": run_context.run_id,
+                    "request_id": request_id,
                     "original_edit_text": edit_text,
                     "latest_edit_report_path": str(latest_edit_report_path),
                     "persistent_edit_report_path": str(persistent_edit_report_path),
                     "cad_exported": False,
+                    "dry_run": dry_run,
                 }
             }
         )
@@ -602,6 +722,7 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
             command_type="edit-parse-apply",
             edit_text=edit_text,
             parsed_edit=parsed_edit,
+            request_id=request_id,
             accepted=False,
             object_type=parameter_table.family,
             active_features=original_active_features,
@@ -609,7 +730,7 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
             output_paths={"latest": latest_paths, "persistent": persistent_paths},
         )
         write_run_metadata(metadata, persistent_paths["run_metadata"])
-        return {
+        result = {
             "ok": False,
             "accepted": False,
             "run_id": run_context.run_id,
@@ -624,6 +745,13 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
             "persistent_output_dir": str(run_context.run_dir),
             "run_metadata": metadata,
         }
+        return apply_response_contract(
+            result,
+            operation="edit_parse_apply",
+            request_id=request_id,
+            object_type=parameter_table.family,
+            dry_run=dry_run,
+        )
 
     updated_table = ParameterTable.model_validate(edit_report.metadata["updated_parameter_table"])
     latest_updated_params_path = out_root / "updated_params.yaml"
@@ -633,23 +761,41 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
     _write_parameter_table(updated_table, latest_updated_params_path)
     _write_parameter_table(updated_table, persistent_updated_params_path)
 
-    model = _build_model(updated_table)
+    try:
+        model = _build_model(updated_table)
+    except CadQueryUnavailableError as exc:
+        return error_response(
+            operation="edit_parse_apply",
+            request_id=request_id,
+            error_type=exc.__class__.__name__,
+            message=str(exc),
+            recoverable=True,
+            object_type=updated_table.family,
+            run_id=run_context.run_id,
+        )
     cad_basename = _edited_cad_basename(updated_table.family)
     latest_step_path = out_root / f"{cad_basename}.step"
     latest_stl_path = out_root / f"{cad_basename}.stl"
     persistent_step_path = run_context.run_dir / f"{cad_basename}.step"
     persistent_stl_path = run_context.run_dir / f"{cad_basename}.stl"
-    latest_paths["step"] = latest_step_path
-    latest_paths["stl"] = latest_stl_path
-    persistent_paths["step"] = persistent_step_path
-    persistent_paths["stl"] = persistent_stl_path
-    export_model(model, latest_step_path, latest_stl_path)
-    export_model(model, persistent_step_path, persistent_stl_path)
+    planned_cad_paths = {
+        "latest_step": latest_step_path,
+        "latest_stl": latest_stl_path,
+        "persistent_step": persistent_step_path,
+        "persistent_stl": persistent_stl_path,
+    }
+    if not dry_run:
+        latest_paths["step"] = latest_step_path
+        latest_paths["stl"] = latest_stl_path
+        persistent_paths["step"] = persistent_step_path
+        persistent_paths["stl"] = persistent_stl_path
+        export_model(model, latest_step_path, latest_stl_path)
+        export_model(model, persistent_step_path, persistent_stl_path)
 
     validation_report = _validate_geometry(
         model,
         updated_table,
-        output_paths={"step": latest_step_path, "stl": latest_stl_path},
+        output_paths=None if dry_run else {"step": latest_step_path, "stl": latest_stl_path},
     )
     validation_filename = _edited_validation_report_name(updated_table.family)
     latest_validation_report_path = out_root / validation_filename
@@ -672,19 +818,22 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
                 **edit_report.metadata,
                 "command": f"edit-parse-apply {target}",
                 "run_id": run_context.run_id,
+                "request_id": request_id,
                 "original_edit_text": edit_text,
                 "latest_edit_report_path": str(latest_edit_report_path),
                 "persistent_edit_report_path": str(persistent_edit_report_path),
                 "updated_params_path": str(latest_updated_params_path),
                 "persistent_updated_params_path": str(persistent_updated_params_path),
-                "latest_edited_step_path": str(latest_step_path),
-                "latest_edited_stl_path": str(latest_stl_path),
-                "persistent_edited_step_path": str(persistent_step_path),
-                "persistent_edited_stl_path": str(persistent_stl_path),
+                "planned_cad_paths": _paths_for_json(planned_cad_paths),
+                "latest_edited_step_path": None if dry_run else str(latest_step_path),
+                "latest_edited_stl_path": None if dry_run else str(latest_stl_path),
+                "persistent_edited_step_path": None if dry_run else str(persistent_step_path),
+                "persistent_edited_stl_path": None if dry_run else str(persistent_stl_path),
                 "edited_validation_report_path": str(latest_validation_report_path),
                 "shared_edited_validation_report_path": str(shared_validation_report_path),
                 "persistent_edited_validation_report_path": str(persistent_validation_report_path),
-                "cad_exported": True,
+                "cad_exported": not dry_run,
+                "dry_run": dry_run,
             },
         }
     )
@@ -697,6 +846,7 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
         command_type="edit-parse-apply",
         edit_text=edit_text,
         parsed_edit=parsed_edit,
+        request_id=request_id,
         accepted=True,
         validation_valid=validation_report.valid,
         object_type=updated_table.family,
@@ -704,8 +854,11 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
         omitted_features=updated_omitted_features,
         output_paths={"latest": latest_paths, "persistent": persistent_paths},
     )
+    metadata["dry_run"] = dry_run
+    metadata["cad_exported"] = not dry_run
+    metadata["planned_cad_paths"] = _paths_for_json(planned_cad_paths)
     write_run_metadata(metadata, persistent_paths["run_metadata"])
-    return {
+    result = {
         "ok": validation_report.valid,
         "accepted": True,
         "run_id": run_context.run_id,
@@ -714,47 +867,111 @@ def edit_parse_apply_workflow(target: str, edit_text: str, output_root: str | Pa
         "edit_request": parsed_edit,
         "edit_report": edit_report.model_dump(mode="json"),
         "validation_report": validation_report.model_dump(mode="json"),
-        "cad_exported": True,
+        "cad_exported": not dry_run,
+        "dry_run": dry_run,
         "latest_outputs": _paths_for_json(latest_paths),
         "persistent_outputs": _paths_for_json(persistent_paths),
+        "planned_outputs": _paths_for_json(planned_cad_paths),
         "persistent_output_dir": str(run_context.run_dir),
         "run_metadata": metadata,
         "active_features": updated_active_features,
         "omitted_features": updated_omitted_features,
     }
+    if not validation_report.valid:
+        result["error_type"] = "ValidationFailedError"
+        result["message"] = validation_report.summary
+    return apply_response_contract(
+        result,
+        operation="edit_parse_apply",
+        request_id=request_id,
+        object_type=updated_table.family,
+        validation_report=validation_report,
+        dry_run=dry_run,
+    )
 
 
-def build_example_workflow(variant: str = "bracket", output_root: str | Path | None = None) -> dict[str, Any]:
+def build_example_workflow(
+    variant: str = "bracket",
+    output_root: str | Path | None = None,
+    *,
+    request_id: str | None = None,
+) -> dict[str, Any]:
     """Build the bundled bracket example and export latest STEP/STL files."""
 
+    request_id = ensure_request_id(request_id)
     if variant not in {"bracket", "l_bracket"}:
-        return {"ok": False, "error_type": "ValueError", "message": f"unsupported variant: {variant}"}
+        return error_response(
+            operation="build_example",
+            request_id=request_id,
+            error_type="ValueError",
+            message=f"unsupported variant: {variant}",
+            recoverable=True,
+        )
 
     out_root = _output_root(output_root)
     parameter_table, _, feature_plan, _ = _example_bundle(variant)
-    model = _build_model(parameter_table, feature_plan)
+    try:
+        model = _build_model(parameter_table, feature_plan)
+    except CadQueryUnavailableError as exc:
+        return error_response(
+            operation="build_example",
+            request_id=request_id,
+            error_type=exc.__class__.__name__,
+            message=str(exc),
+            recoverable=True,
+            object_type=parameter_table.family,
+        )
     basename = "l_bracket" if parameter_table.family == "l_bracket" else "bracket"
     step_path = out_root / f"{basename}.step"
     stl_path = out_root / f"{basename}.stl"
     export_model(model, step_path, stl_path)
-    return {
+    result = {
         "ok": True,
         "object_type": parameter_table.family,
         "step_path": str(step_path),
         "stl_path": str(stl_path),
         "parameters": parameter_table.model_dump(mode="json"),
+        "cad_exported": True,
     }
+    return apply_response_contract(
+        result,
+        operation="build_example",
+        request_id=request_id,
+        object_type=parameter_table.family,
+    )
 
 
-def validate_example_workflow(variant: str = "bracket", output_root: str | Path | None = None) -> dict[str, Any]:
+def validate_example_workflow(
+    variant: str = "bracket",
+    output_root: str | Path | None = None,
+    *,
+    request_id: str | None = None,
+) -> dict[str, Any]:
     """Validate the bundled bracket example and write latest and persistent reports."""
 
+    request_id = ensure_request_id(request_id)
     if variant not in {"bracket", "l_bracket"}:
-        return {"ok": False, "error_type": "ValueError", "message": f"unsupported variant: {variant}"}
+        return error_response(
+            operation="validate_example",
+            request_id=request_id,
+            error_type="ValueError",
+            message=f"unsupported variant: {variant}",
+            recoverable=True,
+        )
 
     out_root = _output_root(output_root)
     parameter_table, intent, feature_plan, constraint_graph = _example_bundle(variant)
-    model = _build_model(parameter_table, feature_plan)
+    try:
+        model = _build_model(parameter_table, feature_plan)
+    except CadQueryUnavailableError as exc:
+        return error_response(
+            operation="validate_example",
+            request_id=request_id,
+            error_type=exc.__class__.__name__,
+            message=str(exc),
+            recoverable=True,
+            object_type=parameter_table.family,
+        )
     basename = "l_bracket" if parameter_table.family == "l_bracket" else "bracket"
     step_path = out_root / f"{basename}.step"
     stl_path = out_root / f"{basename}.stl"
@@ -775,6 +992,7 @@ def validate_example_workflow(variant: str = "bracket", output_root: str | Path 
             "metadata": {
                 **combined_report.metadata,
                 "command": f"validate-example {variant}",
+                "request_id": request_id,
                 "latest_report_path": str(latest_report_path),
                 "persistent_report_path": str(persistent_report_path),
             }
@@ -786,7 +1004,7 @@ def validate_example_workflow(variant: str = "bracket", output_root: str | Path 
     failed_checks = len(combined_report.failed_checks)
     warnings = len(combined_report.warnings)
     passed_checks = total_checks - failed_checks
-    return {
+    result = {
         "ok": combined_report.valid,
         "valid": combined_report.valid,
         "object_type": parameter_table.family,
@@ -798,33 +1016,57 @@ def validate_example_workflow(variant: str = "bracket", output_root: str | Path 
         "persistent_report_path": str(persistent_report_path),
         "validation_report": combined_report.model_dump(mode="json"),
     }
+    if not combined_report.valid:
+        result["error_type"] = "ValidationFailedError"
+        result["message"] = combined_report.summary
+    return apply_response_contract(
+        result,
+        operation="validate_example",
+        request_id=request_id,
+        object_type=parameter_table.family,
+        validation_report=combined_report,
+    )
 
 
 def list_recent_runs_workflow(
     kind: str,
     limit: int = 5,
     output_root: str | Path | None = None,
+    *,
+    request_id: str | None = None,
 ) -> dict[str, Any]:
     """List recent traceable run directories."""
 
+    request_id = ensure_request_id(request_id)
     if kind not in SUPPORTED_RUN_KINDS:
-        return {
-            "ok": False,
-            "error_type": "ValueError",
-            "message": f"invalid run kind: {kind}",
-            "runs": [],
-        }
+        result = error_response(
+            operation="list_recent_runs",
+            request_id=request_id,
+            error_type="ValueError",
+            message=f"invalid run kind: {kind}",
+            recoverable=True,
+        )
+        result["runs"] = []
+        return result
     if limit <= 0:
-        return {
-            "ok": False,
-            "error_type": "ValueError",
-            "message": "limit must be greater than zero",
-            "runs": [],
-        }
+        result = error_response(
+            operation="list_recent_runs",
+            request_id=request_id,
+            error_type="ValueError",
+            message="limit must be greater than zero",
+            recoverable=True,
+        )
+        result["runs"] = []
+        return result
 
     runs_dir = _output_root(output_root) / kind
     if not runs_dir.exists():
-        return {"ok": True, "runs": []}
+        return apply_response_contract(
+            {"ok": True, "runs": []},
+            operation="list_recent_runs",
+            request_id=request_id,
+            metadata={"kind": kind, "limit": limit},
+        )
 
     runs: list[dict[str, Any]] = []
     for run_dir in sorted((path for path in runs_dir.iterdir() if path.is_dir()), key=lambda path: path.name, reverse=True):
@@ -845,43 +1087,67 @@ def list_recent_runs_workflow(
         )
         if len(runs) >= limit:
             break
-    return {"ok": True, "runs": runs}
+    return apply_response_contract(
+        {"ok": True, "runs": runs},
+        operation="list_recent_runs",
+        request_id=request_id,
+        metadata={"kind": kind, "limit": limit},
+    )
 
 
 def get_run_metadata_workflow(
     kind: str,
     run_id: str,
     output_root: str | Path | None = None,
+    *,
+    request_id: str | None = None,
 ) -> dict[str, Any]:
     """Return metadata for one traceable output run."""
 
+    request_id = ensure_request_id(request_id)
     if kind not in SUPPORTED_RUN_KINDS:
-        return {
-            "ok": False,
-            "error_type": "ValueError",
-            "message": f"invalid run kind: {kind}",
-        }
+        return error_response(
+            operation="get_run_metadata",
+            request_id=request_id,
+            error_type="ValueError",
+            message=f"invalid run kind: {kind}",
+            recoverable=True,
+        )
     if "/" in run_id or "\\" in run_id or run_id in {"", ".", ".."}:
-        return {
-            "ok": False,
-            "error_type": "ValueError",
-            "message": "run_id must be a single directory name",
-        }
+        return error_response(
+            operation="get_run_metadata",
+            request_id=request_id,
+            error_type="ValueError",
+            message="run_id must be a single directory name",
+            recoverable=True,
+        )
 
     metadata_path = _output_root(output_root) / kind / run_id / "run_metadata.json"
     if not metadata_path.exists():
-        return {
-            "ok": False,
-            "error_type": "FileNotFoundError",
-            "message": f"run metadata not found: {metadata_path}",
-        }
+        return error_response(
+            operation="get_run_metadata",
+            request_id=request_id,
+            error_type="FileNotFoundError",
+            message=f"run metadata not found: {metadata_path}",
+            recoverable=True,
+        )
 
     try:
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        return {
-            "ok": False,
-            "error_type": "JSONDecodeError",
-            "message": f"run metadata could not be parsed: {exc}",
-        }
-    return {"ok": True, "metadata": metadata}
+        return error_response(
+            operation="get_run_metadata",
+            request_id=request_id,
+            error_type="JSONDecodeError",
+            message=f"run metadata could not be parsed: {exc}",
+            recoverable=True,
+        )
+    result = apply_response_contract(
+        {"ok": True, "metadata": metadata},
+        operation="get_run_metadata",
+        request_id=request_id,
+        metadata={"kind": kind, "run_id": run_id},
+    )
+    result["contract_metadata"] = result["metadata"]
+    result["metadata"] = metadata
+    return result

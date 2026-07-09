@@ -177,6 +177,18 @@ Rejected edits are reported without exporting new edited CAD:
 python -m intentforge.cli edit-parse-apply bracket "Change it to three mounting holes."
 ```
 
+Run parse-build without exporting STEP/STL files:
+
+```bash
+python -m intentforge.cli parse-build "Make a wall-mounted bracket 120 mm wide, 60 mm tall, with two screw holes." --dry-run
+```
+
+Run an edit without exporting edited STEP/STL files:
+
+```bash
+python -m intentforge.cli edit-parse-apply bracket "Make it 150 mm wide but keep the same thickness." --dry-run
+```
+
 Run the parametric sweep harness:
 
 ```bash
@@ -235,6 +247,14 @@ output/benchmark/benchmark_report.json
 output/benchmark/benchmark_summary.txt
 output/benchmark/runs/<run_id>/
 ```
+
+## API Contract
+
+Workflow and MCP outputs use a standard response envelope with `ok`, `request_id`, `run_id`, `object_type`, `operation`, artifact references, validation summaries, quality gate summaries, warnings, metadata, and structured errors on failure.
+
+Rejected prompts and edits are recoverable tool responses with `ok: false`, `cad_exported: false`, and no standard artifact refs. Compatibility keys such as `latest_outputs`, `persistent_outputs`, `validation_valid`, and `message` are still preserved.
+
+See [docs/api_contract.md](docs/api_contract.md).
 
 ## Edit Preservation Harness
 

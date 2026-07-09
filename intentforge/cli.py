@@ -265,11 +265,22 @@ def _parse_command(prompt_parts: list[str]) -> int:
     return 0
 
 
-def _parse_build_command(prompt_parts: list[str]) -> int:
+def _parse_build_command(prompt_parts: list[str], dry_run: bool = False) -> int:
     prompt = " ".join(prompt_parts)
-    result = parse_build_workflow(prompt, _project_root() / "output")
+    result = parse_build_workflow(prompt, _project_root() / "output", dry_run=dry_run)
+    if not result["ok"] and "validation_valid" not in result:
+        print(f"Request ID: {result['request_id']}")
+        print(f"Operation: {result['operation']}")
+        print(f"Dry run: {str(result.get('dry_run', dry_run)).lower()}")
+        print(result.get("message", "parse-build failed"))
+        if result.get("error"):
+            print(f"Error type: {result['error']['error_type']}")
+            print(f"Suggested action: {result['error']['suggested_action']}")
+        return 1
     print("Parsed prompt.")
+    print(f"Request ID: {result['request_id']}")
     print(f"Run ID: {result['run_id']}")
+    print(f"Dry run: {str(result['dry_run']).lower()}")
     print(f"Object type: {result['intent']['family']}")
     print(f"Active features: {', '.join(result['active_features']) if result['active_features'] else 'none'}")
     print(f"Omitted features: {', '.join(result['omitted_features']) if result['omitted_features'] else 'none'}")
@@ -300,11 +311,20 @@ def _parse_build_command(prompt_parts: list[str]) -> int:
     print(f"Persistent parsed dir:      {result['persistent_output_dir']}")
     print(f"Run metadata:               {persistent_paths['run_metadata']}")
     print("Built parsed model.")
-    print(f"Latest STEP: {latest_paths['step']}")
-    print(f"Latest STL:  {latest_paths['stl']}")
+    print(f"CAD exported: {str(result['cad_exported']).lower()}")
+    if result["cad_exported"]:
+        print(f"Latest STEP: {latest_paths['step']}")
+        print(f"Latest STL:  {latest_paths['stl']}")
+    else:
+        print("Latest STEP: not exported in dry run")
+        print("Latest STL:  not exported in dry run")
     print(f"Latest validation report: {latest_paths['validation_report']}")
-    print(f"Persistent STEP: {persistent_paths['step']}")
-    print(f"Persistent STL:  {persistent_paths['stl']}")
+    if result["cad_exported"]:
+        print(f"Persistent STEP: {persistent_paths['step']}")
+        print(f"Persistent STL:  {persistent_paths['stl']}")
+    else:
+        print("Persistent STEP: not exported in dry run")
+        print("Persistent STL:  not exported in dry run")
     print(f"Persistent validation report: {persistent_paths['validation_report']}")
     print(f"Persistent output dir: {result['persistent_output_dir']}")
     print(f"Validation valid: {str(result['validation_valid']).lower()}")
@@ -422,9 +442,18 @@ def _edit_parse_command(prompt_parts: list[str]) -> int:
     return 0 if result["ok"] else 1
 
 
-def _edit_parse_apply_command(example: str, prompt_parts: list[str]) -> int:
+def _edit_parse_apply_command(example: str, prompt_parts: list[str], dry_run: bool = False) -> int:
     edit_text = " ".join(prompt_parts)
-    result = edit_parse_apply_workflow(example, edit_text, _project_root() / "output")
+    result = edit_parse_apply_workflow(example, edit_text, _project_root() / "output", dry_run=dry_run)
+    if "edit_request" not in result:
+        print(f"Request ID: {result['request_id']}")
+        print(f"Operation: {result['operation']}")
+        print(f"Dry run: {str(result.get('dry_run', dry_run)).lower()}")
+        print(result.get("message", "edit-parse-apply failed"))
+        if result.get("error"):
+            print(f"Error type: {result['error']['error_type']}")
+            print(f"Suggested action: {result['error']['suggested_action']}")
+        return 1
     parsed_edit = result["edit_request"]
     latest_paths = result["latest_outputs"]
     persistent_paths = result["persistent_outputs"]
@@ -447,17 +476,27 @@ def _edit_parse_apply_command(example: str, prompt_parts: list[str]) -> int:
         persistent_paths,
         accepted=True,
         validation_valid=result["validation_valid"],
-        cad_exported=True,
+        cad_exported=result["cad_exported"],
     )
+    print(f"Request ID: {result['request_id']}")
+    print(f"Dry run: {str(result['dry_run']).lower()}")
     print(f"Latest edit report: {latest_paths['edit_report']}")
     print(f"Latest updated params: {latest_paths['updated_params']}")
-    print(f"Latest edited STEP: {latest_paths['step']}")
-    print(f"Latest edited STL:  {latest_paths['stl']}")
+    if result["cad_exported"]:
+        print(f"Latest edited STEP: {latest_paths['step']}")
+        print(f"Latest edited STL:  {latest_paths['stl']}")
+    else:
+        print("Latest edited STEP: not exported in dry run")
+        print("Latest edited STL:  not exported in dry run")
     print(f"Latest validation report: {latest_paths['validation_report']}")
     print(f"Persistent edit report: {persistent_paths['edit_report']}")
     print(f"Persistent updated params: {persistent_paths['updated_params']}")
-    print(f"Persistent edited STEP: {persistent_paths['step']}")
-    print(f"Persistent edited STL:  {persistent_paths['stl']}")
+    if result["cad_exported"]:
+        print(f"Persistent edited STEP: {persistent_paths['step']}")
+        print(f"Persistent edited STL:  {persistent_paths['stl']}")
+    else:
+        print("Persistent edited STEP: not exported in dry run")
+        print("Persistent edited STL:  not exported in dry run")
     print(f"Persistent validation report: {persistent_paths['validation_report']}")
     return 0 if result["validation_valid"] else 1
 
@@ -1065,6 +1104,11 @@ def _build_parser() -> ArgumentParser:
         help="Parse a prompt, build the bracket, export CAD, and validate it.",
     )
     parse_build.add_argument("prompt", nargs="+", help="Prompt text to parse and build.")
+    parse_build.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Parse, build in memory, and validate without exporting STEP/STL files.",
+    )
 
     edit_parse = subparsers.add_parser(
         "edit-parse",
@@ -1082,6 +1126,11 @@ def _build_parser() -> ArgumentParser:
         help="Example model to edit.",
     )
     edit_parse_apply.add_argument("edit_text", nargs="+", help="Edit request text to parse and apply.")
+    edit_parse_apply.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Parse, apply in memory, and validate without exporting edited STEP/STL files.",
+    )
 
     benchmark = subparsers.add_parser(
         "benchmark",
@@ -1205,11 +1254,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "parse":
             return _parse_command(args.prompt)
         if args.command == "parse-build":
-            return _parse_build_command(args.prompt)
+            return _parse_build_command(args.prompt, args.dry_run)
         if args.command == "edit-parse":
             return _edit_parse_command(args.edit_text)
         if args.command == "edit-parse-apply":
-            return _edit_parse_apply_command(args.example, args.edit_text)
+            return _edit_parse_apply_command(args.example, args.edit_text, args.dry_run)
         if args.command == "benchmark":
             if not _package_installed("cadquery"):
                 print(_cadquery_required_message("benchmark"))

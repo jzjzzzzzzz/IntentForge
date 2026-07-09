@@ -34,3 +34,25 @@ The wrapper exposes tools for:
 The MCP layer is intentionally thin. It calls `intentforge.workflows` and returns structured results. It does not duplicate parser, generator, validator, or editor logic, and it does not call an LLM.
 
 MCP responses include family data through workflow results such as `object_type`, parsed intent metadata, and run metadata where applicable.
+
+## Response Contract
+
+MCP tool outputs follow the same standard response envelope as the shared workflows:
+
+- `ok`
+- `request_id`
+- `run_id` when a traceable run is created
+- `object_type` where relevant
+- `operation`
+- `artifacts`
+- `validation`
+- `quality_gates` where relevant
+- `warnings`
+- `metadata`
+- structured `error` on failure
+
+Rejected prompts and edits return `ok: false` and a recoverable error object. Rejected edits also report `cad_exported: false`.
+
+`parse_build_cad_prompt` and `parse_apply_edit_prompt` accept `dry_run` so callers can validate feasibility without exporting STEP/STL artifacts.
+
+See `docs/api_contract.md` for the shared contract details.

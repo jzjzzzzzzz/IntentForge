@@ -1,6 +1,6 @@
 # Project Status
 
-Current development target: Phase 12 technical harness orchestrator on `main`
+Current development target: Phase 13 production tool interface and API contract hardening on `main`
 
 Current supported model families:
 
@@ -30,6 +30,7 @@ Current supported model families:
 - Phase 11.3: parametric sweep harness
 - Phase 11.4: edit preservation harness
 - Phase 11.5: adversarial rejection harness
+- Phase 12: technical harness orchestrator and quality gates
 
 ## Current Capabilities
 
@@ -52,6 +53,9 @@ Current supported model families:
 - run topology inspection and volume delta harnesses
 - run parametric sweep, edit preservation, and adversarial rejection harnesses
 - run a unified technical harness with quality gates
+- return standard tool/API response envelopes with request IDs
+- return standard artifact references and structured error objects
+- support dry-run parse-build and edit-apply workflows without STEP/STL export
 
 ## Current Limitations
 
@@ -98,6 +102,20 @@ Default quality gates require benchmark, sweep, and edit preservation rates of a
 
 Phase 12 adds the orchestrator command only. It does not create a new release tag.
 
+## API Contract Status
+
+Phase 13 standardizes external workflow and MCP responses with:
+
+- `request_id`
+- `operation`
+- normalized artifact refs
+- validation summaries
+- quality gate summaries where relevant
+- structured recoverable errors
+- `dry_run` and `cad_exported` status
+
+Phase 13 is interface hardening only. It does not create a new release tag.
+
 ## Next Planned Phase
 
-Complete Phase 12 verification, then consider future topology-aware validation improvements only after the unified harness stays green.
+Complete Phase 13 verification, then continue hardening integration boundaries before adding any new CAD capabilities.
