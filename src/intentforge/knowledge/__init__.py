@@ -21,6 +21,26 @@ from intentforge.knowledge.coverage import (
     build_coverage_report,
     validate_capability_manifest,
 )
+from intentforge.knowledge.evidence_bundles import build_all_evidence_bundles, build_evidence_bundle
+from intentforge.knowledge.evidence_registry import (
+    DEFAULT_EVIDENCE_MANIFEST_RESOURCE,
+    EvidenceManifestError,
+    EvidenceRegistry,
+    filter_evidence,
+    load_evidence_definitions,
+    load_evidence_manifest,
+    validate_evidence_manifest,
+)
+from intentforge.knowledge.evidence_resolver import resolve_evidence, verify_evidence
+from intentforge.knowledge.evidence_schema import (
+    EvidenceBundle,
+    EvidenceDefinition,
+    EvidenceManifest,
+    EvidenceObservation,
+    EvidenceResolutionReport,
+    EvidenceValidationResult,
+    TrustReport,
+)
 from intentforge.knowledge.evaluator import (
     build_design_metrics,
     evaluate_design,
@@ -30,6 +50,7 @@ from intentforge.knowledge.evaluator import (
 from intentforge.knowledge.provenance import RuleProvenance, provenance_from_rule
 from intentforge.knowledge.report import KnowledgeReport, make_knowledge_report, write_knowledge_report
 from intentforge.knowledge.rationale import generate_design_rationale
+from intentforge.knowledge.trust import filter_evidence_bundles, generate_trust_report
 from intentforge.knowledge.packs import (
     DEFAULT_BRACKET_PACK_RESOURCES,
     RulePack,
@@ -75,6 +96,15 @@ __all__ = [
     "CapabilityValidationResult",
     "CoverageReport",
     "EvidenceReference",
+    "EvidenceDefinition",
+    "EvidenceManifest",
+    "EvidenceManifestError",
+    "EvidenceRegistry",
+    "EvidenceObservation",
+    "EvidenceBundle",
+    "EvidenceResolutionReport",
+    "EvidenceValidationResult",
+    "TrustReport",
     "EngineeringReasoningReport",
     "RuleProvenance",
     "RulePack",
@@ -83,6 +113,7 @@ __all__ = [
     "RuleRegistry",
     "DEFAULT_BRACKET_PACK_RESOURCES",
     "DEFAULT_CAPABILITY_MANIFEST_RESOURCE",
+    "DEFAULT_EVIDENCE_MANIFEST_RESOURCE",
     "ALLOWED_CONFLICT_TYPES",
     "ALLOWED_INTERACTION_TYPES",
     "ALLOWED_PRIORITIES",
@@ -91,6 +122,8 @@ __all__ = [
     "build_design_metrics",
     "build_capability_matrix",
     "build_coverage_report",
+    "build_evidence_bundle",
+    "build_all_evidence_bundles",
     "build_engineering_reasoning_report",
     "compile_rule",
     "compile_rules",
@@ -98,9 +131,14 @@ __all__ = [
     "evaluate_design",
     "evaluate_expression",
     "evaluate_parameter_table",
+    "filter_evidence",
+    "filter_evidence_bundles",
+    "generate_trust_report",
     "generate_design_rationale",
     "load_capabilities",
     "load_capability_manifest",
+    "load_evidence_definitions",
+    "load_evidence_manifest",
     "load_rules",
     "load_default_bracket_rule_packs",
     "load_golden_cases",
@@ -113,11 +151,14 @@ __all__ = [
     "run_reasoning_verification",
     "validate_golden_cases",
     "validate_capability_manifest",
+    "validate_evidence_manifest",
     "validate_reasoning_metadata",
     "validate_recommendation_applicability",
     "validate_default_rule_packs",
     "validate_rule_packs",
     "validate_rule_data",
+    "resolve_evidence",
+    "verify_evidence",
     "write_engineering_reasoning_markdown",
     "write_engineering_reasoning_report",
     "write_knowledge_report",

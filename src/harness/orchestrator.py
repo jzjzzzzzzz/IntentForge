@@ -37,9 +37,12 @@ from intentforge.knowledge import (
     build_coverage_report,
     build_design_metrics,
     build_engineering_reasoning_report,
+    generate_trust_report,
     evaluate_parameter_table,
     make_knowledge_report,
+    resolve_evidence,
     validate_default_rule_packs,
+    validate_evidence_manifest,
     validate_rule_data,
 )
 from intentforge.knowledge.reasoning.benchmark import run_reasoning_benchmark
@@ -82,6 +85,21 @@ QUALITY_GATES: dict[str, float | int] = {
     "capability_unsupported_missing_boundary_count_max": 0,
     "capability_orphan_rule_count_max": 0,
     "capability_nondeterministic_report_count_max": 0,
+    "evidence_manifest_valid_min": 1,
+    "evidence_duplicate_id_count_max": 0,
+    "evidence_unknown_capability_reference_count_max": 0,
+    "evidence_unknown_rule_reference_count_max": 0,
+    "evidence_unknown_pack_reference_count_max": 0,
+    "evidence_unsafe_file_reference_count_max": 0,
+    "evidence_family_mismatch_count_max": 0,
+    "evidence_stage_mismatch_count_max": 0,
+    "evidence_supported_missing_implementation_count_max": 0,
+    "evidence_supported_missing_verification_count_max": 0,
+    "evidence_partial_missing_limitation_count_max": 0,
+    "evidence_unsupported_missing_boundary_count_max": 0,
+    "evidence_orphan_count_max": 0,
+    "evidence_deterministic_bundle_mismatch_count_max": 0,
+    "evidence_deterministic_trust_report_mismatch_count_max": 0,
 }
 
 
@@ -517,6 +535,68 @@ def _capability_coverage_section(run_dir: Path) -> dict[str, Any]:
     return result
 
 
+def _evidence_trust_section(run_dir: Path) -> dict[str, Any]:
+    evidence_dir = run_dir / "evidence_trust"
+    validation = validate_evidence_manifest()
+    resolution = resolve_evidence()
+    first_report = generate_trust_report()
+    second_report = generate_trust_report()
+    first_bundle_ids = [bundle.bundle_id for bundle in first_report.bundles]
+    second_bundle_ids = [bundle.bundle_id for bundle in second_report.bundles]
+    deterministic_bundle_mismatch_count = 0 if first_bundle_ids == second_bundle_ids else 1
+    deterministic_report_mismatch_count = 0 if first_report.report_id == second_report.report_id else 1
+    validation_summary = validation.summary
+    result = {
+        "passed": (
+            validation.passed
+            and first_report.overall_trust_gate_passed
+            and deterministic_bundle_mismatch_count == 0
+            and deterministic_report_mismatch_count == 0
+        ),
+        "evidence_manifest_valid": validation.passed,
+        "evidence_definition_count": first_report.total_evidence_definition_count,
+        "required_evidence_count": first_report.required_evidence_count,
+        "verified_evidence_count": first_report.verified_evidence_count,
+        "failed_evidence_count": first_report.failed_evidence_count,
+        "unresolved_evidence_count": first_report.unresolved_evidence_count,
+        "unavailable_evidence_count": first_report.unavailable_evidence_count,
+        "stale_evidence_count": first_report.stale_evidence_count,
+        "orphan_evidence_count": first_report.orphan_evidence_count,
+        "duplicate_evidence_id_count": first_report.duplicate_evidence_id_count,
+        "duplicate_reference_count": first_report.duplicate_normalized_reference_count,
+        "family_mismatch_count": first_report.family_mismatch_count,
+        "stage_mismatch_count": first_report.stage_mismatch_count,
+        "unknown_capability_reference_count": first_report.unknown_capability_reference_count,
+        "unknown_rule_reference_count": first_report.unknown_rule_reference_count,
+        "unknown_pack_reference_count": first_report.unknown_pack_reference_count,
+        "unsafe_file_reference_count": int(validation_summary.get("unsafe_file_reference_count", 0)),
+        "supported_missing_implementation_count": int(validation_summary.get("supported_missing_implementation_count", 0)),
+        "supported_missing_verification_count": int(validation_summary.get("supported_missing_verification_count", 0)),
+        "partial_missing_limitation_count": int(validation_summary.get("partial_missing_limitation_count", 0)),
+        "unsupported_missing_boundary_count": int(validation_summary.get("unsupported_missing_boundary_count", 0)),
+        "supported_capability_bundle_count": first_report.supported_capability_count,
+        "supported_capabilities_with_complete_evidence": len(first_report.supported_capabilities_with_complete_evidence),
+        "supported_capabilities_with_incomplete_evidence": len(first_report.supported_capabilities_with_incomplete_evidence),
+        "partial_capabilities_with_limitation_evidence": len(first_report.partially_supported_capabilities_with_complete_limitation_evidence),
+        "unsupported_boundaries_with_rejection_evidence": len(first_report.unsupported_boundaries_with_verified_rejection_evidence),
+        "implementation_evidence_completeness": first_report.implementation_evidence_completeness,
+        "verification_evidence_completeness": first_report.verification_evidence_completeness,
+        "boundary_evidence_completeness": first_report.boundary_evidence_completeness,
+        "limitation_evidence_completeness": first_report.limitation_evidence_completeness,
+        "deterministic_bundle_mismatch_count": deterministic_bundle_mismatch_count,
+        "deterministic_report_mismatch_count": deterministic_report_mismatch_count,
+        "trust_gate_passed": first_report.overall_trust_gate_passed,
+        "resolution_report_id": resolution.report_id,
+        "trust_report": first_report.model_dump(mode="json"),
+        "validation_errors": validation.errors,
+        "validation_warnings": validation.warnings,
+    }
+    report_path = evidence_dir / "evidence_trust_report.json"
+    _write_json(result, report_path)
+    result["report_path"] = str(report_path)
+    return result
+
+
 def _demo_section(output_root: Path) -> dict[str, Any]:
     from intentforge.demo_runner import run_demo
 
@@ -559,6 +639,7 @@ def _build_metrics(sections: dict[str, dict[str, Any]]) -> dict[str, float | int
     reasoning = sections.get("engineering_reasoning", {})
     rule_packs = sections.get("rule_packs", {})
     capability_coverage = sections.get("capability_coverage", {})
+    evidence_trust = sections.get("evidence_trust", {})
     demo = sections.get("demo", {})
 
     unexpected_failure_count = int(benchmark.get("failed_cases", 0) or 0)
@@ -571,6 +652,7 @@ def _build_metrics(sections: dict[str, dict[str, Any]]) -> dict[str, float | int
     unexpected_failure_count += int(rule_packs.get("invalid_pack_count", 0) or 0)
     unexpected_failure_count += 0 if rule_packs.get("legacy_compatibility_passed", True) else 1
     unexpected_failure_count += 0 if capability_coverage.get("passed", True) else 1
+    unexpected_failure_count += 0 if evidence_trust.get("passed", True) else 1
     unexpected_failure_count += int(demo.get("failed_step_count", 0) or 0)
     unexpected_failure_count += sum(_section_error_count(section) for section in sections.values())
 
@@ -623,6 +705,29 @@ def _build_metrics(sections: dict[str, dict[str, Any]]) -> dict[str, float | int
         "capability_implementation_evidence_completeness": float(capability_coverage.get("implementation_evidence_completeness", 0.0) or 0.0),
         "capability_verification_evidence_completeness": float(capability_coverage.get("verification_evidence_completeness", 0.0) or 0.0),
         "capability_nondeterministic_report_count": int(capability_coverage.get("nondeterministic_report_count", 0) or 0),
+        "evidence_manifest_valid": 1 if evidence_trust.get("evidence_manifest_valid", False) else 0,
+        "evidence_definition_count": int(evidence_trust.get("evidence_definition_count", 0) or 0),
+        "evidence_required_count": int(evidence_trust.get("required_evidence_count", 0) or 0),
+        "evidence_verified_count": int(evidence_trust.get("verified_evidence_count", 0) or 0),
+        "evidence_failed_count": int(evidence_trust.get("failed_evidence_count", 0) or 0),
+        "evidence_unresolved_count": int(evidence_trust.get("unresolved_evidence_count", 0) or 0),
+        "evidence_unavailable_count": int(evidence_trust.get("unavailable_evidence_count", 0) or 0),
+        "evidence_stale_count": int(evidence_trust.get("stale_evidence_count", 0) or 0),
+        "evidence_orphan_count": int(evidence_trust.get("orphan_evidence_count", 0) or 0),
+        "evidence_duplicate_id_count": int(evidence_trust.get("duplicate_evidence_id_count", 0) or 0),
+        "evidence_duplicate_reference_count": int(evidence_trust.get("duplicate_reference_count", 0) or 0),
+        "evidence_family_mismatch_count": int(evidence_trust.get("family_mismatch_count", 0) or 0),
+        "evidence_stage_mismatch_count": int(evidence_trust.get("stage_mismatch_count", 0) or 0),
+        "evidence_unknown_capability_reference_count": int(evidence_trust.get("unknown_capability_reference_count", 0) or 0),
+        "evidence_unknown_rule_reference_count": int(evidence_trust.get("unknown_rule_reference_count", 0) or 0),
+        "evidence_unknown_pack_reference_count": int(evidence_trust.get("unknown_pack_reference_count", 0) or 0),
+        "evidence_unsafe_file_reference_count": int(evidence_trust.get("unsafe_file_reference_count", 0) or 0),
+        "evidence_supported_missing_implementation_count": int(evidence_trust.get("supported_missing_implementation_count", 0) or 0),
+        "evidence_supported_missing_verification_count": int(evidence_trust.get("supported_missing_verification_count", 0) or 0),
+        "evidence_partial_missing_limitation_count": int(evidence_trust.get("partial_missing_limitation_count", 0) or 0),
+        "evidence_unsupported_missing_boundary_count": int(evidence_trust.get("unsupported_missing_boundary_count", 0) or 0),
+        "evidence_deterministic_bundle_mismatch_count": int(evidence_trust.get("deterministic_bundle_mismatch_count", 0) or 0),
+        "evidence_deterministic_trust_report_mismatch_count": int(evidence_trust.get("deterministic_report_mismatch_count", 0) or 0),
         "unexpected_failure_count": unexpected_failure_count,
         "unsafe_acceptance_count": unsafe_acceptance_count,
         "unexpected_exception_count": unexpected_exception_count,
@@ -672,8 +777,25 @@ def compute_quality_gates(report: dict[str, Any]) -> dict[str, Any]:
         ("capability_unsupported_missing_boundary_count_max", "capability_unsupported_missing_boundary_count", "<="),
         ("capability_orphan_rule_count_max", "capability_orphan_rule_count", "<="),
         ("capability_nondeterministic_report_count_max", "capability_nondeterministic_report_count", "<="),
+        ("evidence_manifest_valid_min", "evidence_manifest_valid", ">="),
+        ("evidence_duplicate_id_count_max", "evidence_duplicate_id_count", "<="),
+        ("evidence_unknown_capability_reference_count_max", "evidence_unknown_capability_reference_count", "<="),
+        ("evidence_unknown_rule_reference_count_max", "evidence_unknown_rule_reference_count", "<="),
+        ("evidence_unknown_pack_reference_count_max", "evidence_unknown_pack_reference_count", "<="),
+        ("evidence_unsafe_file_reference_count_max", "evidence_unsafe_file_reference_count", "<="),
+        ("evidence_family_mismatch_count_max", "evidence_family_mismatch_count", "<="),
+        ("evidence_stage_mismatch_count_max", "evidence_stage_mismatch_count", "<="),
+        ("evidence_supported_missing_implementation_count_max", "evidence_supported_missing_implementation_count", "<="),
+        ("evidence_supported_missing_verification_count_max", "evidence_supported_missing_verification_count", "<="),
+        ("evidence_partial_missing_limitation_count_max", "evidence_partial_missing_limitation_count", "<="),
+        ("evidence_unsupported_missing_boundary_count_max", "evidence_unsupported_missing_boundary_count", "<="),
+        ("evidence_orphan_count_max", "evidence_orphan_count", "<="),
+        ("evidence_deterministic_bundle_mismatch_count_max", "evidence_deterministic_bundle_mismatch_count", "<="),
+        ("evidence_deterministic_trust_report_mismatch_count_max", "evidence_deterministic_trust_report_mismatch_count", "<="),
     )
     for gate_name, metric_name, operator in gate_specs:
+        if gate_name not in gates:
+            continue
         expected = gates[gate_name]
         actual = metrics.get(metric_name, 0)
         failed = actual < expected if operator == ">=" else actual > expected
@@ -736,6 +858,18 @@ def _build_summary(report: dict[str, Any]) -> str:
         f"  - capability_implementation_evidence_completeness: {float(metrics.get('capability_implementation_evidence_completeness', 0.0)):.4f}",
         f"  - capability_verification_evidence_completeness: {float(metrics.get('capability_verification_evidence_completeness', 0.0)):.4f}",
         f"  - capability_nondeterministic_report_count: {int(metrics.get('capability_nondeterministic_report_count', 0))}",
+        f"  - evidence_manifest_valid: {int(metrics.get('evidence_manifest_valid', 0))}",
+        f"  - evidence_definition_count: {int(metrics.get('evidence_definition_count', 0))}",
+        f"  - evidence_required_count: {int(metrics.get('evidence_required_count', 0))}",
+        f"  - evidence_verified_count: {int(metrics.get('evidence_verified_count', 0))}",
+        f"  - evidence_failed_count: {int(metrics.get('evidence_failed_count', 0))}",
+        f"  - evidence_unresolved_count: {int(metrics.get('evidence_unresolved_count', 0))}",
+        f"  - evidence_orphan_count: {int(metrics.get('evidence_orphan_count', 0))}",
+        f"  - evidence_unknown_capability_reference_count: {int(metrics.get('evidence_unknown_capability_reference_count', 0))}",
+        f"  - evidence_unknown_rule_reference_count: {int(metrics.get('evidence_unknown_rule_reference_count', 0))}",
+        f"  - evidence_unknown_pack_reference_count: {int(metrics.get('evidence_unknown_pack_reference_count', 0))}",
+        f"  - evidence_deterministic_bundle_mismatch_count: {int(metrics.get('evidence_deterministic_bundle_mismatch_count', 0))}",
+        f"  - evidence_deterministic_trust_report_mismatch_count: {int(metrics.get('evidence_deterministic_trust_report_mismatch_count', 0))}",
         f"  - unexpected_failure_count: {metrics['unexpected_failure_count']}",
         f"  - unsafe_acceptance_count: {metrics['unsafe_acceptance_count']}",
         f"  - unexpected_exception_count: {metrics['unexpected_exception_count']}",
@@ -832,6 +966,10 @@ def run_technical_harness(
         "capability_coverage": _run_section(
             "capability_coverage",
             lambda: _capability_coverage_section(run_context.run_dir),
+        ),
+        "evidence_trust": _run_section(
+            "evidence_trust",
+            lambda: _evidence_trust_section(run_context.run_dir),
         ),
     }
     if include_demo:

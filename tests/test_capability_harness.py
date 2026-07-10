@@ -48,6 +48,21 @@ def test_capability_quality_gates_pass_for_good_metrics() -> None:
             "capability_unsupported_missing_boundary_count": 0,
             "capability_orphan_rule_count": 0,
             "capability_nondeterministic_report_count": 0,
+            "evidence_manifest_valid": 1,
+            "evidence_duplicate_id_count": 0,
+            "evidence_unknown_capability_reference_count": 0,
+            "evidence_unknown_rule_reference_count": 0,
+            "evidence_unknown_pack_reference_count": 0,
+            "evidence_unsafe_file_reference_count": 0,
+            "evidence_family_mismatch_count": 0,
+            "evidence_stage_mismatch_count": 0,
+            "evidence_supported_missing_implementation_count": 0,
+            "evidence_supported_missing_verification_count": 0,
+            "evidence_partial_missing_limitation_count": 0,
+            "evidence_unsupported_missing_boundary_count": 0,
+            "evidence_orphan_count": 0,
+            "evidence_deterministic_bundle_mismatch_count": 0,
+            "evidence_deterministic_trust_report_mismatch_count": 0,
         }
     }
 
@@ -92,6 +107,21 @@ def test_capability_quality_gate_fails_unknown_references() -> None:
             "capability_unsupported_missing_boundary_count": 0,
             "capability_orphan_rule_count": 0,
             "capability_nondeterministic_report_count": 0,
+            "evidence_manifest_valid": 1,
+            "evidence_duplicate_id_count": 0,
+            "evidence_unknown_capability_reference_count": 0,
+            "evidence_unknown_rule_reference_count": 0,
+            "evidence_unknown_pack_reference_count": 0,
+            "evidence_unsafe_file_reference_count": 0,
+            "evidence_family_mismatch_count": 0,
+            "evidence_stage_mismatch_count": 0,
+            "evidence_supported_missing_implementation_count": 0,
+            "evidence_supported_missing_verification_count": 0,
+            "evidence_partial_missing_limitation_count": 0,
+            "evidence_unsupported_missing_boundary_count": 0,
+            "evidence_orphan_count": 0,
+            "evidence_deterministic_bundle_mismatch_count": 0,
+            "evidence_deterministic_trust_report_mismatch_count": 0,
         }
     }
 

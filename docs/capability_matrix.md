@@ -46,3 +46,5 @@ It includes supported capabilities, partial capabilities, and explicit unsupport
 Matrix IDs are deterministic content hashes. The same capability manifest, rule packs, and filters produce the same matrix ID.
 
 Capability version, rule version, pack version, and reasoning engine version are separate concepts. This separation keeps product claims, engineering rules, and reasoning behavior traceable independently.
+
+Phase 22 adds evidence bundles on top of matrix rows. The matrix answers what is claimed; evidence bundles answer what specific evidence supports each claim and whether that evidence resolves.

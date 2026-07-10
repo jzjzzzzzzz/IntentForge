@@ -31,6 +31,8 @@ Project assets such as `tests/`, `docs/`, `examples/`, and `demo/` remain at the
 
 `intentforge.knowledge.capabilities` and `intentforge.knowledge.coverage` describe product support claims as deterministic data. The capability manifest maps supported, partially supported, and explicitly unsupported boundaries to CAD families, pipeline stages, knowledge packs, rule IDs, and implementation or verification evidence. It does not duplicate engineering rule formulas or CAD generation logic.
 
+`intentforge.knowledge.evidence_*` and `intentforge.knowledge.trust` resolve capability evidence references into structured observations, capability evidence bundles, and deterministic trust reports. This layer validates evidence IDs, roles, families, stages, rule references, pack references, boundary evidence, limitation evidence, and packaged resources. It does not execute manifest-selected code or make broad AI trust claims.
+
 `intentforge.knowledge.reasoning` connects evaluated knowledge findings into interactions, trade-offs, conflicts, priorities, and advisory recommendations. The reasoning package has no CadQuery or LLM dependency.
 
 `intentforge.knowledge.reasoning.verification` runs packaged golden engineering cases to check deterministic report IDs, expected reasoning behavior, recommendation contradictions, and recommendation applicability. It is a verification layer only; it does not modify CAD or rules.

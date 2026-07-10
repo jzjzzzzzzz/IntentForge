@@ -21,6 +21,8 @@ Downstream evaluation and reasoning still consume `DesignKnowledgeRule` objects.
 
 Phase 21 adds a separate capability manifest. That manifest describes product support claims and points to rule packs, rule IDs, implementation evidence, and verification evidence. It does not become a second engineering rule database.
 
+Phase 22 adds a separate evidence manifest. That manifest connects capability claims to evidence definitions, evidence observations, evidence bundles, and deterministic trust reports. It does not duplicate engineering thresholds, CAD generation logic, or rule recommendations.
+
 ## Structure
 
 Each pack includes:

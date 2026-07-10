@@ -1,0 +1,1295 @@
+manifest_version: "1.0"
+generated_by: intentforge
+metadata:
+  purpose: "Trace capability claims to resolvable implementation, verification, boundary, limitation, provenance, and packaging evidence."
+  freshness_policy: "Evidence versions are compared with referenced capability versions where capability links are present."
+evidence:
+  - evidence_id: ev_rule_hole_edge_margin_001
+    title: Hole edge margin rule definition
+    description: Packaged rule definition for hole edge margin knowledge.
+    evidence_type: rule_definition
+    role: provenance
+    reference: hole_edge_margin_001
+    family: null
+    stages: [knowledge]
+    capability_ids: []
+    rule_ids: [hole_edge_margin_001]
+    pack_ids: [bracket_mechanical]
+    verification_method: static_resolution
+    expected_result: rule_exists
+    required: true
+    provenance: {source: engineering_rule_pack}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_rule_hole_spacing_001
+    title: Hole spacing rule definition
+    description: Packaged rule definition for hole spacing knowledge.
+    evidence_type: rule_definition
+    role: provenance
+    reference: hole_spacing_001
+    family: null
+    stages: [knowledge]
+    capability_ids: []
+    rule_ids: [hole_spacing_001]
+    pack_ids: [bracket_mechanical]
+    verification_method: static_resolution
+    expected_result: rule_exists
+    required: true
+    provenance: {source: engineering_rule_pack}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_rule_gusset_recommendation_001
+    title: Gusset recommendation rule definition
+    description: Packaged rule definition for L-bracket gusset recommendation knowledge.
+    evidence_type: rule_definition
+    role: provenance
+    reference: gusset_recommendation_001
+    family: null
+    stages: [knowledge]
+    capability_ids: []
+    rule_ids: [gusset_recommendation_001]
+    pack_ids: [bracket_mechanical]
+    verification_method: static_resolution
+    expected_result: rule_exists
+    required: true
+    provenance: {source: engineering_rule_pack}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_rule_corner_radius_001
+    title: Corner radius rule definition
+    description: Packaged rule definition for corner radius knowledge.
+    evidence_type: rule_definition
+    role: provenance
+    reference: corner_radius_001
+    family: null
+    stages: [knowledge]
+    capability_ids: []
+    rule_ids: [corner_radius_001]
+    pack_ids: [bracket_mechanical]
+    verification_method: static_resolution
+    expected_result: rule_exists
+    required: true
+    provenance: {source: engineering_rule_pack}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_rule_tool_clearance_001
+    title: Tool clearance rule definition
+    description: Packaged rule definition for machining accessibility knowledge.
+    evidence_type: rule_definition
+    role: provenance
+    reference: tool_clearance_001
+    family: null
+    stages: [knowledge]
+    capability_ids: []
+    rule_ids: [tool_clearance_001]
+    pack_ids: [bracket_manufacturing]
+    verification_method: static_resolution
+    expected_result: rule_exists
+    required: true
+    provenance: {source: engineering_rule_pack}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_rule_manufacturing_simplicity_001
+    title: Manufacturing simplicity rule definition
+    description: Packaged rule definition for optional-feature complexity knowledge.
+    evidence_type: rule_definition
+    role: provenance
+    reference: manufacturing_simplicity_001
+    family: null
+    stages: [knowledge]
+    capability_ids: []
+    rule_ids: [manufacturing_simplicity_001]
+    pack_ids: [bracket_manufacturing]
+    verification_method: static_resolution
+    expected_result: rule_exists
+    required: true
+    provenance: {source: engineering_rule_pack}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_rule_fastener_accessibility_001
+    title: Fastener accessibility rule definition
+    description: Packaged rule definition for fastener accessibility knowledge.
+    evidence_type: rule_definition
+    role: provenance
+    reference: fastener_accessibility_001
+    family: null
+    stages: [knowledge]
+    capability_ids: []
+    rule_ids: [fastener_accessibility_001]
+    pack_ids: [bracket_assembly]
+    verification_method: static_resolution
+    expected_result: rule_exists
+    required: true
+    provenance: {source: engineering_rule_pack}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_rule_installation_difficulty_001
+    title: Installation difficulty rule definition
+    description: Packaged rule definition for installation difficulty knowledge.
+    evidence_type: rule_definition
+    role: provenance
+    reference: installation_difficulty_001
+    family: null
+    stages: [knowledge]
+    capability_ids: []
+    rule_ids: [installation_difficulty_001]
+    pack_ids: [bracket_assembly]
+    verification_method: static_resolution
+    expected_result: rule_exists
+    required: true
+    provenance: {source: engineering_rule_pack}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_rule_cutout_stiffness_tradeoff_001
+    title: Cutout stiffness tradeoff rule definition
+    description: Packaged rule definition for center-cutout stiffness tradeoff knowledge.
+    evidence_type: rule_definition
+    role: provenance
+    reference: cutout_stiffness_tradeoff_001
+    family: null
+    stages: [knowledge]
+    capability_ids: []
+    rule_ids: [cutout_stiffness_tradeoff_001]
+    pack_ids: [bracket_structural]
+    verification_method: static_resolution
+    expected_result: rule_exists
+    required: true
+    provenance: {source: engineering_rule_pack}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_rule_thin_section_warning_001
+    title: Thin section warning rule definition
+    description: Packaged rule definition for thin-section warnings.
+    evidence_type: rule_definition
+    role: provenance
+    reference: thin_section_warning_001
+    family: null
+    stages: [knowledge]
+    capability_ids: []
+    rule_ids: [thin_section_warning_001]
+    pack_ids: [bracket_structural]
+    verification_method: static_resolution
+    expected_result: rule_exists
+    required: true
+    provenance: {source: engineering_rule_pack}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+
+  - evidence_id: ev_pack_bracket_mechanical
+    title: Mechanical rule pack
+    description: Packaged mechanical bracket rule pack.
+    evidence_type: rule_pack
+    role: provenance
+    reference: bracket_mechanical
+    family: null
+    stages: [knowledge]
+    capability_ids: []
+    rule_ids: []
+    pack_ids: [bracket_mechanical]
+    verification_method: rule_pack_validation
+    expected_result: pack_valid
+    required: true
+    provenance: {source: rule_pack_registry}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_pack_bracket_manufacturing
+    title: Manufacturing rule pack
+    description: Packaged manufacturing bracket rule pack.
+    evidence_type: rule_pack
+    role: provenance
+    reference: bracket_manufacturing
+    family: null
+    stages: [knowledge]
+    capability_ids: []
+    rule_ids: []
+    pack_ids: [bracket_manufacturing]
+    verification_method: rule_pack_validation
+    expected_result: pack_valid
+    required: true
+    provenance: {source: rule_pack_registry}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_pack_bracket_assembly
+    title: Assembly rule pack
+    description: Packaged assembly bracket rule pack.
+    evidence_type: rule_pack
+    role: provenance
+    reference: bracket_assembly
+    family: null
+    stages: [knowledge]
+    capability_ids: []
+    rule_ids: []
+    pack_ids: [bracket_assembly]
+    verification_method: rule_pack_validation
+    expected_result: pack_valid
+    required: true
+    provenance: {source: rule_pack_registry}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_pack_bracket_structural
+    title: Structural rule pack
+    description: Packaged structural bracket rule pack.
+    evidence_type: rule_pack
+    role: provenance
+    reference: bracket_structural
+    family: null
+    stages: [knowledge]
+    capability_ids: []
+    rule_ids: []
+    pack_ids: [bracket_structural]
+    verification_method: rule_pack_validation
+    expected_result: pack_valid
+    required: true
+    provenance: {source: rule_pack_registry}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+
+  - evidence_id: ev_impl_wall_parser_support
+    title: Wall bracket deterministic parser support
+    description: Parser support for wall bracket structured intent and boundary rejection.
+    evidence_type: parser_support
+    role: implementation
+    reference: parser:wall_mounted_bracket
+    family: wall_mounted_bracket
+    stages: [parsing]
+    capability_ids:
+      - wall_basic_mounting_plate_generation
+      - wall_no_hole_configuration
+      - wall_two_hole_symmetric_horizontal_pattern
+      - wall_four_hole_rectangular_corner_pattern
+      - wall_center_cutout
+      - wall_rounded_corners
+    rule_ids: []
+    pack_ids: []
+    verification_method: static_resolution
+    expected_result: parser_identifier_resolves
+    required: true
+    provenance: {source: deterministic_parser}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_impl_wall_generator_support
+    title: Wall bracket CadQuery generator support
+    description: Deterministic generator support for wall bracket CAD models.
+    evidence_type: cad_generator
+    role: implementation
+    reference: generator:wall_mounted_bracket
+    family: wall_mounted_bracket
+    stages: [cad_generation]
+    capability_ids:
+      - wall_basic_mounting_plate_generation
+      - wall_no_hole_configuration
+      - wall_two_hole_symmetric_horizontal_pattern
+      - wall_four_hole_rectangular_corner_pattern
+      - wall_center_cutout
+      - wall_rounded_corners
+    rule_ids: []
+    pack_ids: []
+    verification_method: static_resolution
+    expected_result: generator_identifier_resolves
+    required: true
+    provenance: {source: deterministic_generator}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_impl_wall_validation_support
+    title: Wall bracket geometry validation support
+    description: Deterministic validation support for wall bracket parameters and geometry checks.
+    evidence_type: geometry_validator
+    role: implementation
+    reference: validator:wall_mounted_bracket
+    family: wall_mounted_bracket
+    stages: [geometry_validation]
+    capability_ids:
+      - wall_geometry_validation
+      - wall_edge_fillets
+    rule_ids: [hole_edge_margin_001, hole_spacing_001, corner_radius_001]
+    pack_ids: [bracket_mechanical]
+    verification_method: static_resolution
+    expected_result: validator_identifier_resolves
+    required: true
+    provenance: {source: deterministic_validator}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_impl_wall_topology_support
+    title: Wall bracket topology inspection support
+    description: Shape inspection support for wall bracket topology metrics.
+    evidence_type: topology_inspector
+    role: implementation
+    reference: topology:shape_inspector
+    family: wall_mounted_bracket
+    stages: [topology_inspection]
+    capability_ids:
+      - wall_topology_inspection
+      - wall_feature_recognition
+    rule_ids: []
+    pack_ids: []
+    verification_method: static_resolution
+    expected_result: topology_identifier_resolves
+    required: true
+    provenance: {source: topology_harness}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_impl_wall_feature_recognition_support
+    title: Wall bracket feature recognition support
+    description: Topology-informed feature recognition for wall bracket through holes and center cutout where practical.
+    evidence_type: feature_recognizer
+    role: implementation
+    reference: feature_recognizer:wall_mounted_bracket
+    family: wall_mounted_bracket
+    stages: [feature_recognition]
+    capability_ids:
+      - wall_feature_recognition
+    rule_ids: [hole_edge_margin_001, hole_spacing_001, cutout_stiffness_tradeoff_001]
+    pack_ids: [bracket_mechanical, bracket_structural]
+    verification_method: static_resolution
+    expected_result: recognizer_identifier_resolves
+    required: true
+    provenance: {source: feature_recognition_harness}
+    version: "1.0"
+    limitations: ["Recognition is topology-informed and conservative, not full industrial CAD feature recognition."]
+    freshness_policy: version_match
+  - evidence_id: ev_impl_wall_knowledge_support
+    title: Wall bracket knowledge evaluation support
+    description: Engineering knowledge evaluator support for wall bracket design checks.
+    evidence_type: knowledge_evaluator
+    role: implementation
+    reference: knowledge:evaluator
+    family: wall_mounted_bracket
+    stages: [knowledge]
+    capability_ids:
+      - wall_two_hole_symmetric_horizontal_pattern
+      - wall_four_hole_rectangular_corner_pattern
+      - wall_center_cutout
+      - wall_geometry_validation
+      - wall_knowledge_evaluation
+    rule_ids:
+      - hole_edge_margin_001
+      - hole_spacing_001
+      - corner_radius_001
+      - tool_clearance_001
+      - manufacturing_simplicity_001
+      - fastener_accessibility_001
+      - installation_difficulty_001
+      - cutout_stiffness_tradeoff_001
+      - thin_section_warning_001
+    pack_ids: [bracket_mechanical, bracket_manufacturing, bracket_assembly, bracket_structural]
+    verification_method: static_resolution
+    expected_result: evaluator_identifier_resolves
+    required: true
+    provenance: {source: knowledge_evaluator}
+    version: "1.0"
+    limitations: ["Knowledge rules are deterministic heuristics and references, not FEA."]
+    freshness_policy: version_match
+    reuse_reason: "The same deterministic knowledge evaluator supports both bracket families."
+  - evidence_id: ev_impl_wall_reasoning_support
+    title: Wall bracket deterministic reasoning support
+    description: Deterministic engineering reasoning support for wall bracket knowledge findings.
+    evidence_type: knowledge_evaluator
+    role: implementation
+    reference: knowledge:reasoning
+    family: wall_mounted_bracket
+    stages: [engineering_reasoning]
+    capability_ids:
+      - wall_deterministic_engineering_reasoning
+    rule_ids:
+      - hole_edge_margin_001
+      - hole_spacing_001
+      - corner_radius_001
+      - manufacturing_simplicity_001
+      - fastener_accessibility_001
+      - cutout_stiffness_tradeoff_001
+      - thin_section_warning_001
+    pack_ids: [bracket_mechanical, bracket_manufacturing, bracket_assembly, bracket_structural]
+    verification_method: static_resolution
+    expected_result: reasoning_identifier_resolves
+    required: true
+    provenance: {source: deterministic_reasoning_engine}
+    version: "1.0"
+    limitations: ["Reasoning is advisory and deterministic; it does not certify structural safety."]
+    freshness_policy: version_match
+
+  - evidence_id: ev_verify_wall_basic_benchmark
+    title: Wall bracket basic benchmark cases
+    description: CAD benchmark case verifies basic wall bracket parse-build behavior.
+    evidence_type: benchmark_case
+    role: verification
+    reference: clean_001
+    family: wall_mounted_bracket
+    stages: [geometry_validation]
+    capability_ids:
+      - wall_basic_mounting_plate_generation
+      - wall_no_hole_configuration
+    rule_ids: []
+    pack_ids: []
+    verification_method: static_resolution
+    expected_result: benchmark_case_exists
+    required: true
+    provenance: {source: cad_benchmark}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+    reuse_reason: "One benchmark case verifies the basic wall-bracket model and no-hole configuration."
+  - evidence_id: ev_verify_wall_two_hole_benchmark
+    title: Wall bracket two-hole benchmark case
+    description: CAD benchmark case verifies two-hole wall bracket behavior.
+    evidence_type: benchmark_case
+    role: verification
+    reference: hole_002
+    family: wall_mounted_bracket
+    stages: [cad_generation]
+    capability_ids: [wall_two_hole_symmetric_horizontal_pattern]
+    rule_ids: [hole_edge_margin_001, hole_spacing_001]
+    pack_ids: [bracket_mechanical]
+    verification_method: static_resolution
+    expected_result: benchmark_case_exists
+    required: true
+    provenance: {source: cad_benchmark}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_verify_wall_four_hole_benchmark
+    title: Wall bracket four-hole benchmark case
+    description: CAD benchmark case verifies rectangular four-hole wall bracket behavior.
+    evidence_type: benchmark_case
+    role: verification
+    reference: hole_004
+    family: wall_mounted_bracket
+    stages: [cad_generation]
+    capability_ids: [wall_four_hole_rectangular_corner_pattern]
+    rule_ids: [hole_edge_margin_001, hole_spacing_001]
+    pack_ids: [bracket_mechanical]
+    verification_method: static_resolution
+    expected_result: benchmark_case_exists
+    required: true
+    provenance: {source: cad_benchmark}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_verify_wall_cutout_benchmark
+    title: Wall bracket center-cutout benchmark case
+    description: CAD benchmark case verifies center-cutout support.
+    evidence_type: benchmark_case
+    role: verification
+    reference: optional_002
+    family: wall_mounted_bracket
+    stages: [cad_generation]
+    capability_ids: [wall_center_cutout]
+    rule_ids: [cutout_stiffness_tradeoff_001, thin_section_warning_001, tool_clearance_001]
+    pack_ids: [bracket_structural, bracket_manufacturing]
+    verification_method: static_resolution
+    expected_result: benchmark_case_exists
+    required: true
+    provenance: {source: cad_benchmark}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_verify_wall_rounded_benchmark
+    title: Wall bracket rounded-corner benchmark case
+    description: CAD benchmark case verifies requested rounded-corner intent and generation behavior.
+    evidence_type: benchmark_case
+    role: verification
+    reference: optional_004
+    family: wall_mounted_bracket
+    stages: [cad_generation]
+    capability_ids: [wall_rounded_corners]
+    rule_ids: [corner_radius_001, manufacturing_simplicity_001]
+    pack_ids: [bracket_mechanical, bracket_manufacturing]
+    verification_method: static_resolution
+    expected_result: benchmark_case_exists
+    required: true
+    provenance: {source: cad_benchmark}
+    version: "1.0"
+    limitations: ["Rounded-corner recognition is conservative."]
+    freshness_policy: version_match
+  - evidence_id: ev_verify_wall_edge_fillets_test
+    title: Wall bracket edge-fillet validation regression test
+    description: Regression test coverage for validation behavior around fillet and radius intent.
+    evidence_type: regression_test
+    role: verification
+    reference: tests/test_geometry_validation.py
+    family: wall_mounted_bracket
+    stages: [geometry_validation]
+    capability_ids: [wall_edge_fillets]
+    rule_ids: [corner_radius_001, manufacturing_simplicity_001]
+    pack_ids: [bracket_mechanical, bracket_manufacturing]
+    verification_method: static_resolution
+    expected_result: test_identifier_resolves
+    required: true
+    provenance: {source: regression_tests}
+    version: "1.0"
+    limitations: ["Edge-fillet validation is intent and parameter based."]
+    freshness_policy: version_match
+  - evidence_id: ev_verify_wall_geometry_validation_test
+    title: Wall bracket geometry validation regression tests
+    description: Regression tests verify wall bracket geometry validation paths.
+    evidence_type: regression_test
+    role: verification
+    reference: tests/test_geometry_validation.py
+    family: wall_mounted_bracket
+    stages: [geometry_validation]
+    capability_ids: [wall_geometry_validation]
+    rule_ids: [hole_edge_margin_001, hole_spacing_001, corner_radius_001]
+    pack_ids: [bracket_mechanical]
+    verification_method: static_resolution
+    expected_result: test_identifier_resolves
+    required: true
+    provenance: {source: regression_tests}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+    reuse_reason: "The same validation test module covers multiple validation capability paths."
+  - evidence_id: ev_verify_wall_topology_harness
+    title: Wall bracket topology harness gate
+    description: Technical harness gate verifies wall bracket topology inspection can run.
+    evidence_type: technical_harness_gate
+    role: verification
+    reference: technical_harness:shape_inspection
+    family: wall_mounted_bracket
+    stages: [topology_inspection]
+    capability_ids: [wall_topology_inspection]
+    rule_ids: []
+    pack_ids: []
+    verification_method: static_resolution
+    expected_result: harness_gate_resolves
+    required: true
+    provenance: {source: technical_harness}
+    version: "1.0"
+    limitations: ["Topology inspection reports metrics; it is not full CAD feature recognition."]
+    freshness_policy: version_match
+  - evidence_id: ev_verify_wall_feature_recognition_harness
+    title: Wall bracket feature recognition harness gate
+    description: Technical harness gate verifies feature-recognition report generation.
+    evidence_type: technical_harness_gate
+    role: verification
+    reference: technical_harness:feature_recognition
+    family: wall_mounted_bracket
+    stages: [feature_recognition]
+    capability_ids: [wall_feature_recognition]
+    rule_ids: [hole_edge_margin_001, hole_spacing_001, cutout_stiffness_tradeoff_001]
+    pack_ids: [bracket_mechanical, bracket_structural]
+    verification_method: static_resolution
+    expected_result: harness_gate_resolves
+    required: true
+    provenance: {source: technical_harness}
+    version: "1.0"
+    limitations: ["Feature recognition is approximate and conservative."]
+    freshness_policy: version_match
+  - evidence_id: ev_verify_wall_knowledge_tests
+    title: Wall bracket knowledge evaluator tests
+    description: Regression tests verify deterministic knowledge evaluation behavior.
+    evidence_type: regression_test
+    role: verification
+    reference: tests/test_rule_evaluator.py
+    family: wall_mounted_bracket
+    stages: [knowledge]
+    capability_ids: [wall_knowledge_evaluation]
+    rule_ids:
+      - hole_edge_margin_001
+      - hole_spacing_001
+      - corner_radius_001
+      - tool_clearance_001
+      - manufacturing_simplicity_001
+      - fastener_accessibility_001
+      - installation_difficulty_001
+      - cutout_stiffness_tradeoff_001
+      - thin_section_warning_001
+    pack_ids: [bracket_mechanical, bracket_manufacturing, bracket_assembly, bracket_structural]
+    verification_method: static_resolution
+    expected_result: test_identifier_resolves
+    required: true
+    provenance: {source: regression_tests}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_verify_wall_reasoning_golden
+    title: Wall bracket golden reasoning case
+    description: Golden reasoning case verifies deterministic wall bracket reasoning output.
+    evidence_type: golden_case
+    role: verification
+    reference: reasoning_004_edge_and_spacing
+    family: wall_mounted_bracket
+    stages: [golden_verification]
+    capability_ids: [wall_deterministic_engineering_reasoning]
+    rule_ids: [hole_edge_margin_001, hole_spacing_001]
+    pack_ids: [bracket_mechanical]
+    verification_method: reasoning_golden_verification
+    expected_result: golden_cases_pass
+    required: true
+    provenance: {source: reasoning_golden_cases}
+    version: "1.0"
+    limitations: ["Reasoning cases verify deterministic explanations, not structural certification."]
+    freshness_policy: version_match
+
+  - evidence_id: ev_limit_wall_rounded_corners
+    title: Wall rounded-corner support limitation
+    description: Documentation records conservative rounded-corner feature-recognition limitations.
+    evidence_type: documentation
+    role: limitation
+    reference: docs/feature_recognition.md
+    family: wall_mounted_bracket
+    stages: [geometry_validation]
+    capability_ids: [wall_rounded_corners]
+    rule_ids: [corner_radius_001]
+    pack_ids: [bracket_mechanical]
+    verification_method: static_resolution
+    expected_result: limitation_documented
+    required: true
+    provenance: {source: documentation}
+    version: "1.0"
+    limitations: ["Rounded-corner recognition is conservative and topology-informed."]
+    freshness_policy: version_match
+  - evidence_id: ev_limit_wall_edge_fillets
+    title: Wall edge-fillet support limitation
+    description: Documentation records that edge-fillet support is intent and validation based.
+    evidence_type: documentation
+    role: limitation
+    reference: docs/validation.md
+    family: wall_mounted_bracket
+    stages: [geometry_validation]
+    capability_ids: [wall_edge_fillets]
+    rule_ids: [corner_radius_001]
+    pack_ids: [bracket_mechanical]
+    verification_method: static_resolution
+    expected_result: limitation_documented
+    required: true
+    provenance: {source: documentation}
+    version: "1.0"
+    limitations: ["Edge fillet intent is represented and validated; full robust topology recognition is limited."]
+    freshness_policy: version_match
+  - evidence_id: ev_limit_wall_feature_recognition
+    title: Wall feature-recognition limitation
+    description: Documentation records that feature recognition is topology-informed but not full industrial feature recognition.
+    evidence_type: documentation
+    role: limitation
+    reference: docs/feature_recognition.md
+    family: wall_mounted_bracket
+    stages: [feature_recognition]
+    capability_ids: [wall_feature_recognition]
+    rule_ids: []
+    pack_ids: []
+    verification_method: static_resolution
+    expected_result: limitation_documented
+    required: true
+    provenance: {source: documentation}
+    version: "1.0"
+    limitations: ["Feature recognition returns warnings when robust recognition is not available."]
+    freshness_policy: version_match
+    reuse_reason: "The feature-recognition limitations document applies to both supported bracket families."
+
+  - evidence_id: ev_boundary_wall_freeform_holes
+    title: Wall freeform hole placement rejection
+    description: Rejection benchmark case verifies arbitrary coordinate holes are rejected.
+    evidence_type: rejection_case
+    role: boundary
+    reference: reject_015
+    family: wall_mounted_bracket
+    stages: [rejection]
+    capability_ids: [wall_freeform_hole_placement]
+    rule_ids: []
+    pack_ids: []
+    verification_method: static_resolution
+    expected_result: rejection_case_exists
+    required: true
+    provenance: {source: rejection_benchmark}
+    version: "1.0"
+    limitations: ["Freeform hole placement is intentionally unsupported."]
+    freshness_policy: version_match
+  - evidence_id: ev_boundary_wall_unsupported_holes
+    title: Wall unsupported hole pattern rejection
+    description: Rejection benchmark case verifies unsupported wall bracket hole counts are rejected.
+    evidence_type: rejection_case
+    role: boundary
+    reference: hole_008
+    family: wall_mounted_bracket
+    stages: [rejection]
+    capability_ids: [wall_unsupported_hole_patterns]
+    rule_ids: []
+    pack_ids: []
+    verification_method: static_resolution
+    expected_result: rejection_case_exists
+    required: true
+    provenance: {source: rejection_benchmark}
+    version: "1.0"
+    limitations: ["Unsupported mounting-hole counts and patterns are rejected."]
+    freshness_policy: version_match
+  - evidence_id: ev_boundary_wall_arbitrary_cad
+    title: Wall arbitrary CAD rejection
+    description: Rejection benchmark case verifies unsupported non-bracket CAD objects are rejected.
+    evidence_type: rejection_case
+    role: boundary
+    reference: reject_001
+    family: wall_mounted_bracket
+    stages: [rejection]
+    capability_ids: [wall_arbitrary_cad_rejection]
+    rule_ids: []
+    pack_ids: []
+    verification_method: static_resolution
+    expected_result: rejection_case_exists
+    required: true
+    provenance: {source: rejection_benchmark}
+    version: "1.0"
+    limitations: ["IntentForge is not arbitrary text-to-CAD."]
+    freshness_policy: version_match
+
+  - evidence_id: ev_impl_l_parser_support
+    title: L-bracket deterministic parser support
+    description: Parser support for L-bracket structured intent and boundary rejection.
+    evidence_type: parser_support
+    role: implementation
+    reference: parser:l_bracket
+    family: l_bracket
+    stages: [parsing]
+    capability_ids:
+      - l_basic_right_angle_bracket_generation
+      - l_zero_hole_configuration
+      - l_two_base_leg_holes
+      - l_two_vertical_leg_holes
+      - l_triangular_gusset
+      - l_inside_fillet_intent
+    rule_ids: []
+    pack_ids: []
+    verification_method: static_resolution
+    expected_result: parser_identifier_resolves
+    required: true
+    provenance: {source: deterministic_parser}
+    version: "1.0"
+    limitations: ["Only 0 or 2 holes per L-bracket leg are supported."]
+    freshness_policy: version_match
+  - evidence_id: ev_impl_l_generator_support
+    title: L-bracket CadQuery generator support
+    description: Deterministic generator support for L-bracket CAD models.
+    evidence_type: cad_generator
+    role: implementation
+    reference: generator:l_bracket
+    family: l_bracket
+    stages: [cad_generation]
+    capability_ids:
+      - l_basic_right_angle_bracket_generation
+      - l_zero_hole_configuration
+      - l_two_base_leg_holes
+      - l_two_vertical_leg_holes
+      - l_triangular_gusset
+    rule_ids: []
+    pack_ids: []
+    verification_method: static_resolution
+    expected_result: generator_identifier_resolves
+    required: true
+    provenance: {source: deterministic_generator}
+    version: "1.0"
+    limitations: ["Inside fillet intent remains validation/report focused where robust geometry is future work."]
+    freshness_policy: version_match
+  - evidence_id: ev_impl_l_validation_support
+    title: L-bracket geometry validation support
+    description: Deterministic validation support for L-bracket parameters and feature constraints.
+    evidence_type: geometry_validator
+    role: implementation
+    reference: validator:l_bracket
+    family: l_bracket
+    stages: [geometry_validation]
+    capability_ids:
+      - l_inside_fillet_intent
+      - l_geometry_validation
+    rule_ids: [hole_edge_margin_001, hole_spacing_001, gusset_recommendation_001, corner_radius_001]
+    pack_ids: [bracket_mechanical]
+    verification_method: static_resolution
+    expected_result: validator_identifier_resolves
+    required: true
+    provenance: {source: deterministic_validator}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_impl_l_topology_support
+    title: L-bracket topology inspection support
+    description: Shape inspection support for L-bracket topology metrics.
+    evidence_type: topology_inspector
+    role: implementation
+    reference: topology:shape_inspector
+    family: l_bracket
+    stages: [topology_inspection]
+    capability_ids:
+      - l_basic_right_angle_bracket_generation
+      - l_topology_inspection
+      - l_feature_recognition
+    rule_ids: []
+    pack_ids: []
+    verification_method: static_resolution
+    expected_result: topology_identifier_resolves
+    required: true
+    provenance: {source: topology_harness}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+    reuse_reason: "The same topology inspector supports both bracket families."
+  - evidence_id: ev_impl_l_feature_recognition_support
+    title: L-bracket feature recognition support
+    description: Topology-informed feature recognition for L-bracket connectivity and gusset checks where practical.
+    evidence_type: feature_recognizer
+    role: implementation
+    reference: feature_recognizer:l_bracket
+    family: l_bracket
+    stages: [feature_recognition]
+    capability_ids:
+      - l_feature_recognition
+    rule_ids: [hole_edge_margin_001, hole_spacing_001, gusset_recommendation_001]
+    pack_ids: [bracket_mechanical]
+    verification_method: static_resolution
+    expected_result: recognizer_identifier_resolves
+    required: true
+    provenance: {source: feature_recognition_harness}
+    version: "1.0"
+    limitations: ["Recognition is topology-informed and conservative, not full industrial CAD feature recognition."]
+    freshness_policy: version_match
+  - evidence_id: ev_impl_l_knowledge_support
+    title: L-bracket knowledge evaluation support
+    description: Engineering knowledge evaluator support for L-bracket design checks.
+    evidence_type: knowledge_evaluator
+    role: implementation
+    reference: knowledge:evaluator
+    family: l_bracket
+    stages: [knowledge]
+    capability_ids:
+      - l_two_base_leg_holes
+      - l_two_vertical_leg_holes
+      - l_triangular_gusset
+      - l_geometry_validation
+      - l_knowledge_evaluation
+    rule_ids:
+      - hole_edge_margin_001
+      - hole_spacing_001
+      - gusset_recommendation_001
+      - corner_radius_001
+      - tool_clearance_001
+      - manufacturing_simplicity_001
+      - fastener_accessibility_001
+      - installation_difficulty_001
+      - thin_section_warning_001
+    pack_ids: [bracket_mechanical, bracket_manufacturing, bracket_assembly, bracket_structural]
+    verification_method: static_resolution
+    expected_result: evaluator_identifier_resolves
+    required: true
+    provenance: {source: knowledge_evaluator}
+    version: "1.0"
+    limitations: ["Knowledge rules are deterministic heuristics and references, not FEA."]
+    freshness_policy: version_match
+  - evidence_id: ev_impl_l_reasoning_support
+    title: L-bracket deterministic reasoning support
+    description: Deterministic engineering reasoning support for L-bracket knowledge findings.
+    evidence_type: knowledge_evaluator
+    role: implementation
+    reference: knowledge:reasoning
+    family: l_bracket
+    stages: [engineering_reasoning]
+    capability_ids:
+      - l_deterministic_engineering_reasoning
+    rule_ids:
+      - gusset_recommendation_001
+      - manufacturing_simplicity_001
+      - thin_section_warning_001
+      - hole_edge_margin_001
+      - hole_spacing_001
+      - fastener_accessibility_001
+    pack_ids: [bracket_mechanical, bracket_manufacturing, bracket_assembly, bracket_structural]
+    verification_method: static_resolution
+    expected_result: reasoning_identifier_resolves
+    required: true
+    provenance: {source: deterministic_reasoning_engine}
+    version: "1.0"
+    limitations: ["Reasoning is advisory and deterministic; it does not certify structural safety."]
+    freshness_policy: version_match
+    reuse_reason: "The same deterministic reasoning engine supports both bracket families."
+
+  - evidence_id: ev_verify_l_basic_benchmark
+    title: L-bracket basic benchmark case
+    description: CAD benchmark case verifies basic right-angle L-bracket parse-build behavior.
+    evidence_type: benchmark_case
+    role: verification
+    reference: l_clean_001
+    family: l_bracket
+    stages: [cad_generation]
+    capability_ids:
+      - l_basic_right_angle_bracket_generation
+    rule_ids: []
+    pack_ids: []
+    verification_method: static_resolution
+    expected_result: benchmark_case_exists
+    required: true
+    provenance: {source: cad_benchmark}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_verify_l_zero_hole_benchmark
+    title: L-bracket zero-hole benchmark case
+    description: CAD benchmark case verifies no-hole L-bracket behavior.
+    evidence_type: benchmark_case
+    role: verification
+    reference: l_optional_001
+    family: l_bracket
+    stages: [cad_generation]
+    capability_ids: [l_zero_hole_configuration]
+    rule_ids: []
+    pack_ids: []
+    verification_method: static_resolution
+    expected_result: benchmark_case_exists
+    required: true
+    provenance: {source: cad_benchmark}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_verify_l_base_holes_benchmark
+    title: L-bracket base-hole benchmark case
+    description: CAD benchmark case verifies two base-leg holes.
+    evidence_type: benchmark_case
+    role: verification
+    reference: l_clean_004
+    family: l_bracket
+    stages: [cad_generation]
+    capability_ids: [l_two_base_leg_holes]
+    rule_ids: [hole_edge_margin_001, hole_spacing_001]
+    pack_ids: [bracket_mechanical]
+    verification_method: static_resolution
+    expected_result: benchmark_case_exists
+    required: true
+    provenance: {source: cad_benchmark}
+    version: "1.0"
+    limitations: ["Only 0 or 2 base holes are supported."]
+    freshness_policy: version_match
+  - evidence_id: ev_verify_l_vertical_holes_benchmark
+    title: L-bracket vertical-hole benchmark case
+    description: CAD benchmark case verifies two vertical-face holes.
+    evidence_type: benchmark_case
+    role: verification
+    reference: l_clean_005
+    family: l_bracket
+    stages: [cad_generation]
+    capability_ids: [l_two_vertical_leg_holes]
+    rule_ids: [hole_edge_margin_001, hole_spacing_001]
+    pack_ids: [bracket_mechanical]
+    verification_method: static_resolution
+    expected_result: benchmark_case_exists
+    required: true
+    provenance: {source: cad_benchmark}
+    version: "1.0"
+    limitations: ["Only 0 or 2 vertical holes are supported."]
+    freshness_policy: version_match
+  - evidence_id: ev_verify_l_gusset_benchmark
+    title: L-bracket gusset benchmark case
+    description: CAD benchmark case verifies optional triangular gusset behavior.
+    evidence_type: benchmark_case
+    role: verification
+    reference: l_optional_002
+    family: l_bracket
+    stages: [cad_generation]
+    capability_ids: [l_triangular_gusset]
+    rule_ids: [gusset_recommendation_001, manufacturing_simplicity_001, thin_section_warning_001]
+    pack_ids: [bracket_mechanical, bracket_manufacturing, bracket_structural]
+    verification_method: static_resolution
+    expected_result: benchmark_case_exists
+    required: true
+    provenance: {source: cad_benchmark}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_verify_l_inside_fillet_benchmark
+    title: L-bracket inside-fillet intent benchmark case
+    description: CAD benchmark case verifies inside-fillet intent is parsed and validated.
+    evidence_type: benchmark_case
+    role: verification
+    reference: l_optional_004
+    family: l_bracket
+    stages: [parsing]
+    capability_ids: [l_inside_fillet_intent]
+    rule_ids: [corner_radius_001, manufacturing_simplicity_001]
+    pack_ids: [bracket_mechanical, bracket_manufacturing]
+    verification_method: static_resolution
+    expected_result: benchmark_case_exists
+    required: true
+    provenance: {source: cad_benchmark}
+    version: "1.0"
+    limitations: ["Robust inside-corner fillet geometry remains future work."]
+    freshness_policy: version_match
+  - evidence_id: ev_verify_l_geometry_validation_test
+    title: L-bracket geometry validation regression tests
+    description: Regression tests verify L-bracket geometry validation paths.
+    evidence_type: regression_test
+    role: verification
+    reference: tests/test_l_bracket.py
+    family: l_bracket
+    stages: [geometry_validation]
+    capability_ids: [l_geometry_validation]
+    rule_ids: [hole_edge_margin_001, hole_spacing_001, gusset_recommendation_001, corner_radius_001]
+    pack_ids: [bracket_mechanical]
+    verification_method: static_resolution
+    expected_result: test_identifier_resolves
+    required: true
+    provenance: {source: regression_tests}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_verify_l_topology_harness
+    title: L-bracket topology harness gate
+    description: Technical harness gate verifies L-bracket topology inspection can run.
+    evidence_type: technical_harness_gate
+    role: verification
+    reference: technical_harness:shape_inspection
+    family: l_bracket
+    stages: [topology_inspection]
+    capability_ids: [l_topology_inspection]
+    rule_ids: []
+    pack_ids: []
+    verification_method: static_resolution
+    expected_result: harness_gate_resolves
+    required: true
+    provenance: {source: technical_harness}
+    version: "1.0"
+    limitations: ["Topology inspection reports metrics; it is not full CAD feature recognition."]
+    freshness_policy: version_match
+    reuse_reason: "The same shape-inspection harness gate covers both bracket families."
+  - evidence_id: ev_verify_l_feature_recognition_harness
+    title: L-bracket feature recognition harness gate
+    description: Technical harness gate verifies L-bracket feature-recognition report generation.
+    evidence_type: technical_harness_gate
+    role: verification
+    reference: technical_harness:feature_recognition
+    family: l_bracket
+    stages: [feature_recognition]
+    capability_ids: [l_feature_recognition]
+    rule_ids: [hole_edge_margin_001, hole_spacing_001, gusset_recommendation_001]
+    pack_ids: [bracket_mechanical]
+    verification_method: static_resolution
+    expected_result: harness_gate_resolves
+    required: true
+    provenance: {source: technical_harness}
+    version: "1.0"
+    limitations: ["Feature recognition is approximate and conservative."]
+    freshness_policy: version_match
+    reuse_reason: "The same feature-recognition harness gate covers both bracket families."
+  - evidence_id: ev_verify_l_knowledge_tests
+    title: L-bracket knowledge evaluator tests
+    description: Regression tests verify deterministic knowledge evaluation behavior for shared bracket rules.
+    evidence_type: regression_test
+    role: verification
+    reference: tests/test_rule_evaluator.py
+    family: l_bracket
+    stages: [knowledge]
+    capability_ids: [l_knowledge_evaluation]
+    rule_ids:
+      - hole_edge_margin_001
+      - hole_spacing_001
+      - gusset_recommendation_001
+      - corner_radius_001
+      - tool_clearance_001
+      - manufacturing_simplicity_001
+      - fastener_accessibility_001
+      - installation_difficulty_001
+      - thin_section_warning_001
+    pack_ids: [bracket_mechanical, bracket_manufacturing, bracket_assembly, bracket_structural]
+    verification_method: static_resolution
+    expected_result: test_identifier_resolves
+    required: true
+    provenance: {source: regression_tests}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+    reuse_reason: "The same evaluator test module covers both bracket families."
+  - evidence_id: ev_verify_l_reasoning_golden
+    title: L-bracket golden reasoning case
+    description: Golden reasoning case verifies deterministic L-bracket reasoning output.
+    evidence_type: golden_case
+    role: verification
+    reference: reasoning_005_l_gusset_recommended
+    family: l_bracket
+    stages: [golden_verification]
+    capability_ids: [l_deterministic_engineering_reasoning]
+    rule_ids: [gusset_recommendation_001, manufacturing_simplicity_001, thin_section_warning_001]
+    pack_ids: [bracket_mechanical, bracket_manufacturing, bracket_structural]
+    verification_method: reasoning_golden_verification
+    expected_result: golden_cases_pass
+    required: true
+    provenance: {source: reasoning_golden_cases}
+    version: "1.0"
+    limitations: ["Reasoning cases verify deterministic explanations, not structural certification."]
+    freshness_policy: version_match
+
+  - evidence_id: ev_limit_l_inside_fillet
+    title: L-bracket inside-fillet limitation
+    description: Documentation records that robust geometric inside-corner filleting remains future work.
+    evidence_type: documentation
+    role: limitation
+    reference: docs/validation.md
+    family: l_bracket
+    stages: [geometry_validation]
+    capability_ids: [l_inside_fillet_intent]
+    rule_ids: [corner_radius_001]
+    pack_ids: [bracket_mechanical]
+    verification_method: static_resolution
+    expected_result: limitation_documented
+    required: true
+    provenance: {source: documentation}
+    version: "1.0"
+    limitations: ["Inside fillet intent is represented and validated, but robust geometric inside-corner filleting is future work."]
+    freshness_policy: version_match
+    reuse_reason: "The validation limitations document covers multiple parameter-validation limitations."
+  - evidence_id: ev_limit_l_feature_recognition
+    title: L-bracket feature-recognition limitation
+    description: Documentation records that feature recognition is topology-informed but not full industrial feature recognition.
+    evidence_type: documentation
+    role: limitation
+    reference: docs/feature_recognition.md
+    family: l_bracket
+    stages: [feature_recognition]
+    capability_ids: [l_feature_recognition]
+    rule_ids: []
+    pack_ids: []
+    verification_method: static_resolution
+    expected_result: limitation_documented
+    required: true
+    provenance: {source: documentation}
+    version: "1.0"
+    limitations: ["Feature recognition returns warnings when robust recognition is not available."]
+    freshness_policy: version_match
+    reuse_reason: "The feature-recognition limitations document applies to both supported bracket families."
+
+  - evidence_id: ev_boundary_l_four_hole_pattern
+    title: L-bracket four-hole pattern rejection
+    description: Rejection benchmark case verifies four-hole L-bracket requests are rejected.
+    evidence_type: rejection_case
+    role: boundary
+    reference: l_reject_002
+    family: l_bracket
+    stages: [rejection]
+    capability_ids: [l_four_hole_pattern]
+    rule_ids: []
+    pack_ids: []
+    verification_method: static_resolution
+    expected_result: rejection_case_exists
+    required: true
+    provenance: {source: rejection_benchmark}
+    version: "1.0"
+    limitations: ["Only 0 or 2 holes per L-bracket leg are supported."]
+    freshness_policy: version_match
+  - evidence_id: ev_boundary_l_curved_bracket
+    title: L-bracket curved geometry rejection
+    description: Rejection benchmark case verifies curved L-bracket requests are rejected.
+    evidence_type: rejection_case
+    role: boundary
+    reference: l_reject_001
+    family: l_bracket
+    stages: [rejection]
+    capability_ids: [l_curved_adjustable_or_sheet_metal_bracket]
+    rule_ids: []
+    pack_ids: []
+    verification_method: static_resolution
+    expected_result: rejection_case_exists
+    required: true
+    provenance: {source: rejection_benchmark}
+    version: "1.0"
+    limitations: ["Curved L-brackets are intentionally unsupported."]
+    freshness_policy: version_match
+  - evidence_id: ev_boundary_l_adjustable_bracket
+    title: L-bracket adjustable geometry rejection
+    description: Rejection benchmark case verifies adjustable L-bracket requests are rejected.
+    evidence_type: rejection_case
+    role: boundary
+    reference: l_reject_005
+    family: l_bracket
+    stages: [rejection]
+    capability_ids: [l_curved_adjustable_or_sheet_metal_bracket]
+    rule_ids: []
+    pack_ids: []
+    verification_method: static_resolution
+    expected_result: rejection_case_exists
+    required: true
+    provenance: {source: rejection_benchmark}
+    version: "1.0"
+    limitations: ["Adjustable brackets are intentionally unsupported."]
+    freshness_policy: version_match
+  - evidence_id: ev_boundary_l_sheet_metal_flat_pattern
+    title: L-bracket sheet-metal flat-pattern rejection
+    description: Rejection benchmark case verifies sheet-metal flat-pattern requests are rejected.
+    evidence_type: rejection_case
+    role: boundary
+    reference: l_reject_004
+    family: l_bracket
+    stages: [rejection]
+    capability_ids: [l_curved_adjustable_or_sheet_metal_bracket]
+    rule_ids: []
+    pack_ids: []
+    verification_method: static_resolution
+    expected_result: rejection_case_exists
+    required: true
+    provenance: {source: rejection_benchmark}
+    version: "1.0"
+    limitations: ["Sheet-metal unfold patterns are intentionally unsupported."]
+    freshness_policy: version_match
+
+  - evidence_id: ev_package_capability_manifest
+    title: Capability manifest package artifact
+    description: Packaged capability manifest is present in installed distributions.
+    evidence_type: package_artifact
+    role: packaging
+    reference: intentforge.knowledge.data:capability_manifest.yaml
+    family: null
+    stages: [knowledge]
+    capability_ids: []
+    rule_ids: []
+    pack_ids: []
+    verification_method: static_resolution
+    expected_result: package_resource_exists
+    required: true
+    provenance: {purpose: package_integrity}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_package_evidence_manifest
+    title: Evidence manifest package artifact
+    description: Packaged evidence manifest is present in installed distributions.
+    evidence_type: package_artifact
+    role: packaging
+    reference: intentforge.knowledge.data:evidence_manifest.yaml
+    family: null
+    stages: [knowledge]
+    capability_ids: []
+    rule_ids: []
+    pack_ids: []
+    verification_method: evidence_manifest_validation
+    expected_result: package_resource_exists
+    required: true
+    provenance: {purpose: package_integrity}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match
+  - evidence_id: ev_package_rule_pack_mechanical
+    title: Mechanical rule-pack package artifact
+    description: Packaged mechanical rule-pack YAML is present in installed distributions.
+    evidence_type: package_artifact
+    role: packaging
+    reference: intentforge.knowledge.packs.data:mechanical.yaml
+    family: null
+    stages: [knowledge]
+    capability_ids: []
+    rule_ids: []
+    pack_ids: [bracket_mechanical]
+    verification_method: static_resolution
+    expected_result: package_resource_exists
+    required: true
+    provenance: {purpose: package_integrity}
+    version: "1.0"
+    limitations: []
+    freshness_policy: version_match

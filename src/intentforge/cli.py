@@ -48,18 +48,25 @@ from intentforge.knowledge import (
     RuleRegistry,
     REASONING_ENGINE_VERSION,
     build_capability_matrix,
+    build_all_evidence_bundles,
     build_design_metrics,
     build_coverage_report,
     build_engineering_reasoning_report,
     evaluate_parameter_table,
+    filter_evidence_bundles,
     generate_design_rationale,
+    generate_trust_report,
+    load_evidence_definitions,
     load_rules,
     make_knowledge_report,
     render_engineering_reasoning_markdown,
+    resolve_evidence,
     validate_capability_manifest,
+    validate_evidence_manifest,
     validate_reasoning_metadata,
     validate_default_rule_packs,
     validate_rule_data,
+    verify_evidence,
     write_engineering_reasoning_markdown,
     write_engineering_reasoning_report,
     write_knowledge_report,
@@ -1419,6 +1426,96 @@ def _print_capability_matrix(matrix) -> None:
             print(f"  rejection: {row.rejection_behavior}")
 
 
+def _print_evidence_list(definitions) -> None:
+    print("Engineering Evidence Definitions")
+    print(f"Total: {len(definitions)}")
+    for definition in definitions:
+        print("")
+        print(definition.evidence_id)
+        print(f"  type: {definition.evidence_type}")
+        print(f"  role: {definition.role}")
+        print(f"  reference: {definition.reference}")
+        print(f"  family: {definition.family or 'cross-cutting'}")
+        print(f"  stages: {', '.join(definition.stages) if definition.stages else 'none'}")
+        print(f"  capabilities: {', '.join(definition.capability_ids) if definition.capability_ids else 'none'}")
+        print(f"  required: {str(definition.required).lower()}")
+
+
+def _print_evidence_resolution(report) -> None:
+    print("Engineering Evidence Resolution")
+    print(f"Report ID: {report.report_id}")
+    print(f"Runtime verification: {str(report.runtime_verification).lower()}")
+    print(f"Evidence checked: {report.evidence_count}")
+    print(f"Verified: {report.summary.get('verified_evidence_count', 0)}")
+    print(f"Failed: {report.summary.get('failed_evidence_count', 0)}")
+    print(f"Unresolved: {report.summary.get('unresolved_evidence_count', 0)}")
+    print(f"Unavailable: {report.summary.get('unavailable_evidence_count', 0)}")
+    print(f"Stale: {report.summary.get('stale_evidence_count', 0)}")
+    for observation in report.observations:
+        if observation.status != "verified":
+            print(f"- {observation.evidence_id}: {observation.status} ({observation.observed_result})")
+
+
+def _print_evidence_bundles(bundles) -> None:
+    print("Engineering Evidence Bundles")
+    print(f"Bundles: {len(bundles)}")
+    for bundle in bundles:
+        print("")
+        print(bundle.capability_id)
+        print(f"  family: {bundle.family}")
+        print(f"  capability status: {bundle.capability_status}")
+        print(f"  bundle status: {bundle.bundle_status}")
+        print(f"  completeness: {bundle.evidence_completeness:.4f}")
+        print(f"  required evidence: {len(bundle.required_evidence_ids)}")
+        print(f"  unresolved: {', '.join(bundle.unresolved_evidence_ids) if bundle.unresolved_evidence_ids else 'none'}")
+        print(f"  failed: {', '.join(bundle.failed_evidence_ids) if bundle.failed_evidence_ids else 'none'}")
+
+
+def _print_trust_report(report) -> None:
+    print("Engineering Evidence Trust Report")
+    print("PASS" if report.overall_trust_gate_passed else "FAIL")
+    print(f"Report ID: {report.report_id}")
+    print(f"Runtime verification: {str(report.summary.get('runtime_verification', False)).lower()}")
+    print(f"Declared capabilities: {report.declared_capability_count}")
+    print(f"Supported capabilities: {report.supported_capability_count}")
+    print(f"Partially supported capabilities: {report.partially_supported_capability_count}")
+    print(f"Unsupported boundaries: {report.unsupported_boundary_count}")
+    print(f"Evidence definitions: {report.total_evidence_definition_count}")
+    print(f"Required evidence: {report.required_evidence_count}")
+    print(f"Verified evidence: {report.verified_evidence_count}")
+    print(f"Failed evidence: {report.failed_evidence_count}")
+    print(f"Unresolved evidence: {report.unresolved_evidence_count}")
+    print(f"Unavailable evidence: {report.unavailable_evidence_count}")
+    print(f"Stale evidence: {report.stale_evidence_count}")
+    impl = report.implementation_evidence_completeness
+    ver = report.verification_evidence_completeness
+    boundary = report.boundary_evidence_completeness
+    limitation = report.limitation_evidence_completeness
+    print(
+        "Implementation evidence completeness: "
+        f"{impl['value']:.4f} ({impl['numerator']}/{impl['denominator']})"
+    )
+    print(
+        "Verification evidence completeness: "
+        f"{ver['value']:.4f} ({ver['numerator']}/{ver['denominator']})"
+    )
+    print(
+        "Boundary evidence completeness: "
+        f"{boundary['value']:.4f} ({boundary['numerator']}/{boundary['denominator']})"
+    )
+    print(
+        "Limitation evidence completeness: "
+        f"{limitation['value']:.4f} ({limitation['numerator']}/{limitation['denominator']})"
+    )
+    if report.validation_errors:
+        print("Evidence gaps:")
+        for error in report.validation_errors:
+            prefix = error.get("evidence_id") or error.get("capability_id") or "manifest"
+            print(f"  - {prefix}: {error.get('message')}")
+    else:
+        print("Evidence gaps: none")
+
+
 def _knowledge_command(args) -> int:
     action = args.knowledge_command
     if action == "list":
@@ -1506,6 +1603,84 @@ def _knowledge_command(args) -> int:
         else:
             _print_capability_matrix(matrix)
         return 0
+    if action == "evidence-list":
+        definitions = load_evidence_definitions()
+        if getattr(args, "family", None):
+            definitions = [
+                definition
+                for definition in definitions
+                if definition.family == args.family or args.family in definition.provenance.get("families", [])
+            ]
+        if getattr(args, "evidence_type", None):
+            definitions = [definition for definition in definitions if definition.evidence_type == args.evidence_type]
+        if getattr(args, "role", None):
+            definitions = [definition for definition in definitions if definition.role == args.role]
+        definitions = sorted(definitions, key=lambda definition: definition.evidence_id)
+        if getattr(args, "json", False):
+            print(json.dumps([definition.model_dump(mode="json") for definition in definitions], indent=2, sort_keys=True) + "\n", end="")
+        else:
+            _print_evidence_list(definitions)
+        return 0
+    if action == "evidence-show":
+        definitions = load_evidence_definitions()
+        definition = next((item for item in definitions if item.evidence_id == args.evidence_id), None)
+        if definition is None:
+            print(f"Unknown evidence id: {args.evidence_id}", file=sys.stderr)
+            return 1
+        if getattr(args, "json", False):
+            print(json.dumps(definition.model_dump(mode="json"), indent=2, sort_keys=True) + "\n", end="")
+        else:
+            _print_evidence_list([definition])
+        return 0
+    if action == "evidence-validate":
+        result = validate_evidence_manifest()
+        print("Engineering evidence validation")
+        print("PASS" if result.passed else "FAIL")
+        print(f"{result.evidence_checked} evidence definitions checked")
+        print(f"{len(result.errors)} errors")
+        print(f"{len(result.warnings)} warnings")
+        print(f"Unknown capabilities: {result.summary.get('unknown_capability_reference_count', 0)}")
+        print(f"Unknown rules: {result.summary.get('unknown_rule_reference_count', 0)}")
+        print(f"Unknown packs: {result.summary.get('unknown_pack_reference_count', 0)}")
+        print(f"Orphan evidence: {result.summary.get('orphan_evidence_count', 0)}")
+        for error in result.errors:
+            prefix = error.get("evidence_id") or error.get("capability_id") or "manifest"
+            print(f"- {prefix}: {error.get('message')}")
+        return 0 if result.passed else 1
+    if action == "evidence-resolve":
+        report = resolve_evidence()
+        if getattr(args, "json", False):
+            print(report.to_json(), end="")
+        else:
+            _print_evidence_resolution(report)
+        return 0 if report.summary.get("failed_evidence_count", 0) == 0 and report.summary.get("unresolved_evidence_count", 0) == 0 else 1
+    if action == "evidence-bundles":
+        bundles = build_all_evidence_bundles(
+            family=getattr(args, "family", None),
+            capability_id=getattr(args, "capability_id", None),
+        )
+        if getattr(args, "json", False):
+            print(json.dumps([bundle.model_dump(mode="json") for bundle in bundles], indent=2, sort_keys=True) + "\n", end="")
+        else:
+            _print_evidence_bundles(bundles)
+        return 0 if all(bundle.bundle_status in {"evidence_complete", "boundary_verified"} for bundle in bundles) else 1
+    if action == "trust-report":
+        report = generate_trust_report(runtime=getattr(args, "verify", False))
+        if getattr(args, "json", False):
+            print(report.to_json(), end="")
+        else:
+            _print_trust_report(report)
+        return 0 if report.overall_trust_gate_passed else 1
+    if action == "trust-validate":
+        report = generate_trust_report()
+        print("Engineering evidence trust validation")
+        print("PASS" if report.overall_trust_gate_passed else "FAIL")
+        print(f"Evidence definitions: {report.total_evidence_definition_count}")
+        print(f"Supported incomplete bundles: {len(report.supported_capabilities_with_incomplete_evidence)}")
+        print(f"Partial missing limitation evidence: {len(report.partially_supported_capabilities_missing_limitation_evidence)}")
+        print(f"Unsupported missing rejection evidence: {len(report.unsupported_boundaries_missing_rejection_evidence)}")
+        print(f"Unknown references: {report.unknown_capability_reference_count + report.unknown_rule_reference_count + report.unknown_pack_reference_count}")
+        return 0 if report.overall_trust_gate_passed else 1
     if action == "reasoning-info":
         print("Engineering reasoning engine")
         print(f"Version: {REASONING_ENGINE_VERSION}")
@@ -2033,6 +2208,53 @@ def _build_parser() -> ArgumentParser:
     matrix_parser.add_argument("--knowledge-pack", default=None, help="Filter by contributing knowledge pack ID.")
     matrix_parser.add_argument("--rule-id", default=None, help="Filter by contributing knowledge rule ID.")
     knowledge_subparsers.add_parser("capability-validate", help="Alias for coverage-validate.")
+    evidence_list_parser = knowledge_subparsers.add_parser("evidence-list", help="List engineering evidence definitions.")
+    evidence_list_parser.add_argument("--json", action="store_true", help="Print stable JSON evidence definitions.")
+    evidence_list_parser.add_argument("--family", choices=["wall_mounted_bracket", "l_bracket"], default=None)
+    evidence_list_parser.add_argument(
+        "--type",
+        dest="evidence_type",
+        choices=[
+            "rule_definition",
+            "rule_pack",
+            "parser_support",
+            "intent_schema",
+            "constraint_compiler",
+            "cad_generator",
+            "geometry_validator",
+            "topology_inspector",
+            "feature_recognizer",
+            "knowledge_evaluator",
+            "reasoning_case",
+            "golden_case",
+            "benchmark_case",
+            "rejection_case",
+            "regression_test",
+            "technical_harness_gate",
+            "documentation",
+            "package_artifact",
+        ],
+        default=None,
+    )
+    evidence_list_parser.add_argument(
+        "--role",
+        choices=["implementation", "verification", "boundary", "limitation", "provenance", "packaging"],
+        default=None,
+    )
+    evidence_show_parser = knowledge_subparsers.add_parser("evidence-show", help="Show one engineering evidence definition.")
+    evidence_show_parser.add_argument("evidence_id")
+    evidence_show_parser.add_argument("--json", action="store_true", help="Print stable JSON evidence definition.")
+    knowledge_subparsers.add_parser("evidence-validate", help="Validate engineering evidence manifest integrity.")
+    evidence_resolve_parser = knowledge_subparsers.add_parser("evidence-resolve", help="Resolve engineering evidence references.")
+    evidence_resolve_parser.add_argument("--json", action="store_true", help="Print stable JSON evidence resolution report.")
+    evidence_bundles_parser = knowledge_subparsers.add_parser("evidence-bundles", help="Print capability evidence bundles.")
+    evidence_bundles_parser.add_argument("--json", action="store_true", help="Print stable JSON evidence bundles.")
+    evidence_bundles_parser.add_argument("--family", choices=["wall_mounted_bracket", "l_bracket"], default=None)
+    evidence_bundles_parser.add_argument("--capability", dest="capability_id", default=None)
+    trust_report_parser = knowledge_subparsers.add_parser("trust-report", help="Print engineering evidence trust report.")
+    trust_report_parser.add_argument("--json", action="store_true", help="Print stable JSON trust report.")
+    trust_report_parser.add_argument("--verify", action="store_true", help="Run safe runtime verification where available.")
+    knowledge_subparsers.add_parser("trust-validate", help="Validate engineering evidence trust gates.")
     knowledge_subparsers.add_parser("reasoning-info", help="Describe deterministic engineering reasoning support.")
     knowledge_subparsers.add_parser("reasoning-validate", help="Validate reasoning metadata in engineering rules.")
     knowledge_subparsers.add_parser("reasoning-verify", help="Run golden engineering reasoning verification cases.")

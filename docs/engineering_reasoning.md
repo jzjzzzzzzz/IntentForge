@@ -6,6 +6,8 @@ The reasoning engine connects evaluated knowledge findings into traceable explan
 
 Capability coverage is a separate QA layer. It verifies that declared reasoning capabilities point to golden reasoning cases and stable implementation evidence, while preserving the reasoning engine's deterministic behavior.
 
+Evidence traceability is a separate Phase 22 layer. Reasoning golden cases can be referenced as verification evidence, but the evidence layer does not alter the reasoning engine or generate reasoning text.
+
 ## Purpose
 
 The knowledge layer can report that a rule passed or failed. The reasoning layer explains how findings relate:

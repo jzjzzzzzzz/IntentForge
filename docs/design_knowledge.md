@@ -6,6 +6,8 @@ IntentForge does not replace engineering judgment. It encodes engineering knowle
 
 The capability coverage layer is separate from rule evaluation. It answers which supported and unsupported capabilities are declared, which rules contribute to them, and what implementation or verification evidence backs each claim. It does not add engineering rules or change rule thresholds.
 
+The evidence traceability layer is separate again. It resolves evidence definitions into observations, assembles capability evidence bundles, and produces deterministic trust reports for the declared scope. It does not treat documentation alone as proof of CAD behavior and does not create a generic trust score.
+
 The knowledge layer does not generate CAD. It does not write CadQuery code, edit topology, run FEA, or claim certified safety. It provides deterministic advisory findings that can be traced back to YAML rules.
 
 ## Purpose
@@ -35,6 +37,7 @@ The implementation lives under `src/intentforge/knowledge/`:
 - `evaluator.py`: evaluates declarative rule expressions against deterministic metrics
 - `rationale.py`: generates Markdown rationale from knowledge findings
 - `reasoning/`: connects findings into interactions, trade-offs, conflicts, priorities, and recommendations
+- `evidence_schema.py`, `evidence_registry.py`, `evidence_resolver.py`, `evidence_bundles.py`, and `trust.py`: resolve evidence and build capability evidence bundles and trust reports
 - `data/bracket_rules.yaml`: compatibility manifest that points to packaged rule packs
 
 The authoritative rule data now lives in:

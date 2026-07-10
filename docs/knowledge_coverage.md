@@ -58,6 +58,14 @@ Evidence references are identifiers, not executable code. Supported evidence typ
 
 The resolver validates references against deterministic registries such as rule IDs, rule pack IDs, benchmark case IDs, golden reasoning case IDs, and known implementation identifiers. It does not import arbitrary modules from YAML, run callables, or read arbitrary filesystem paths.
 
+Phase 22 adds a separate evidence manifest and trust layer. The capability manifest may still hold lightweight evidence references for compatibility, while `evidence_manifest.yaml` defines richer evidence records with roles, verification methods, freshness policies, and limitation metadata.
+
+See also:
+
+- [Engineering Evidence Traceability](evidence_traceability.md)
+- [Capability Evidence Bundles](evidence_bundles.md)
+- [Engineering Evidence Trust Report](trust_report.md)
+
 ## Coverage Checks
 
 Coverage validation checks:
