@@ -71,6 +71,7 @@ Supported features:
 - optional MCP wrapper
 - optional LLM intent translator with schema guardrails
 - deterministic engineering knowledge rules and design rationale
+- deterministic engineering reasoning over knowledge findings
 - topology-informed feature recognition for supported generated models
 - design review reports that summarize intent, parameters, validation, topology, recognized features, warnings, and artifacts
 
@@ -391,14 +392,16 @@ Design reviews can also include deterministic engineering knowledge findings and
 
 ```bash
 python -m intentforge.cli knowledge list
+python -m intentforge.cli knowledge reasoning-info
 python -m intentforge.cli design-review wall_mounted_bracket --knowledge
+python -m intentforge.cli design-review wall_mounted_bracket --knowledge --reasoning
 ```
 
-The knowledge layer is advisory. It encodes explainable engineering heuristics and does not replace engineering judgment, FEA, certification, or process-specific manufacturing review. See [docs/design_knowledge.md](docs/design_knowledge.md).
+The knowledge and reasoning layers are advisory. They encode explainable engineering heuristics, rule interactions, trade-offs, conflicts, priorities, and recommendations. They do not replace engineering judgment, FEA, certification, or process-specific manufacturing review. See [docs/design_knowledge.md](docs/design_knowledge.md) and [docs/engineering_reasoning.md](docs/engineering_reasoning.md).
 
 ## Technical Harness
 
-The technical harness orchestrator runs the benchmark, parametric sweep, edit preservation harness, adversarial rejection harness, volume delta checks, shape inspection checks, and feature recognition checks as one quality gate suite.
+The technical harness orchestrator runs the benchmark, parametric sweep, edit preservation harness, adversarial rejection harness, volume delta checks, shape inspection checks, feature recognition checks, and engineering reasoning checks as one quality gate suite.
 
 Run a faster local check:
 
@@ -418,6 +421,8 @@ Default quality gates require:
 - sweep pass rate >= 0.95
 - edit preservation rate >= 0.95
 - adversarial rejection success rate == 1.0
+- reasoning generation pass rate == 1.0
+- unknown reasoning rule references == 0
 - unsafe acceptances == 0
 - unexpected failures and exceptions == 0
 

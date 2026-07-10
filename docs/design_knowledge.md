@@ -31,6 +31,7 @@ The implementation lives under `src/intentforge/knowledge/`:
 - `compiler.py`: transforms rules into machine-readable constraints
 - `evaluator.py`: evaluates declarative rule expressions against deterministic metrics
 - `rationale.py`: generates Markdown rationale from knowledge findings
+- `reasoning/`: connects findings into interactions, trade-offs, conflicts, priorities, and recommendations
 - `data/bracket_rules.yaml`: initial wall-bracket and L-bracket engineering rules
 
 ## Rule Format
@@ -57,6 +58,16 @@ rules:
     recommendation: Increase hole edge distance or reduce hole diameter.
     source_reference: IntentForge Phase 20 initial mechanical design heuristic.
     confidence: 0.9
+    reasoning:
+      implications:
+        - Insufficient edge margin may reduce local material support around the hole.
+      affects:
+        - plate_width
+        - hole_spacing
+      priority_weight: 0.9
+      can_conflict_with:
+        - hole_spacing_001
+      mitigation: Increase plate width before reducing hole spacing.
 ```
 
 The evaluator supports a restricted expression language for arithmetic, boolean, and comparison operations. It does not use `eval()` and does not allow function calls, attribute access, imports, or arbitrary Python execution.
@@ -101,6 +112,15 @@ hole_edge_margin_001
 
 IntentForge does not generate random rule IDs. JSON knowledge report IDs are derived deterministically from checked rule IDs, rule versions, pass/fail states, and severities.
 
+Engineering reasoning reports add a separate reproducibility dimension:
+
+```text
+Rule version: hole_edge_margin_001 v1.0
+Reasoning engine version: 1.0
+```
+
+The same knowledge report, same rule metadata, and same reasoning engine version should produce the same reasoning report ID.
+
 ## Initial Rule Categories
 
 The initial rules cover:
@@ -127,6 +147,13 @@ Validate packaged rules:
 python -m intentforge.cli knowledge validate
 ```
 
+Inspect and validate reasoning metadata:
+
+```bash
+python -m intentforge.cli knowledge reasoning-info
+python -m intentforge.cli knowledge reasoning-validate
+```
+
 Generate a design review with knowledge findings:
 
 ```bash
@@ -134,10 +161,18 @@ python -m intentforge.cli design-review wall_mounted_bracket --knowledge
 python -m intentforge.cli design-review l_bracket --knowledge
 ```
 
+Generate a design review with deterministic engineering reasoning:
+
+```bash
+python -m intentforge.cli design-review wall_mounted_bracket --knowledge --reasoning
+python -m intentforge.cli design-review l_bracket --knowledge --reasoning
+```
+
 Write both Markdown rationale and standalone JSON knowledge report:
 
 ```bash
 python -m intentforge.cli design-review wall_mounted_bracket --knowledge --json
+python -m intentforge.cli design-review wall_mounted_bracket --knowledge --reasoning --json
 ```
 
 Knowledge-enhanced design review writes:
@@ -147,6 +182,8 @@ output/design_review_report.json
 output/design_review_summary.md
 output/design_knowledge_rationale.md
 output/knowledge_report.json
+output/engineering_reasoning_report.md
+output/engineering_reasoning_report.json
 output/design_review_runs/<run_id>/
 ```
 
@@ -157,3 +194,4 @@ output/design_review_runs/<run_id>/
 - The rule database is intentionally small and deterministic.
 - Findings are advisory unless future phases promote specific rules into strict quality gates.
 - The current metrics are derived from IntentForge parameter tables and feature flags, not arbitrary imported CAD.
+- Engineering reasoning is deterministic and advisory; it does not execute CAD, call an LLM, run FEA, or certify safety.

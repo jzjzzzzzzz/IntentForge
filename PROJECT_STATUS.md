@@ -1,6 +1,6 @@
 # Project Status
 
-Current development target: Phase 19 project tooling modernization with uv and src layout on `main`
+Current development target: Phase 20.6 deterministic engineering reasoning engine on `main`
 
 Current supported model families:
 
@@ -38,6 +38,9 @@ Current supported model families:
 - Phase 17: interactive CLI, first-run LLM setup, and Homebrew tap readiness
 - Phase 18: topology-informed feature recognition and design review reports
 - Phase 19: uv development workflow support and src-layout packaging migration
+- Phase 20: engineering knowledge rule system foundation
+- Phase 20.5: engineering knowledge layer production hardening
+- Phase 20.6: deterministic engineering reasoning engine
 
 ## Current Capabilities
 
@@ -83,6 +86,7 @@ Current supported model families:
 - `src/` layout for importable Python packages
 - uv development workflow documentation
 - deterministic engineering knowledge rule loading, compilation, evaluation, and rationale generation
+- deterministic engineering reasoning over knowledge findings, rule interactions, trade-offs, conflicts, priorities, and recommendations
 
 ## Current Limitations
 
@@ -100,6 +104,7 @@ Current supported model families:
 - no full industrial CAD feature recognition from arbitrary solids
 - Phase 18 feature recognition is topology-informed, parameter-aware, and limited to generated supported families
 - Phase 20 engineering knowledge findings are advisory heuristics, not FEA or certified design approval
+- Phase 20.6 engineering reasoning is advisory, deterministic, and rule-driven; it does not run FEA, certify safety, call an LLM, or modify CAD
 - deterministic parser only
 - no freeform hole placement
 - HTTP API does not serve generated CAD files for download yet (artifact endpoint serves files under output/)
@@ -151,6 +156,8 @@ Technical harness command:
 Default quality gates require benchmark, sweep, and edit preservation rates of at least `0.95`, adversarial rejection success of `1.0`, zero unsafe acceptances, and zero unexpected failures or exceptions.
 
 Phase 18 adds a warning-oriented feature recognition section to the technical harness. It reports feature recognition pass rate and warning count without making approximate recognition a strict release gate.
+
+Phase 20.6 adds a lightweight engineering reasoning section to the technical harness. It checks deterministic report IDs, unknown rule references, duplicate recommendations, limitations, and the focused reasoning benchmark.
 
 ## API Contract Status
 

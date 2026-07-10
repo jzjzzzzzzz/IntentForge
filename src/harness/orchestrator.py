@@ -31,6 +31,14 @@ from intentforge.generator.cadquery_generator import (
 from intentforge.output_manager import create_run_context, feature_state_names, json_safe_paths
 from intentforge.paths import project_root as _intentforge_project_root
 from intentforge.schemas import ParameterTable
+from intentforge.knowledge import (
+    RuleRegistry,
+    build_design_metrics,
+    build_engineering_reasoning_report,
+    evaluate_parameter_table,
+    make_knowledge_report,
+)
+from intentforge.knowledge.reasoning.benchmark import run_reasoning_benchmark
 
 SUPPORTED_MODEL_FAMILIES = ("wall_mounted_bracket", "l_bracket")
 
@@ -42,6 +50,10 @@ QUALITY_GATES: dict[str, float | int] = {
     "unexpected_failure_count_max": 0,
     "unsafe_acceptance_count_max": 0,
     "unexpected_exception_count_max": 0,
+    "reasoning_generation_pass_rate_min": 1.0,
+    "unknown_rule_reference_count_max": 0,
+    "duplicate_recommendation_count_max": 0,
+    "missing_limitation_count_max": 0,
 }
 
 
@@ -305,6 +317,95 @@ def _feature_recognition_section(run_dir: Path) -> dict[str, Any]:
     }
 
 
+def _reasoning_section(run_dir: Path) -> dict[str, Any]:
+    reasoning_dir = run_dir / "engineering_reasoning"
+    registry = RuleRegistry.load()
+    known_rule_ids = {rule.id for rule in registry.rules}
+    family_reports: dict[str, dict[str, Any]] = {}
+    unknown_rule_reference_count = 0
+    duplicate_recommendation_count = 0
+    missing_limitation_count = 0
+    failed_families: list[str] = []
+
+    for family in SUPPORTED_MODEL_FAMILIES:
+        parameter_table = _load_example_parameters(family)
+        # Feature plan is not required for this lightweight reasoning check.
+        findings = evaluate_parameter_table(parameter_table)
+        knowledge_report = make_knowledge_report(findings, rules_checked=registry.count(), timestamp="2026-07-10T00:00:00+00:00")
+        metrics = build_design_metrics(parameter_table)
+        report = build_engineering_reasoning_report(
+            model_family=family,
+            knowledge_report=knowledge_report,
+            rule_registry=registry,
+            metrics=metrics,
+            parameters={parameter.name: parameter.value for parameter in parameter_table.parameters},
+            timestamp="2026-07-10T00:00:00+00:00",
+        )
+        repeat = build_engineering_reasoning_report(
+            model_family=family,
+            knowledge_report=knowledge_report,
+            rule_registry=registry,
+            metrics=metrics,
+            parameters={parameter.name: parameter.value for parameter in parameter_table.parameters},
+            timestamp="2026-07-10T00:00:00+00:00",
+        )
+        report_path = reasoning_dir / f"{family}_engineering_reasoning_report.json"
+        _write_json(report.model_dump(mode="json"), report_path)
+
+        referenced_rule_ids: set[str] = set()
+        for collection_name in ("observations", "interactions", "conflicts", "recommendations"):
+            collection = getattr(report, collection_name)
+            for item in collection:
+                referenced_rule_ids.update(getattr(item, "rule_ids", []))
+        for tradeoff in report.tradeoffs:
+            referenced_rule_ids.update(tradeoff.source_rule_ids)
+        unknown = sorted(referenced_rule_ids - known_rule_ids)
+        unknown_rule_reference_count += len(unknown)
+
+        recommendation_ids = [recommendation.recommendation_id for recommendation in report.recommendations]
+        duplicate_recommendation_count += len(recommendation_ids) - len(set(recommendation_ids))
+        if not report.limitations:
+            missing_limitation_count += 1
+        missing_limitation_count += len([recommendation for recommendation in report.recommendations if not recommendation.limitations])
+
+        passed = (
+            report.report_id == repeat.report_id
+            and not unknown
+            and len(recommendation_ids) == len(set(recommendation_ids))
+            and bool(report.limitations)
+        )
+        if not passed:
+            failed_families.append(family)
+        family_reports[family] = {
+            "passed": passed,
+            "report_id": report.report_id,
+            "deterministic_report_id": report.report_id == repeat.report_id,
+            "unknown_rule_references": unknown,
+            "recommendation_count": len(report.recommendations),
+            "interaction_count": len(report.interactions),
+            "conflict_count": len(report.conflicts),
+            "report_path": str(report_path),
+        }
+
+    benchmark = run_reasoning_benchmark(rule_registry=registry)
+    if benchmark["failed"] > 0:
+        failed_families.append("reasoning_benchmark")
+
+    total_checks = len(SUPPORTED_MODEL_FAMILIES) + benchmark["total_cases"]
+    failed_checks = len([family for family in SUPPORTED_MODEL_FAMILIES if not family_reports[family]["passed"]]) + benchmark["failed"]
+    pass_rate = (total_checks - failed_checks) / total_checks if total_checks else 0.0
+    return {
+        "passed": failed_checks == 0,
+        "pass_rate": pass_rate,
+        "families": family_reports,
+        "reasoning_benchmark": benchmark,
+        "failed_families": failed_families,
+        "unknown_rule_reference_count": unknown_rule_reference_count + benchmark["unknown_rule_reference_count"],
+        "duplicate_recommendation_count": duplicate_recommendation_count + benchmark["duplicate_recommendation_count"],
+        "missing_limitation_count": missing_limitation_count + benchmark["missing_limitation_count"],
+    }
+
+
 def _demo_section(output_root: Path) -> dict[str, Any]:
     from intentforge.demo_runner import run_demo
 
@@ -344,6 +445,7 @@ def _build_metrics(sections: dict[str, dict[str, Any]]) -> dict[str, float | int
     volume = sections.get("volume_delta", {})
     shape = sections.get("shape_inspection", {})
     feature_recognition = sections.get("feature_recognition", {})
+    reasoning = sections.get("engineering_reasoning", {})
     demo = sections.get("demo", {})
 
     unexpected_failure_count = int(benchmark.get("failed_cases", 0) or 0)
@@ -352,6 +454,7 @@ def _build_metrics(sections: dict[str, dict[str, Any]]) -> dict[str, float | int
     unexpected_failure_count += int(adversarial.get("failed_cases", 0) or 0)
     unexpected_failure_count += len(volume.get("failed_families", []) or [])
     unexpected_failure_count += len(shape.get("failed_families", []) or [])
+    unexpected_failure_count += len(reasoning.get("failed_families", []) or [])
     unexpected_failure_count += int(demo.get("failed_step_count", 0) or 0)
     unexpected_failure_count += sum(_section_error_count(section) for section in sections.values())
 
@@ -370,6 +473,10 @@ def _build_metrics(sections: dict[str, dict[str, Any]]) -> dict[str, float | int
         "adversarial_rejection_success_rate": float(adversarial.get("rejection_success_rate", 0.0) or 0.0),
         "feature_recognition_pass_rate": float(feature_recognition.get("pass_rate", 0.0) or 0.0),
         "feature_recognition_warning_count": int(feature_recognition.get("warning_count", 0) or 0),
+        "reasoning_generation_pass_rate": float(reasoning.get("pass_rate", 0.0) or 0.0),
+        "unknown_rule_reference_count": int(reasoning.get("unknown_rule_reference_count", 0) or 0),
+        "duplicate_recommendation_count": int(reasoning.get("duplicate_recommendation_count", 0) or 0),
+        "missing_limitation_count": int(reasoning.get("missing_limitation_count", 0) or 0),
         "unexpected_failure_count": unexpected_failure_count,
         "unsafe_acceptance_count": unsafe_acceptance_count,
         "unexpected_exception_count": unexpected_exception_count,
@@ -388,9 +495,13 @@ def compute_quality_gates(report: dict[str, Any]) -> dict[str, Any]:
         ("sweep_pass_rate_min", "sweep_pass_rate", ">="),
         ("edit_preservation_rate_min", "edit_preservation_rate", ">="),
         ("adversarial_rejection_success_rate_min", "adversarial_rejection_success_rate", ">="),
+        ("reasoning_generation_pass_rate_min", "reasoning_generation_pass_rate", ">="),
         ("unexpected_failure_count_max", "unexpected_failure_count", "<="),
         ("unsafe_acceptance_count_max", "unsafe_acceptance_count", "<="),
         ("unexpected_exception_count_max", "unexpected_exception_count", "<="),
+        ("unknown_rule_reference_count_max", "unknown_rule_reference_count", "<="),
+        ("duplicate_recommendation_count_max", "duplicate_recommendation_count", "<="),
+        ("missing_limitation_count_max", "missing_limitation_count", "<="),
     )
     for gate_name, metric_name, operator in gate_specs:
         expected = gates[gate_name]
@@ -427,6 +538,10 @@ def _build_summary(report: dict[str, Any]) -> str:
         f"  - adversarial_rejection_success_rate: {metrics['adversarial_rejection_success_rate']:.4f}",
         f"  - feature_recognition_pass_rate: {float(metrics.get('feature_recognition_pass_rate', 0.0)):.4f}",
         f"  - feature_recognition_warning_count: {int(metrics.get('feature_recognition_warning_count', 0))}",
+        f"  - reasoning_generation_pass_rate: {float(metrics.get('reasoning_generation_pass_rate', 0.0)):.4f}",
+        f"  - unknown_rule_reference_count: {int(metrics.get('unknown_rule_reference_count', 0))}",
+        f"  - duplicate_recommendation_count: {int(metrics.get('duplicate_recommendation_count', 0))}",
+        f"  - missing_limitation_count: {int(metrics.get('missing_limitation_count', 0))}",
         f"  - unexpected_failure_count: {metrics['unexpected_failure_count']}",
         f"  - unsafe_acceptance_count: {metrics['unsafe_acceptance_count']}",
         f"  - unexpected_exception_count: {metrics['unexpected_exception_count']}",
@@ -511,6 +626,10 @@ def run_technical_harness(
         "feature_recognition": _run_section(
             "feature_recognition",
             lambda: _feature_recognition_section(run_context.run_dir),
+        ),
+        "engineering_reasoning": _run_section(
+            "engineering_reasoning",
+            lambda: _reasoning_section(run_context.run_dir),
         ),
     }
     if include_demo:

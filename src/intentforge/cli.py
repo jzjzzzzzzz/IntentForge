@@ -41,12 +41,22 @@ from intentforge.llm import (
     translate_prompt_to_intent,
 )
 from intentforge.knowledge import (
+    ALLOWED_CONFLICT_TYPES,
+    ALLOWED_INTERACTION_TYPES,
+    ALLOWED_PRIORITIES,
     RuleRegistry,
+    REASONING_ENGINE_VERSION,
+    build_design_metrics,
+    build_engineering_reasoning_report,
     evaluate_parameter_table,
     generate_design_rationale,
     load_rules,
     make_knowledge_report,
+    render_engineering_reasoning_markdown,
+    validate_reasoning_metadata,
     validate_rule_data,
+    write_engineering_reasoning_markdown,
+    write_engineering_reasoning_report,
     write_knowledge_report,
 )
 from intentforge.output_manager import (
@@ -1147,8 +1157,13 @@ def _recognize_features_command(family: str, output: str | None = None, no_expor
     return 0 if report["passed"] else 1
 
 
-def _design_review_command(family: str, include_knowledge: bool = False, write_knowledge_json: bool = False) -> int:
-    include_knowledge = include_knowledge or write_knowledge_json
+def _design_review_command(
+    family: str,
+    include_knowledge: bool = False,
+    write_knowledge_json: bool = False,
+    include_reasoning: bool = False,
+) -> int:
+    include_knowledge = include_knowledge or write_knowledge_json or include_reasoning
     parameter_table = _example_parameter_table_for_family(family)
     intent = _example_intent_for_family(family)
     feature_plan = _example_feature_plan_for_family(family)
@@ -1174,6 +1189,10 @@ def _design_review_command(family: str, include_knowledge: bool = False, write_k
     persistent_rationale_path = run_context.run_dir / "design_knowledge_rationale.md"
     latest_knowledge_report_path = output_root / "knowledge_report.json"
     persistent_knowledge_report_path = run_context.run_dir / "knowledge_report.json"
+    latest_reasoning_report_path = output_root / "engineering_reasoning_report.json"
+    persistent_reasoning_report_path = run_context.run_dir / "engineering_reasoning_report.json"
+    latest_reasoning_markdown_path = output_root / "engineering_reasoning_report.md"
+    persistent_reasoning_markdown_path = run_context.run_dir / "engineering_reasoning_report.md"
     artifacts = [
         {"kind": "design_review_report", "path": str(latest_report_path), "persistent": False, "object_type": family},
         {"kind": "design_review_summary", "path": str(latest_summary_path), "persistent": False, "object_type": family},
@@ -1183,6 +1202,8 @@ def _design_review_command(family: str, include_knowledge: bool = False, write_k
     knowledge_findings = []
     design_rationale = None
     knowledge_report = None
+    reasoning_report = None
+    reasoning_markdown = None
     if include_knowledge:
         knowledge_findings = evaluate_parameter_table(parameter_table, feature_plan)
         design_rationale = generate_design_rationale(knowledge_findings)
@@ -1220,6 +1241,50 @@ def _design_review_command(family: str, include_knowledge: bool = False, write_k
                     },
                 ]
             )
+        if include_reasoning:
+            metrics = build_design_metrics(parameter_table, feature_plan)
+            reasoning_report = build_engineering_reasoning_report(
+                model_family=parameter_table.family,
+                knowledge_report=knowledge_report,
+                rule_registry=RuleRegistry.load(),
+                metrics=metrics,
+                parameters={parameter.name: parameter.value for parameter in parameter_table.parameters},
+                feature_recognition_report=feature_recognition_report,
+            )
+            reasoning_markdown = render_engineering_reasoning_markdown(reasoning_report)
+            artifacts.extend(
+                [
+                    {
+                        "kind": "engineering_reasoning_report",
+                        "path": str(latest_reasoning_markdown_path),
+                        "persistent": False,
+                        "object_type": family,
+                    },
+                    {
+                        "kind": "engineering_reasoning_report",
+                        "path": str(persistent_reasoning_markdown_path),
+                        "persistent": True,
+                        "object_type": family,
+                    },
+                ]
+            )
+            if write_knowledge_json:
+                artifacts.extend(
+                    [
+                        {
+                            "kind": "engineering_reasoning_json",
+                            "path": str(latest_reasoning_report_path),
+                            "persistent": False,
+                            "object_type": family,
+                        },
+                        {
+                            "kind": "engineering_reasoning_json",
+                            "path": str(persistent_reasoning_report_path),
+                            "persistent": True,
+                            "object_type": family,
+                        },
+                    ]
+                )
     report = generate_design_review_report(
         intent_spec=intent,
         parameter_table=parameter_table,
@@ -1231,6 +1296,7 @@ def _design_review_command(family: str, include_knowledge: bool = False, write_k
         knowledge_findings=knowledge_findings,
         knowledge_report=knowledge_report.model_dump(mode="json") if knowledge_report is not None else None,
         design_rationale=design_rationale,
+        reasoning_report=reasoning_report.model_dump(mode="json") if reasoning_report is not None else None,
         artifacts=artifacts,
         run_id=run_context.run_id,
     )
@@ -1244,6 +1310,10 @@ def _design_review_command(family: str, include_knowledge: bool = False, write_k
             "persistent_rationale": persistent_rationale_path if include_knowledge else None,
             "latest_knowledge_report": latest_knowledge_report_path if write_knowledge_json else None,
             "persistent_knowledge_report": persistent_knowledge_report_path if write_knowledge_json else None,
+            "latest_reasoning_report": latest_reasoning_report_path if include_reasoning and write_knowledge_json else None,
+            "persistent_reasoning_report": persistent_reasoning_report_path if include_reasoning and write_knowledge_json else None,
+            "latest_reasoning_markdown": latest_reasoning_markdown_path if include_reasoning else None,
+            "persistent_reasoning_markdown": persistent_reasoning_markdown_path if include_reasoning else None,
         }
     )
     write_design_review_report(report, latest_report_path)
@@ -1256,6 +1326,12 @@ def _design_review_command(family: str, include_knowledge: bool = False, write_k
     if write_knowledge_json and knowledge_report is not None:
         write_knowledge_report(knowledge_report, latest_knowledge_report_path)
         write_knowledge_report(knowledge_report, persistent_knowledge_report_path)
+    if include_reasoning and reasoning_report is not None:
+        write_engineering_reasoning_markdown(reasoning_report, latest_reasoning_markdown_path)
+        write_engineering_reasoning_markdown(reasoning_report, persistent_reasoning_markdown_path)
+        if write_knowledge_json:
+            write_engineering_reasoning_report(reasoning_report, latest_reasoning_report_path)
+            write_engineering_reasoning_report(reasoning_report, persistent_reasoning_report_path)
 
     print(f"Design review run: {run_context.run_id}")
     print(f"Object type: {parameter_table.family}")
@@ -1269,6 +1345,13 @@ def _design_review_command(family: str, include_knowledge: bool = False, write_k
         if write_knowledge_json:
             print(f"Knowledge JSON report: {latest_knowledge_report_path}")
             print(f"Persistent knowledge JSON report: {persistent_knowledge_report_path}")
+    if include_reasoning and reasoning_report is not None:
+        print(f"Reasoning report: {latest_reasoning_markdown_path}")
+        print(f"Persistent reasoning report: {persistent_reasoning_markdown_path}")
+        print(f"Reasoning recommendations: {len(reasoning_report.recommendations)}")
+        if write_knowledge_json:
+            print(f"Reasoning JSON report: {latest_reasoning_report_path}")
+            print(f"Persistent reasoning JSON report: {persistent_reasoning_report_path}")
     print(f"Warnings: {len(report['warnings'])}")
     print(f"Latest report: {latest_report_path}")
     print(f"Latest summary: {latest_summary_path}")
@@ -1295,6 +1378,34 @@ def _knowledge_command(action: str) -> int:
         for error in result["errors"]:
             rule = error.get("rule_id") or f"index {error.get('index')}"
             print(f"- {rule}: {error.get('message')}")
+        return 0 if result["ok"] else 1
+    if action == "reasoning-info":
+        print("Engineering reasoning engine")
+        print(f"Version: {REASONING_ENGINE_VERSION}")
+        print("Behavior: deterministic, offline, rule-driven")
+        print("Supported interaction types:")
+        for interaction_type in ALLOWED_INTERACTION_TYPES:
+            print(f"  - {interaction_type}")
+        print("Supported conflict types:")
+        for conflict_type in ALLOWED_CONFLICT_TYPES:
+            print(f"  - {conflict_type}")
+        print("Supported priority levels:")
+        for priority in ALLOWED_PRIORITIES:
+            print(f"  - {priority}")
+        print("Safety: no LLM, network, CadQuery, eval, or exec dependency in the reasoning core.")
+        return 0
+    if action == "reasoning-validate":
+        result = validate_reasoning_metadata()
+        print("Engineering reasoning validation")
+        print("PASS" if result["ok"] else "FAIL")
+        print(f"{result['rules_checked']} rules checked")
+        print(f"{len(result['metadata_errors'])} metadata errors")
+        print(f"{result['interaction_links_validated']} interaction links validated")
+        print(f"{result['tradeoff_definitions_validated']} trade-off definitions validated")
+        for error in result["metadata_errors"]:
+            rule = error.get("rule_id") or "unknown rule"
+            field = f" {error.get('field')}" if error.get("field") else ""
+            print(f"- {rule}{field}: {error.get('message')}")
         return 0 if result["ok"] else 1
     print(f"Unsupported knowledge action: {action}")
     return 1
@@ -1443,6 +1554,8 @@ def _technical_harness_command(quick: bool, include_demo: bool) -> int:
     print(f"Adversarial rejection success rate: {metrics['adversarial_rejection_success_rate']:.4f}")
     print(f"Feature recognition pass rate: {metrics.get('feature_recognition_pass_rate', 0.0):.4f}")
     print(f"Feature recognition warnings: {metrics.get('feature_recognition_warning_count', 0)}")
+    print(f"Reasoning generation pass rate: {metrics.get('reasoning_generation_pass_rate', 0.0):.4f}")
+    print(f"Unknown reasoning rule references: {metrics.get('unknown_rule_reference_count', 0)}")
     if result["failed_gates"]:
         print("Failed gates:")
         for gate in result["failed_gates"]:
@@ -1680,6 +1793,11 @@ def _build_parser() -> ArgumentParser:
         action="store_true",
         help="Write a standalone engineering knowledge JSON report when knowledge is enabled.",
     )
+    design_review.add_argument(
+        "--reasoning",
+        action="store_true",
+        help="Include deterministic engineering reasoning; this enables knowledge evaluation automatically.",
+    )
 
     knowledge = subparsers.add_parser(
         "knowledge",
@@ -1688,6 +1806,8 @@ def _build_parser() -> ArgumentParser:
     knowledge_subparsers = knowledge.add_subparsers(dest="knowledge_command", required=True)
     knowledge_subparsers.add_parser("list", help="List loaded engineering knowledge rules.")
     knowledge_subparsers.add_parser("validate", help="Validate engineering knowledge rule database integrity.")
+    knowledge_subparsers.add_parser("reasoning-info", help="Describe deterministic engineering reasoning support.")
+    knowledge_subparsers.add_parser("reasoning-validate", help="Validate reasoning metadata in engineering rules.")
 
     volume_delta = subparsers.add_parser(
         "volume-delta",
@@ -1834,7 +1954,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "recognize-features":
             return _recognize_features_command(args.family, args.output, args.no_export)
         if args.command == "design-review":
-            return _design_review_command(args.family, args.knowledge, args.json)
+            return _design_review_command(args.family, args.knowledge, args.json, args.reasoning)
         if args.command == "knowledge":
             return _knowledge_command(args.knowledge_command)
         if args.command == "volume-delta":

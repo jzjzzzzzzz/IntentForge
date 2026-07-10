@@ -148,6 +148,7 @@ def generate_design_review_report(
     knowledge_findings: list[KnowledgeFinding] | list[dict[str, Any]] | None = None,
     knowledge_report: dict[str, Any] | None = None,
     design_rationale: str | None = None,
+    reasoning_report: dict[str, Any] | None = None,
     artifacts: list[dict[str, Any]] | None = None,
     run_id: str | None = None,
 ) -> dict[str, Any]:
@@ -181,6 +182,7 @@ def generate_design_review_report(
         "knowledge_findings": dumped_knowledge_findings,
         "knowledge_report": knowledge_report,
         "design_rationale": design_rationale,
+        "reasoning_report": reasoning_report,
         "warnings": warnings,
         "artifacts": artifacts or [],
         "limitations": LIMITATIONS_BY_FAMILY.get(parameter_table.family, []),
@@ -245,6 +247,22 @@ def design_review_summary_markdown(report: dict[str, Any]) -> str:
             lines.append(
                 f"- {finding.get('severity', 'warning').upper()}: {finding.get('rule_name')} - {finding.get('recommendation')}"
             )
+    else:
+        lines.append("- Not requested for this report.")
+
+    reasoning_report = report.get("reasoning_report")
+    lines.extend(["", "## Engineering Reasoning"])
+    if isinstance(reasoning_report, dict):
+        summary = reasoning_report.get("summary", {})
+        lines.append(f"- Reasoning report: {reasoning_report.get('report_id')}")
+        lines.append(f"- Engine version: {reasoning_report.get('reasoning_version')}")
+        lines.append(f"- Interactions: {summary.get('interactions', 0)}")
+        lines.append(f"- Conflicts: {summary.get('conflicts', 0)}")
+        lines.append(f"- Recommendations: {summary.get('recommendations', 0)}")
+        recommendations = reasoning_report.get("recommendations", [])
+        if recommendations:
+            first = recommendations[0]
+            lines.append(f"- Top recommendation: {first.get('priority', 'informational').upper()} - {first.get('action')}")
     else:
         lines.append("- Not requested for this report.")
 

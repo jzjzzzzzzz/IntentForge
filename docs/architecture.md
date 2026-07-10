@@ -25,7 +25,9 @@ Project assets such as `tests/`, `docs/`, `examples/`, and `demo/` remain at the
 
 `intentforge.validator` checks geometry and intent. Geometry checks are parameter and bounding-box driven. Intent checks verify object type, required parameters, feature ordering, and pattern consistency.
 
-`intentforge.knowledge` loads YAML engineering rules, compiles them into machine-readable constraints, evaluates parameter-derived metrics, and generates Markdown rationale. It does not generate or modify CAD.
+`intentforge.knowledge` loads YAML engineering rules, compiles them into machine-readable constraints, evaluates parameter-derived metrics, generates Markdown rationale, and builds deterministic engineering reasoning reports. It does not generate or modify CAD.
+
+`intentforge.knowledge.reasoning` connects evaluated knowledge findings into interactions, trade-offs, conflicts, priorities, and advisory recommendations. The reasoning package has no CadQuery or LLM dependency.
 
 `intentforge.editor` applies structured edits to an existing parameter table and feature state. It preserves unchanged parameters and rejects unsupported or invalid edits before CAD export.
 
