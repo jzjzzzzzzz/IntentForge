@@ -9,6 +9,9 @@ from typing import Any, Iterable
 import yaml
 from pydantic import ValidationError
 
+from intentforge.knowledge.packs.loader import load_rule_packs
+from intentforge.knowledge.packs.registry import RulePackRegistry
+from intentforge.knowledge.packs.validation import validate_rule_packs
 from intentforge.knowledge.schema import DesignKnowledgeRule
 
 
@@ -41,38 +44,96 @@ def _default_rule_path() -> Path:
     return Path(str(resources.files("intentforge.knowledge.data").joinpath(DEFAULT_RULE_RESOURCE)))
 
 
-def load_rules(path: str | Path | None = None) -> list[DesignKnowledgeRule]:
-    """Load deterministic engineering rules from YAML."""
-
+def _read_rule_yaml(path: str | Path | None = None) -> tuple[dict[str, Any], str, Path | None]:
     if path is None:
         text = resources.files("intentforge.knowledge.data").joinpath(DEFAULT_RULE_RESOURCE).read_text(encoding="utf-8")
         source = DEFAULT_RULE_RESOURCE
+        base_path = None
     else:
         source_path = Path(path)
         text = source_path.read_text(encoding="utf-8")
         source = str(source_path)
+        base_path = source_path.parent
 
     raw = yaml.safe_load(text) or {}
+    if not isinstance(raw, dict):
+        raise ValueError(f"{source} must contain a YAML mapping")
+    return raw, source, base_path
+
+
+def _manifest_pack_sources(raw: dict[str, Any], base_path: Path | None) -> list[str | Path]:
+    packs = raw.get("packs")
+    if not isinstance(packs, list):
+        raise ValueError("rule pack manifest must contain a top-level 'packs' list")
+    sources: list[str | Path] = []
+    for index, entry in enumerate(packs):
+        if isinstance(entry, str):
+            resource = entry
+        elif isinstance(entry, dict):
+            resource = entry.get("resource")
+        else:
+            raise ValueError(f"rule pack manifest entry {index} must be a string or mapping")
+        if not isinstance(resource, str) or not resource.strip():
+            raise ValueError(f"rule pack manifest entry {index} is missing resource")
+        if base_path is not None:
+            candidate = base_path / resource
+            sources.append(candidate if candidate.exists() else resource)
+        else:
+            sources.append(resource)
+    return sources
+
+
+def _load_rules_and_sources(path: str | Path | None = None) -> tuple[list[DesignKnowledgeRule], dict[str, dict[str, str]]]:
+    raw, source, base_path = _read_rule_yaml(path)
     rules = raw.get("rules")
-    if not isinstance(rules, list):
-        raise ValueError(f"{source} must contain a top-level 'rules' list")
-    return [DesignKnowledgeRule.model_validate(rule) for rule in rules]
+    if isinstance(rules, list):
+        parsed_rules = [DesignKnowledgeRule.model_validate(rule) for rule in rules]
+        return parsed_rules, {
+            rule.id: {
+                "pack_id": "legacy_bracket_rules",
+                "pack_version": "1.0",
+                "category": rule.category,
+                "source": source,
+            }
+            for rule in parsed_rules
+        }
+    if raw.get("kind") == "rule_pack_manifest" or "packs" in raw:
+        pack_registry = RulePackRegistry(load_rule_packs(_manifest_pack_sources(raw, base_path)))
+        return pack_registry.flatten_rules(), pack_registry.rule_sources()
+    raise ValueError(f"{source} must contain a top-level 'rules' list or rule pack manifest")
+
+
+def load_rules(path: str | Path | None = None) -> list[DesignKnowledgeRule]:
+    """Load deterministic engineering rules from YAML or rule-pack manifest."""
+
+    return _load_rules_and_sources(path)[0]
 
 
 def validate_rule_data(path: str | Path | None = None) -> dict[str, Any]:
     """Validate rule YAML integrity without raising on the first error."""
 
-    if path is None:
-        text = resources.files("intentforge.knowledge.data").joinpath(DEFAULT_RULE_RESOURCE).read_text(encoding="utf-8")
-        source = DEFAULT_RULE_RESOURCE
-    else:
-        source_path = Path(path)
-        text = source_path.read_text(encoding="utf-8")
-        source = str(source_path)
-
     errors: list[dict[str, Any]] = []
-    raw = yaml.safe_load(text) or {}
+    raw, source, base_path = _read_rule_yaml(path)
     rules = raw.get("rules")
+    if raw.get("kind") == "rule_pack_manifest" or "packs" in raw:
+        try:
+            packs = load_rule_packs(_manifest_pack_sources(raw, base_path), include_deprecated=True)
+            result = validate_rule_packs(packs)
+        except (ValueError, FileNotFoundError, ValidationError) as exc:
+            return {
+                "ok": False,
+                "source": source,
+                "rules_checked": 0,
+                "errors": [{"rule_id": None, "message": str(exc)}],
+            }
+        return {
+            "ok": result.passed,
+            "source": source,
+            "rules_checked": result.rules_checked,
+            "errors": result.errors,
+            "warnings": result.warnings,
+            "pack_validation": result.model_dump(mode="json"),
+        }
     if not isinstance(rules, list):
         return {
             "ok": False,
@@ -282,15 +343,22 @@ def validate_reasoning_metadata(path: str | Path | None = None) -> dict[str, Any
 class RuleRegistry:
     """In-memory deterministic registry for design knowledge rules."""
 
-    def __init__(self, rules: Iterable[DesignKnowledgeRule] | None = None) -> None:
+    def __init__(
+        self,
+        rules: Iterable[DesignKnowledgeRule] | None = None,
+        *,
+        rule_sources: dict[str, dict[str, str]] | None = None,
+    ) -> None:
         self._rules = list(rules or [])
         self._by_id = {rule.id: rule for rule in self._rules}
         if len(self._by_id) != len(self._rules):
             raise ValueError("duplicate knowledge rule id")
+        self._rule_sources = dict(rule_sources or {})
 
     @classmethod
     def load(cls, path: str | Path | None = None) -> "RuleRegistry":
-        return cls(load_rules(path))
+        rules, rule_sources = _load_rules_and_sources(path)
+        return cls(rules, rule_sources=rule_sources)
 
     @property
     def rules(self) -> list[DesignKnowledgeRule]:
@@ -310,6 +378,9 @@ class RuleRegistry:
 
     def get(self, rule_id: str) -> DesignKnowledgeRule:
         return self._by_id[rule_id]
+
+    def rule_sources(self) -> dict[str, dict[str, str]]:
+        return {rule_id: dict(source) for rule_id, source in self._rule_sources.items()}
 
     def __len__(self) -> int:
         return len(self._rules)

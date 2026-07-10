@@ -10,6 +10,17 @@ from intentforge.knowledge.evaluator import (
 from intentforge.knowledge.provenance import RuleProvenance, provenance_from_rule
 from intentforge.knowledge.report import KnowledgeReport, make_knowledge_report, write_knowledge_report
 from intentforge.knowledge.rationale import generate_design_rationale
+from intentforge.knowledge.packs import (
+    DEFAULT_BRACKET_PACK_RESOURCES,
+    RulePack,
+    RulePackRegistry,
+    RulePackValidationResult,
+    load_default_bracket_rule_packs,
+    load_rule_pack,
+    load_rule_packs,
+    validate_default_rule_packs,
+    validate_rule_packs,
+)
 from intentforge.knowledge.reasoning import (
     ALLOWED_CONFLICT_TYPES,
     ALLOWED_INTERACTION_TYPES,
@@ -38,7 +49,11 @@ __all__ = [
     "KnowledgeReport",
     "EngineeringReasoningReport",
     "RuleProvenance",
+    "RulePack",
+    "RulePackRegistry",
+    "RulePackValidationResult",
     "RuleRegistry",
+    "DEFAULT_BRACKET_PACK_RESOURCES",
     "ALLOWED_CONFLICT_TYPES",
     "ALLOWED_INTERACTION_TYPES",
     "ALLOWED_PRIORITIES",
@@ -54,7 +69,10 @@ __all__ = [
     "evaluate_parameter_table",
     "generate_design_rationale",
     "load_rules",
+    "load_default_bracket_rule_packs",
     "load_golden_cases",
+    "load_rule_pack",
+    "load_rule_packs",
     "make_knowledge_report",
     "provenance_from_rule",
     "render_engineering_reasoning_markdown",
@@ -63,6 +81,8 @@ __all__ = [
     "validate_golden_cases",
     "validate_reasoning_metadata",
     "validate_recommendation_applicability",
+    "validate_default_rule_packs",
+    "validate_rule_packs",
     "validate_rule_data",
     "write_engineering_reasoning_markdown",
     "write_engineering_reasoning_report",

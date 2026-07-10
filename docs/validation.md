@@ -74,3 +74,5 @@ Phase 20.6 adds deterministic engineering reasoning when requested with `--knowl
 Reasoning connects knowledge findings into rule interactions, trade-offs, conflicts, priorities, and advisory recommendations. It remains separate from CAD generation and does not modify geometry automatically.
 
 Phase 20.7 adds golden-case reasoning verification. The verification layer checks expected deterministic report IDs, expected interactions and conflicts, recommendation contradictions, and recommendation applicability. These checks are included in the technical harness quality gates.
+
+Phase 20.8.1 adds rule-pack validation. The knowledge rules are grouped into mechanical, manufacturing, assembly, and structural packs. Pack validation checks metadata, duplicate pack IDs, duplicate rule IDs, unsupported categories, unsupported model families, unknown rule references, and legacy manifest compatibility. The technical harness includes lightweight rule-pack quality gates.

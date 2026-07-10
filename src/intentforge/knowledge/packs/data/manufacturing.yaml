@@ -1,0 +1,85 @@
+pack_id: bracket_manufacturing
+pack_version: "1.0"
+name: Bracket Manufacturing Rules
+description: Manufacturing-oriented heuristics for supported bracket model families.
+category: manufacturing
+supported_model_families: [wall_mounted_bracket, l_bracket]
+status: active
+metadata:
+  source_of_truth: true
+  migrated_from: intentforge.knowledge.data/bracket_rules.yaml
+rules:
+  - id: tool_clearance_001
+    rule_version: "1.0"
+    status: active
+    created_by: intentforge-team
+    last_updated: "2026-07-10"
+    name: Tool Clearance
+    category: manufacturing
+    description: Small features may limit machining or cutting-tool accessibility.
+    applies_to: [wall_mounted_bracket, l_bracket]
+    condition:
+      expression: "tool_clearance >= 2.0"
+      required_metrics: [tool_clearance]
+    severity: warning
+    recommendation: Keep accessible feature widths above 2 mm unless a process-specific tool is specified.
+    source_reference: IntentForge Phase 20 initial manufacturing heuristic.
+    confidence: 0.62
+    reasoning:
+      implications:
+        - Small feature clearances may limit available manufacturing processes.
+      affects:
+        - tool_clearance
+        - manufacturing_process
+        - feature_size
+      tradeoffs:
+        - benefit: Increasing tool clearance can improve manufacturing accessibility.
+          cost: Increasing clearance may require larger features or simplified geometry.
+          affected_parameters:
+            - tool_clearance
+            - feature_size
+          recommendation: Increase feature clearance unless a specific manufacturing process is documented.
+      priority_weight: 0.55
+      depends_on:
+        - manufacturing_simplicity_001
+      mitigation: Simplify or enlarge small features before assuming they are manufacturable.
+      limitations:
+        - This clearance check does not replace process-specific tooling review.
+
+  - id: manufacturing_simplicity_001
+    rule_version: "1.0"
+    status: active
+    created_by: intentforge-team
+    last_updated: "2026-07-10"
+    name: Manufacturing Simplicity
+    category: manufacturing
+    description: The design includes several optional features that may add manufacturing complexity.
+    applies_to: [wall_mounted_bracket, l_bracket]
+    condition:
+      expression: "active_optional_feature_count <= 4"
+      required_metrics: [active_optional_feature_count]
+    severity: recommendation
+    recommendation: Remove optional features that are not required by design intent.
+    source_reference: IntentForge Phase 20 design-for-manufacturing heuristic.
+    confidence: 0.6
+    reasoning:
+      implications:
+        - Multiple optional features can make a simple bracket harder to manufacture or inspect.
+      affects:
+        - optional_features
+        - manufacturing_complexity
+        - review_time
+      tradeoffs:
+        - benefit: Removing unnecessary optional features can simplify manufacturing.
+          cost: Removing features may also remove intended weight reduction, accessibility, or handling benefits.
+          affected_parameters:
+            - optional_features
+            - manufacturing_complexity
+          recommendation: Preserve optional features only when they are tied to explicit design intent.
+      priority_weight: 0.42
+      can_conflict_with:
+        - gusset_recommendation_001
+        - corner_radius_001
+      mitigation: Keep optional features that resolve stronger mechanical or assembly findings.
+      limitations:
+        - Simplicity is process-dependent and does not directly estimate cost.

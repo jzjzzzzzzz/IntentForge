@@ -1,0 +1,89 @@
+pack_id: bracket_assembly
+pack_version: "1.0"
+name: Bracket Assembly Rules
+description: Assembly and installation heuristics for supported bracket model families.
+category: assembly
+supported_model_families: [wall_mounted_bracket, l_bracket]
+status: active
+metadata:
+  source_of_truth: true
+  migrated_from: intentforge.knowledge.data/bracket_rules.yaml
+rules:
+  - id: fastener_accessibility_001
+    rule_version: "1.0"
+    status: active
+    created_by: intentforge-team
+    last_updated: "2026-07-10"
+    name: Fastener Accessibility
+    category: assembly
+    description: Fastener clearance near the edge may make installation or tool access difficult.
+    applies_to: [wall_mounted_bracket, l_bracket]
+    condition:
+      expression: "fastener_edge_clearance >= 2 * hole_diameter"
+      required_metrics: [fastener_edge_clearance, hole_diameter]
+      when:
+        mounting_holes_active: true
+    severity: recommendation
+    recommendation: Increase clearance around fasteners where installation tools need access.
+    source_reference: IntentForge Phase 20 assembly accessibility heuristic.
+    confidence: 0.64
+    reasoning:
+      implications:
+        - Limited clearance around fasteners may make installation difficult even if holes fit geometrically.
+      affects:
+        - fastener_accessibility
+        - hole_edge_distance
+        - installation_access
+      tradeoffs:
+        - benefit: Increasing fastener clearance can improve installation access.
+          cost: Increasing clearance may require a larger bracket or different hole layout.
+          affected_parameters:
+            - fastener_accessibility
+            - plate_width
+            - hole_spacing
+          recommendation: Increase clearance around fasteners before treating the layout as assembly-ready.
+      priority_weight: 0.58
+      depends_on:
+        - hole_edge_margin_001
+      mitigation: Increase the surrounding clearance before relying on the current hole layout.
+      limitations:
+        - Accessibility depends on the actual fastener and installation tool, which are not modeled.
+
+  - id: installation_difficulty_001
+    rule_version: "1.0"
+    status: active
+    created_by: intentforge-team
+    last_updated: "2026-07-10"
+    name: Installation Difficulty
+    category: assembly
+    description: Bracket width is low relative to fastener diameter, which can make handling and installation harder.
+    applies_to: [wall_mounted_bracket, l_bracket]
+    condition:
+      expression: "bracket_width >= 4 * hole_diameter"
+      required_metrics: [bracket_width, hole_diameter]
+      when:
+        mounting_holes_active: true
+    severity: recommendation
+    recommendation: Increase bracket width or reduce fastener diameter if installation clearance matters.
+    source_reference: IntentForge Phase 20 assembly heuristic.
+    confidence: 0.58
+    reasoning:
+      implications:
+        - Narrow bracket width relative to fastener size may make handling and tool access harder.
+      affects:
+        - bracket_width
+        - hole_diameter
+        - installation_access
+      tradeoffs:
+        - benefit: Increasing bracket width may improve handling and fastener access.
+          cost: A wider bracket uses more material and may conflict with compact design intent.
+          affected_parameters:
+            - bracket_width
+            - hole_diameter
+          recommendation: Increase bracket width when installation clearance matters.
+      priority_weight: 0.5
+      depends_on:
+        - fastener_accessibility_001
+      mitigation: Increase width or specify a smaller fastener only after checking hole strength requirements.
+      limitations:
+        - Installation difficulty is heuristic without the actual installation environment.

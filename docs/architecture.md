@@ -27,6 +27,8 @@ Project assets such as `tests/`, `docs/`, `examples/`, and `demo/` remain at the
 
 `intentforge.knowledge` loads YAML engineering rules, compiles them into machine-readable constraints, evaluates parameter-derived metrics, generates Markdown rationale, and builds deterministic engineering reasoning reports. It does not generate or modify CAD.
 
+`intentforge.knowledge.packs` is the rule-pack management layer. It loads modular package-data YAML packs, validates pack metadata, detects duplicate rule IDs, maps rules back to source packs, and flattens packs into the existing `DesignKnowledgeRule` interface used by the compiler, evaluator, and reasoning engine.
+
 `intentforge.knowledge.reasoning` connects evaluated knowledge findings into interactions, trade-offs, conflicts, priorities, and advisory recommendations. The reasoning package has no CadQuery or LLM dependency.
 
 `intentforge.knowledge.reasoning.verification` runs packaged golden engineering cases to check deterministic report IDs, expected reasoning behavior, recommendation contradictions, and recommendation applicability. It is a verification layer only; it does not modify CAD or rules.

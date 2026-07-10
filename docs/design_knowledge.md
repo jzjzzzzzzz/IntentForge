@@ -28,11 +28,19 @@ The implementation lives under `src/intentforge/knowledge/`:
 - `provenance.py`: provenance records for source, confidence, and verification level
 - `report.py`: stable JSON report schema and export helpers
 - `rules.py`: YAML loader and in-memory rule registry
+- `packs/`: modular, versioned rule pack schemas, loader, registry, validation, and packaged YAML data
 - `compiler.py`: transforms rules into machine-readable constraints
 - `evaluator.py`: evaluates declarative rule expressions against deterministic metrics
 - `rationale.py`: generates Markdown rationale from knowledge findings
 - `reasoning/`: connects findings into interactions, trade-offs, conflicts, priorities, and recommendations
-- `data/bracket_rules.yaml`: initial wall-bracket and L-bracket engineering rules
+- `data/bracket_rules.yaml`: compatibility manifest that points to packaged rule packs
+
+The authoritative rule data now lives in:
+
+- `packs/data/mechanical.yaml`
+- `packs/data/manufacturing.yaml`
+- `packs/data/assembly.yaml`
+- `packs/data/structural.yaml`
 
 ## Rule Format
 
@@ -147,6 +155,13 @@ Validate packaged rules:
 python -m intentforge.cli knowledge validate
 ```
 
+Inspect and validate rule packs:
+
+```bash
+python -m intentforge.cli knowledge packs
+python -m intentforge.cli knowledge packs-validate
+```
+
 Inspect and validate reasoning metadata:
 
 ```bash
@@ -193,6 +208,7 @@ output/design_review_runs/<run_id>/
 - Rules are heuristics, not simulation.
 - No FEA, load rating, fatigue analysis, or manufacturing-process certification is performed.
 - The rule database is intentionally small and deterministic.
+- Rule packs organize the existing database; they do not expand support beyond the two bracket families.
 - Findings are advisory unless future phases promote specific rules into strict quality gates.
 - The current metrics are derived from IntentForge parameter tables and feature flags, not arbitrary imported CAD.
 - Engineering reasoning is deterministic and advisory; it does not execute CAD, call an LLM, run FEA, or certify safety.

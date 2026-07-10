@@ -7,7 +7,7 @@ import operator
 from typing import Any
 
 from intentforge.features import feature_flags_for_parameter_table, is_feature_active
-from intentforge.knowledge.rules import load_rules
+from intentforge.knowledge.rules import RuleRegistry
 from intentforge.knowledge.schema import DesignKnowledgeRule, KnowledgeFinding
 from intentforge.schemas import FeaturePlan, IntentSpec, ParameterTable
 
@@ -264,7 +264,14 @@ def evaluate_design(
 
     family = _intent_family(intent)
     findings: list[KnowledgeFinding] = []
-    for rule in rules if rules is not None else load_rules():
+    if rules is None:
+        registry = RuleRegistry.load()
+        selected_rules = registry.rules
+        rule_sources = registry.rule_sources()
+    else:
+        selected_rules = rules
+        rule_sources = {}
+    for rule in selected_rules:
         if family not in rule.applies_to:
             continue
         if rule.status != "active":
@@ -278,6 +285,16 @@ def evaluate_design(
             "last_updated": rule.last_updated,
             "metrics": {key: metrics.get(key) for key in rule.condition.get("required_metrics", [])},
         }
+        source = rule_sources.get(rule.id)
+        if source:
+            metadata.update(
+                {
+                    "pack_id": source.get("pack_id"),
+                    "pack_version": source.get("pack_version"),
+                    "pack_category": source.get("category"),
+                    "pack_source": source.get("source"),
+                }
+            )
         try:
             if not _condition_applies(rule.condition, metrics):
                 continue

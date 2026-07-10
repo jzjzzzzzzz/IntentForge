@@ -1,0 +1,95 @@
+pack_id: bracket_structural
+pack_version: "1.0"
+name: Bracket Structural Rules
+description: Structural heuristics for supported bracket model families.
+category: structural
+supported_model_families: [wall_mounted_bracket, l_bracket]
+status: active
+metadata:
+  source_of_truth: true
+  migrated_from: intentforge.knowledge.data/bracket_rules.yaml
+rules:
+  - id: cutout_stiffness_tradeoff_001
+    rule_version: "1.0"
+    status: active
+    created_by: intentforge-team
+    last_updated: "2026-07-10"
+    name: Cutout Stiffness Tradeoff
+    category: structural
+    description: Center cutout area is large enough to meaningfully reduce plate stiffness.
+    applies_to: [wall_mounted_bracket]
+    condition:
+      expression: "cutout_area_ratio <= 0.25"
+      required_metrics: [cutout_area_ratio]
+      when:
+        center_cutout_active: true
+    severity: warning
+    recommendation: Reduce cutout size or increase thickness if stiffness is important.
+    source_reference: IntentForge Phase 20 initial structural heuristic.
+    confidence: 0.68
+    reasoning:
+      implications:
+        - A large center cutout may reduce remaining material and stiffness.
+      affects:
+        - cutout_width
+        - cutout_height
+        - plate_thickness
+        - stiffness_intent
+      tradeoffs:
+        - benefit: A cutout can reduce mass and material use.
+          cost: A cutout may reduce stiffness or remaining section width.
+          affected_parameters:
+            - cutout_width
+            - cutout_height
+            - plate_thickness
+          recommendation: Reduce cutout size or increase thickness if stiffness matters.
+      priority_weight: 0.72
+      reinforces:
+        - thin_section_warning_001
+      can_conflict_with:
+        - gusset_recommendation_001
+      mitigation: Reduce cutout size before relying on added features to restore stiffness.
+      limitations:
+        - This cutout rule does not quantify stiffness reduction.
+
+  - id: thin_section_warning_001
+    rule_version: "1.0"
+    status: active
+    created_by: intentforge-team
+    last_updated: "2026-07-10"
+    name: Thin Section Warning
+    category: structural
+    description: Remaining material section is thin relative to plate thickness.
+    applies_to: [wall_mounted_bracket, l_bracket]
+    condition:
+      expression: "minimum_section_thickness >= 2 * thickness"
+      required_metrics: [minimum_section_thickness, thickness]
+    severity: warning
+    recommendation: Increase remaining material width or thickness to avoid fragile sections.
+    source_reference: IntentForge Phase 20 initial structural heuristic.
+    confidence: 0.74
+    reasoning:
+      implications:
+        - Thin remaining material can make local sections more sensitive to loads or manufacturing defects.
+      affects:
+        - minimum_section_thickness
+        - plate_thickness
+        - cutout_width
+        - cutout_height
+      tradeoffs:
+        - benefit: Increasing remaining section width may improve robustness.
+          cost: Increasing section width may require less cutout area or a larger part.
+          affected_parameters:
+            - minimum_section_thickness
+            - plate_thickness
+            - cutout_width
+            - cutout_height
+          recommendation: Increase remaining material width or thickness before relying on thin sections.
+      priority_weight: 0.8
+      reinforces:
+        - cutout_stiffness_tradeoff_001
+      mitigated_by:
+        - gusset_recommendation_001
+      mitigation: Increase remaining material width or add support only after validating geometry.
+      limitations:
+        - This thin-section warning is not a fracture or fatigue analysis.

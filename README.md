@@ -71,6 +71,7 @@ Supported features:
 - optional MCP wrapper
 - optional LLM intent translator with schema guardrails
 - deterministic engineering knowledge rules and design rationale
+- modular engineering knowledge rule packs
 - deterministic engineering reasoning over knowledge findings
 - golden-case reasoning verification and recommendation consistency checks
 - topology-informed feature recognition for supported generated models
@@ -393,6 +394,8 @@ Design reviews can also include deterministic engineering knowledge findings and
 
 ```bash
 python -m intentforge.cli knowledge list
+python -m intentforge.cli knowledge packs
+python -m intentforge.cli knowledge packs-validate
 python -m intentforge.cli knowledge reasoning-info
 python -m intentforge.cli knowledge reasoning-verify
 python -m intentforge.cli knowledge reasoning-benchmark
@@ -400,7 +403,7 @@ python -m intentforge.cli design-review wall_mounted_bracket --knowledge
 python -m intentforge.cli design-review wall_mounted_bracket --knowledge --reasoning
 ```
 
-The knowledge and reasoning layers are advisory. They encode explainable engineering heuristics, rule interactions, trade-offs, conflicts, priorities, and recommendations. They do not replace engineering judgment, FEA, certification, or process-specific manufacturing review. See [docs/design_knowledge.md](docs/design_knowledge.md) and [docs/engineering_reasoning.md](docs/engineering_reasoning.md).
+The knowledge and reasoning layers are advisory. They encode explainable engineering heuristics, rule interactions, trade-offs, conflicts, priorities, and recommendations. The current rule database is organized into modular rule packs for traceability and packaging safety. They do not replace engineering judgment, FEA, certification, or process-specific manufacturing review. See [docs/design_knowledge.md](docs/design_knowledge.md), [docs/knowledge_rule_packs.md](docs/knowledge_rule_packs.md), and [docs/engineering_reasoning.md](docs/engineering_reasoning.md).
 
 ## Technical Harness
 
@@ -429,6 +432,10 @@ Default quality gates require:
 - recommendation contradictions == 0
 - recommendation applicability errors == 0
 - reasoning report ID mismatches == 0
+- rule pack load pass rate == 1.0
+- active rule pack count == 4
+- active engineering rule count == 10
+- duplicate pack and rule IDs == 0
 - unsafe acceptances == 0
 - unexpected failures and exceptions == 0
 

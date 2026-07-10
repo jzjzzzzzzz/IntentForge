@@ -32,11 +32,14 @@ from intentforge.output_manager import create_run_context, feature_state_names, 
 from intentforge.paths import project_root as _intentforge_project_root
 from intentforge.schemas import ParameterTable
 from intentforge.knowledge import (
+    RulePackRegistry,
     RuleRegistry,
     build_design_metrics,
     build_engineering_reasoning_report,
     evaluate_parameter_table,
     make_knowledge_report,
+    validate_default_rule_packs,
+    validate_rule_data,
 )
 from intentforge.knowledge.reasoning.benchmark import run_reasoning_benchmark
 
@@ -58,6 +61,17 @@ QUALITY_GATES: dict[str, float | int] = {
     "recommendation_applicability_error_count_max": 0,
     "nondeterministic_reasoning_report_count_max": 0,
     "reasoning_report_id_mismatch_count_max": 0,
+    "rule_pack_load_pass_rate_min": 1.0,
+    "active_pack_count_min": 4,
+    "active_pack_count_max": 4,
+    "active_rule_count_min": 10,
+    "active_rule_count_max": 10,
+    "duplicate_pack_id_count_max": 0,
+    "duplicate_rule_id_count_max": 0,
+    "invalid_pack_count_max": 0,
+    "rule_pack_unknown_rule_reference_count_max": 0,
+    "legacy_compatibility_passed_min": 1,
+    "rule_pack_reasoning_regression_pass_rate_min": 1.0,
 }
 
 
@@ -414,6 +428,45 @@ def _reasoning_section(run_dir: Path) -> dict[str, Any]:
     }
 
 
+def _rule_pack_section(run_dir: Path) -> dict[str, Any]:
+    pack_dir = run_dir / "rule_packs"
+    pack_registry = RulePackRegistry.load_default()
+    rule_registry = RuleRegistry.load()
+    validation = validate_default_rule_packs()
+    legacy_validation = validate_rule_data()
+    pack_rule_ids = [rule.id for rule in pack_registry.flatten_rules()]
+    legacy_rule_ids = [rule.id for rule in rule_registry.rules]
+    legacy_compatibility_passed = pack_rule_ids == legacy_rule_ids and legacy_validation["ok"]
+    reasoning_regression = run_reasoning_benchmark(rule_registry=rule_registry)
+    invalid_pack_count = 0 if validation.passed else 1
+
+    report = {
+        "passed": (
+            validation.passed
+            and legacy_compatibility_passed
+            and reasoning_regression["failed"] == 0
+        ),
+        "active_pack_count": len(pack_registry.get_active_packs()),
+        "active_rule_count": pack_registry.count_rules(),
+        "duplicate_pack_id_count": int(validation.summary.get("duplicate_pack_id_count", 0)),
+        "duplicate_rule_id_count": int(validation.summary.get("duplicate_rule_id_count", 0)),
+        "invalid_pack_count": invalid_pack_count,
+        "unknown_rule_reference_count": int(validation.summary.get("unknown_rule_reference_count", 0)),
+        "legacy_compatibility_passed": legacy_compatibility_passed,
+        "reasoning_regression_pass_rate": reasoning_regression["pass_rate"],
+        "packs_checked": validation.packs_checked,
+        "rules_checked": validation.rules_checked,
+        "errors": validation.errors,
+        "warnings": validation.warnings,
+        "rule_sources": pack_registry.rule_sources(),
+        "reasoning_regression": reasoning_regression,
+    }
+    report_path = pack_dir / "rule_pack_validation_report.json"
+    _write_json(report, report_path)
+    report["report_path"] = str(report_path)
+    return report
+
+
 def _demo_section(output_root: Path) -> dict[str, Any]:
     from intentforge.demo_runner import run_demo
 
@@ -454,6 +507,7 @@ def _build_metrics(sections: dict[str, dict[str, Any]]) -> dict[str, float | int
     shape = sections.get("shape_inspection", {})
     feature_recognition = sections.get("feature_recognition", {})
     reasoning = sections.get("engineering_reasoning", {})
+    rule_packs = sections.get("rule_packs", {})
     demo = sections.get("demo", {})
 
     unexpected_failure_count = int(benchmark.get("failed_cases", 0) or 0)
@@ -463,6 +517,8 @@ def _build_metrics(sections: dict[str, dict[str, Any]]) -> dict[str, float | int
     unexpected_failure_count += len(volume.get("failed_families", []) or [])
     unexpected_failure_count += len(shape.get("failed_families", []) or [])
     unexpected_failure_count += len(reasoning.get("failed_families", []) or [])
+    unexpected_failure_count += int(rule_packs.get("invalid_pack_count", 0) or 0)
+    unexpected_failure_count += 0 if rule_packs.get("legacy_compatibility_passed", True) else 1
     unexpected_failure_count += int(demo.get("failed_step_count", 0) or 0)
     unexpected_failure_count += sum(_section_error_count(section) for section in sections.values())
 
@@ -489,6 +545,15 @@ def _build_metrics(sections: dict[str, dict[str, Any]]) -> dict[str, float | int
         "recommendation_applicability_error_count": int(reasoning.get("recommendation_applicability_error_count", 0) or 0),
         "nondeterministic_reasoning_report_count": int(reasoning.get("nondeterministic_reasoning_report_count", 0) or 0),
         "reasoning_report_id_mismatch_count": int(reasoning.get("reasoning_report_id_mismatch_count", 0) or 0),
+        "rule_pack_load_pass_rate": 1.0 if rule_packs.get("passed", False) else 0.0,
+        "active_pack_count": int(rule_packs.get("active_pack_count", 0) or 0),
+        "active_rule_count": int(rule_packs.get("active_rule_count", 0) or 0),
+        "duplicate_pack_id_count": int(rule_packs.get("duplicate_pack_id_count", 0) or 0),
+        "duplicate_rule_id_count": int(rule_packs.get("duplicate_rule_id_count", 0) or 0),
+        "invalid_pack_count": int(rule_packs.get("invalid_pack_count", 0) or 0),
+        "rule_pack_unknown_rule_reference_count": int(rule_packs.get("unknown_rule_reference_count", 0) or 0),
+        "legacy_compatibility_passed": 1 if rule_packs.get("legacy_compatibility_passed", False) else 0,
+        "rule_pack_reasoning_regression_pass_rate": float(rule_packs.get("reasoning_regression_pass_rate", 0.0) or 0.0),
         "unexpected_failure_count": unexpected_failure_count,
         "unsafe_acceptance_count": unsafe_acceptance_count,
         "unexpected_exception_count": unexpected_exception_count,
@@ -518,6 +583,17 @@ def compute_quality_gates(report: dict[str, Any]) -> dict[str, Any]:
         ("recommendation_applicability_error_count_max", "recommendation_applicability_error_count", "<="),
         ("nondeterministic_reasoning_report_count_max", "nondeterministic_reasoning_report_count", "<="),
         ("reasoning_report_id_mismatch_count_max", "reasoning_report_id_mismatch_count", "<="),
+        ("rule_pack_load_pass_rate_min", "rule_pack_load_pass_rate", ">="),
+        ("active_pack_count_min", "active_pack_count", ">="),
+        ("active_pack_count_max", "active_pack_count", "<="),
+        ("active_rule_count_min", "active_rule_count", ">="),
+        ("active_rule_count_max", "active_rule_count", "<="),
+        ("duplicate_pack_id_count_max", "duplicate_pack_id_count", "<="),
+        ("duplicate_rule_id_count_max", "duplicate_rule_id_count", "<="),
+        ("invalid_pack_count_max", "invalid_pack_count", "<="),
+        ("rule_pack_unknown_rule_reference_count_max", "rule_pack_unknown_rule_reference_count", "<="),
+        ("legacy_compatibility_passed_min", "legacy_compatibility_passed", ">="),
+        ("rule_pack_reasoning_regression_pass_rate_min", "rule_pack_reasoning_regression_pass_rate", ">="),
     )
     for gate_name, metric_name, operator in gate_specs:
         expected = gates[gate_name]
@@ -562,6 +638,15 @@ def _build_summary(report: dict[str, Any]) -> str:
         f"  - recommendation_applicability_error_count: {int(metrics.get('recommendation_applicability_error_count', 0))}",
         f"  - nondeterministic_reasoning_report_count: {int(metrics.get('nondeterministic_reasoning_report_count', 0))}",
         f"  - reasoning_report_id_mismatch_count: {int(metrics.get('reasoning_report_id_mismatch_count', 0))}",
+        f"  - rule_pack_load_pass_rate: {float(metrics.get('rule_pack_load_pass_rate', 0.0)):.4f}",
+        f"  - active_pack_count: {int(metrics.get('active_pack_count', 0))}",
+        f"  - active_rule_count: {int(metrics.get('active_rule_count', 0))}",
+        f"  - duplicate_pack_id_count: {int(metrics.get('duplicate_pack_id_count', 0))}",
+        f"  - duplicate_rule_id_count: {int(metrics.get('duplicate_rule_id_count', 0))}",
+        f"  - invalid_pack_count: {int(metrics.get('invalid_pack_count', 0))}",
+        f"  - rule_pack_unknown_rule_reference_count: {int(metrics.get('rule_pack_unknown_rule_reference_count', 0))}",
+        f"  - legacy_compatibility_passed: {int(metrics.get('legacy_compatibility_passed', 0))}",
+        f"  - rule_pack_reasoning_regression_pass_rate: {float(metrics.get('rule_pack_reasoning_regression_pass_rate', 0.0)):.4f}",
         f"  - unexpected_failure_count: {metrics['unexpected_failure_count']}",
         f"  - unsafe_acceptance_count: {metrics['unsafe_acceptance_count']}",
         f"  - unexpected_exception_count: {metrics['unexpected_exception_count']}",
@@ -650,6 +735,10 @@ def run_technical_harness(
         "engineering_reasoning": _run_section(
             "engineering_reasoning",
             lambda: _reasoning_section(run_context.run_dir),
+        ),
+        "rule_packs": _run_section(
+            "rule_packs",
+            lambda: _rule_pack_section(run_context.run_dir),
         ),
     }
     if include_demo:

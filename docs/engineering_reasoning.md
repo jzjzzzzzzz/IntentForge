@@ -38,6 +38,8 @@ Implementation lives under `src/intentforge/knowledge/reasoning/`:
 
 The reasoning package is independent from CadQuery. It consumes knowledge rules, knowledge findings, optional metrics dictionaries, and feature-recognition metadata.
 
+Rule metadata may come from modular rule packs. The reasoning engine still reasons over stable rule IDs and rule versions rather than file paths, so the Phase 20.8.1 rule-pack refactor preserves golden reasoning report IDs.
+
 ## Determinism
 
 The same inputs should produce the same structured reasoning result:
@@ -171,6 +173,7 @@ Golden verification checks:
 - expected recommendation text keys
 - direct recommendation contradictions
 - recommendation applicability to supported family rules and declared parameters
+- compatibility with modular rule-pack loading
 
 Contradiction detection is intentionally conservative. It only flags direct opposite actions over the same explicitly mentioned affected parameter.
 

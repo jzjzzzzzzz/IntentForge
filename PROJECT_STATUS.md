@@ -1,6 +1,6 @@
 # Project Status
 
-Current development target: Phase 20.7 reasoning verification and golden engineering cases on `main`
+Current development target: Phase 20.8.1 knowledge rule pack foundation on `main`
 
 Current supported model families:
 
@@ -42,6 +42,7 @@ Current supported model families:
 - Phase 20.5: engineering knowledge layer production hardening
 - Phase 20.6: deterministic engineering reasoning engine
 - Phase 20.7: reasoning verification and golden engineering cases
+- Phase 20.8.1: modular engineering knowledge rule pack foundation
 
 ## Current Capabilities
 
@@ -87,6 +88,7 @@ Current supported model families:
 - `src/` layout for importable Python packages
 - uv development workflow documentation
 - deterministic engineering knowledge rule loading, compilation, evaluation, and rationale generation
+- modular engineering knowledge rule packs with validation and legacy manifest compatibility
 - deterministic engineering reasoning over knowledge findings, rule interactions, trade-offs, conflicts, priorities, and recommendations
 - golden-case reasoning verification with contradiction and applicability checks
 
@@ -106,6 +108,7 @@ Current supported model families:
 - no full industrial CAD feature recognition from arbitrary solids
 - Phase 18 feature recognition is topology-informed, parameter-aware, and limited to generated supported families
 - Phase 20 engineering knowledge findings are advisory heuristics, not FEA or certified design approval
+- Phase 20.8.1 rule packs organize existing bracket rules; they do not expand support beyond the two supported bracket families
 - Phase 20.6 engineering reasoning is advisory, deterministic, and rule-driven; it does not run FEA, certify safety, call an LLM, or modify CAD
 - deterministic parser only
 - no freeform hole placement

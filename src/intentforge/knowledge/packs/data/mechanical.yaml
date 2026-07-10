@@ -1,0 +1,169 @@
+pack_id: bracket_mechanical
+pack_version: "1.0"
+name: Bracket Mechanical Rules
+description: Mechanical engineering heuristics for supported bracket model families.
+category: mechanical
+supported_model_families: [wall_mounted_bracket, l_bracket]
+status: active
+metadata:
+  source_of_truth: true
+  migrated_from: intentforge.knowledge.data/bracket_rules.yaml
+rules:
+  - id: hole_edge_margin_001
+    rule_version: "1.0"
+    status: active
+    created_by: intentforge-team
+    last_updated: "2026-07-10"
+    name: Hole Edge Margin
+    category: mechanical
+    description: Hole edge distance is below the recommended margin for local material strength.
+    applies_to: [wall_mounted_bracket, l_bracket]
+    condition:
+      expression: "hole_edge_distance >= 1.5 * hole_diameter"
+      required_metrics: [hole_edge_distance, hole_diameter]
+      when:
+        mounting_holes_active: true
+    severity: warning
+    recommendation: Increase hole edge distance or reduce hole diameter to improve local strength.
+    source_reference: IntentForge Phase 20 initial mechanical design heuristic.
+    confidence: 0.9
+    reasoning:
+      implications:
+        - Insufficient edge margin may reduce local material support around the hole.
+      affects:
+        - plate_width
+        - hole_spacing
+        - fastener_accessibility
+      tradeoffs:
+        - benefit: Increasing edge margin may improve local support around fasteners.
+          cost: Increasing edge margin may require a wider or taller plate.
+          affected_parameters:
+            - plate_width
+            - hole_spacing
+          recommendation: Increase plate width before reducing hole spacing when both are constrained.
+      priority_weight: 0.9
+      can_conflict_with:
+        - hole_spacing_001
+      mitigation: Increase plate width before reducing hole spacing.
+      limitations:
+        - This edge-distance rule is heuristic and does not replace load-specific analysis.
+
+  - id: hole_spacing_001
+    rule_version: "1.0"
+    status: active
+    created_by: intentforge-team
+    last_updated: "2026-07-10"
+    name: Hole Spacing
+    category: mechanical
+    description: Hole spacing is below the recommended spacing between fasteners.
+    applies_to: [wall_mounted_bracket, l_bracket]
+    condition:
+      expression: "hole_spacing >= 3 * hole_diameter"
+      required_metrics: [hole_spacing, hole_diameter]
+      when:
+        mounting_holes_active: true
+    severity: warning
+    recommendation: Increase spacing between holes where the design envelope allows it.
+    source_reference: IntentForge Phase 20 initial mechanical design heuristic.
+    confidence: 0.86
+    reasoning:
+      implications:
+        - Close hole spacing may reduce material between fasteners and complicate load sharing.
+      affects:
+        - hole_spacing
+        - plate_width
+        - installation_access
+      tradeoffs:
+        - benefit: Increasing hole spacing may reduce interaction between nearby fastener holes.
+          cost: Increasing spacing may require a larger plate envelope.
+          affected_parameters:
+            - hole_spacing
+            - plate_width
+          recommendation: Increase plate width when spacing and edge distance both need improvement.
+      priority_weight: 0.82
+      can_conflict_with:
+        - hole_edge_margin_001
+      mitigation: Increase the available design envelope before moving holes closer to an edge.
+      limitations:
+        - This spacing rule is heuristic and does not model actual fastener load transfer.
+
+  - id: gusset_recommendation_001
+    rule_version: "1.0"
+    status: active
+    created_by: intentforge-team
+    last_updated: "2026-07-10"
+    name: L-Bracket Gusset Recommendation
+    category: mechanical
+    description: Tall vertical L-bracket legs with low thickness may benefit from a triangular gusset.
+    applies_to: [l_bracket]
+    condition:
+      expression: "vertical_leg_height_to_thickness <= 12 or gusset_enabled == true"
+      required_metrics: [vertical_leg_height_to_thickness, gusset_enabled]
+    severity: recommendation
+    recommendation: Consider adding a triangular gusset when the vertical leg is tall relative to thickness.
+    source_reference: IntentForge Phase 20 initial L-bracket design heuristic.
+    confidence: 0.72
+    reasoning:
+      implications:
+        - A tall thin vertical leg may benefit from additional support near the inside corner.
+      affects:
+        - gusset_enabled
+        - gusset_thickness
+        - part_weight
+        - manufacturing_complexity
+      tradeoffs:
+        - benefit: Adding a gusset may improve bending stiffness near the bracket corner.
+          cost: Adding a gusset increases material, weight, and manufacturing complexity.
+          affected_parameters:
+            - gusset_enabled
+            - gusset_thickness
+            - manufacturing_complexity
+          recommendation: Add a gusset only when stiffness intent is more important than simplicity.
+      priority_weight: 0.76
+      can_conflict_with:
+        - manufacturing_simplicity_001
+        - cutout_stiffness_tradeoff_001
+      mitigates:
+        - thin_section_warning_001
+      mitigation: Add a triangular gusset after confirming the added material does not conflict with assembly.
+      limitations:
+        - This gusset recommendation is heuristic and is not a stiffness simulation.
+
+  - id: corner_radius_001
+    rule_version: "1.0"
+    status: active
+    created_by: intentforge-team
+    last_updated: "2026-07-10"
+    name: Corner Radius
+    category: mechanical
+    description: Requested corner radius is small relative to material thickness.
+    applies_to: [wall_mounted_bracket, l_bracket]
+    condition:
+      expression: "corner_radius >= 0.25 * thickness"
+      required_metrics: [corner_radius, thickness]
+      when:
+        rounded_corners_active: true
+    severity: recommendation
+    recommendation: Use a corner radius at least one quarter of thickness when rounded corners are requested.
+    source_reference: IntentForge Phase 20 manufacturability and stress concentration heuristic.
+    confidence: 0.7
+    reasoning:
+      implications:
+        - Very small requested radii may not provide meaningful edge relief.
+      affects:
+        - corner_radius
+        - outside_edge_fillet_radius
+        - manufacturing_complexity
+      tradeoffs:
+        - benefit: Rounded corners may improve handling and reduce sharp edges.
+          cost: Rounded corners may increase machining or modeling complexity depending on process.
+          affected_parameters:
+            - corner_radius
+            - outside_edge_fillet_radius
+          recommendation: Keep corner radius proportional to thickness when rounded corners are requested.
+      priority_weight: 0.45
+      can_conflict_with:
+        - manufacturing_simplicity_001
+      mitigation: Use the smallest documented radius that satisfies the design intent.
+      limitations:
+        - This radius guidance does not quantify stress reduction.

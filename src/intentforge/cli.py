@@ -44,6 +44,7 @@ from intentforge.knowledge import (
     ALLOWED_CONFLICT_TYPES,
     ALLOWED_INTERACTION_TYPES,
     ALLOWED_PRIORITIES,
+    RulePackRegistry,
     RuleRegistry,
     REASONING_ENGINE_VERSION,
     build_design_metrics,
@@ -54,6 +55,7 @@ from intentforge.knowledge import (
     make_knowledge_report,
     render_engineering_reasoning_markdown,
     validate_reasoning_metadata,
+    validate_default_rule_packs,
     validate_rule_data,
     write_engineering_reasoning_markdown,
     write_engineering_reasoning_report,
@@ -1371,6 +1373,21 @@ def _knowledge_command(action: str) -> int:
         for category in categories:
             print(f"{category.title()}: {len(registry.get_by_category(category))}")
         return 0
+    if action == "packs":
+        registry = RulePackRegistry.load_default()
+        print("Engineering Knowledge Rule Packs")
+        print(f"Total packs: {registry.count_packs()}")
+        print(f"Total active rules: {registry.count_rules()}")
+        for pack in registry.all_packs():
+            active_rule_count = len([rule for rule in pack.rules if rule.status == "active"])
+            print("")
+            print(pack.pack_id)
+            print(f"version: {pack.pack_version}")
+            print(f"category: {pack.category}")
+            print(f"status: {pack.status}")
+            print(f"families: {', '.join(pack.supported_model_families)}")
+            print(f"rules: {active_rule_count}")
+        return 0
     if action == "validate":
         result = validate_rule_data()
         print("Knowledge validation")
@@ -1381,6 +1398,23 @@ def _knowledge_command(action: str) -> int:
             rule = error.get("rule_id") or f"index {error.get('index')}"
             print(f"- {rule}: {error.get('message')}")
         return 0 if result["ok"] else 1
+    if action == "packs-validate":
+        result = validate_default_rule_packs()
+        print("Knowledge rule pack validation")
+        print("PASS" if result.passed else "FAIL")
+        print(f"{result.packs_checked} packs checked")
+        print(f"{result.rules_checked} rules checked")
+        print(f"{len(result.errors)} errors")
+        print(f"{len(result.warnings)} warnings")
+        for error in result.errors:
+            pack = error.get("pack_id") or "unknown pack"
+            rule = f" {error.get('rule_id')}" if error.get("rule_id") else ""
+            field = f" {error.get('field')}" if error.get("field") else ""
+            print(f"- {pack}{rule}{field}: {error.get('message')}")
+        for warning in result.warnings:
+            pack = warning.get("pack_id") or "unknown pack"
+            print(f"- warning {pack}: {warning.get('message')}")
+        return 0 if result.passed else 1
     if action == "reasoning-info":
         print("Engineering reasoning engine")
         print(f"Version: {REASONING_ENGINE_VERSION}")
@@ -1875,6 +1909,8 @@ def _build_parser() -> ArgumentParser:
     knowledge_subparsers = knowledge.add_subparsers(dest="knowledge_command", required=True)
     knowledge_subparsers.add_parser("list", help="List loaded engineering knowledge rules.")
     knowledge_subparsers.add_parser("validate", help="Validate engineering knowledge rule database integrity.")
+    knowledge_subparsers.add_parser("packs", help="List loaded engineering knowledge rule packs.")
+    knowledge_subparsers.add_parser("packs-validate", help="Validate engineering knowledge rule pack integrity.")
     knowledge_subparsers.add_parser("reasoning-info", help="Describe deterministic engineering reasoning support.")
     knowledge_subparsers.add_parser("reasoning-validate", help="Validate reasoning metadata in engineering rules.")
     knowledge_subparsers.add_parser("reasoning-verify", help="Run golden engineering reasoning verification cases.")

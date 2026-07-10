@@ -15,6 +15,7 @@ It runs:
 - volume delta checks for both supported families
 - shape inspection checks for both supported families
 - topology-informed feature recognition checks for both supported families
+- engineering reasoning and rule-pack validation checks
 - optional demo workflow when requested
 
 Run a faster check with a reduced sweep:
@@ -29,7 +30,7 @@ Run the harness with the demo included:
 python -m intentforge.cli technical-harness --include-demo
 ```
 
-Default quality gates require benchmark, sweep, and edit preservation rates of at least `0.95`, adversarial rejection success of `1.0`, zero unsafe acceptances, and zero unexpected failures or exceptions.
+Default quality gates require benchmark, sweep, and edit preservation rates of at least `0.95`, adversarial rejection success of `1.0`, reasoning regression success of `1.0`, rule-pack validation success, zero duplicate rule-pack IDs, zero duplicate rule IDs, zero unsafe acceptances, and zero unexpected failures or exceptions.
 
 Reports are written to:
 
