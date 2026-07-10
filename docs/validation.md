@@ -19,6 +19,7 @@ Geometry validation checks the generated CadQuery model against the parameter ta
 - exported STEP/STL file existence and size
 - topology metrics in validation metadata when CadQuery inspection is available
 - feature recognition metadata for supported generated features
+- optional engineering knowledge findings in design review reports
 
 Bounding-box checks use the generated CadQuery model. Hole, cutout, and L-bracket per-leg hole sizing checks remain parameter-based, with topology-informed feature recognition recorded separately in report metadata.
 
@@ -60,3 +61,9 @@ Intent validation checks whether the structured design state is internally consi
 IntentForge does not yet perform full industrial CAD feature recognition from arbitrary solids. Phase 18 recognition is topology-informed, parameter-aware, and limited to generated `wall_mounted_bracket` and `l_bracket` models.
 
 For L-brackets, inside fillet intent is represented in parameters and validation, but robust geometric inside-corner filleting is future work.
+
+## Engineering Knowledge Findings
+
+Phase 20 adds deterministic engineering knowledge findings to design review reports when requested with `--knowledge`.
+
+These findings are based on YAML rules and parameter-derived metrics. They provide recommendations such as hole edge margin, hole spacing, cutout stiffness tradeoff, and gusset advisories. They are not FEA results, safety certification, or a replacement for engineering review.

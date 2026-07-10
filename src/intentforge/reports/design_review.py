@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from intentforge.features import feature_flags_for_parameter_table, is_feature_active
+from intentforge.knowledge.schema import KnowledgeFinding
 from intentforge.schemas import FeaturePlan, IntentSpec, ParameterTable, ValidationReport
 
 
@@ -144,6 +145,8 @@ def generate_design_review_report(
     topology_report: Any | None = None,
     volume_delta_report: dict[str, Any] | None = None,
     feature_recognition_report: dict[str, Any] | None = None,
+    knowledge_findings: list[KnowledgeFinding] | list[dict[str, Any]] | None = None,
+    design_rationale: str | None = None,
     artifacts: list[dict[str, Any]] | None = None,
     run_id: str | None = None,
 ) -> dict[str, Any]:
@@ -154,6 +157,7 @@ def generate_design_review_report(
     topology = _topology_summary(topology_report)
     features = _feature_summary(parameter_table, feature_plan)
     warnings = _warning_summary(validation, feature_recognition_report, topology_report)
+    dumped_knowledge_findings = [_model_dump(finding) for finding in (knowledge_findings or [])]
 
     report = {
         "run_id": run_id,
@@ -173,6 +177,8 @@ def generate_design_review_report(
         "topology": topology,
         "volume_delta": volume_delta_report or {"available": False},
         "feature_recognition": feature_recognition_report or {"available": False},
+        "knowledge_findings": dumped_knowledge_findings,
+        "design_rationale": design_rationale,
         "warnings": warnings,
         "artifacts": artifacts or [],
         "limitations": LIMITATIONS_BY_FAMILY.get(parameter_table.family, []),
@@ -227,6 +233,18 @@ def design_review_summary_markdown(report: dict[str, Any]) -> str:
     )
     for name, feature in (recognition.get("recognized_features", {}) if isinstance(recognition, dict) else {}).items():
         lines.append(f"- {name}: confidence={feature.get('confidence')}, passed={feature.get('passed')}")
+
+    knowledge_findings = report.get("knowledge_findings", [])
+    lines.extend(["", "## Engineering Knowledge"])
+    if knowledge_findings:
+        failed_findings = [finding for finding in knowledge_findings if not finding.get("passed")]
+        lines.append(f"- Findings: {len(knowledge_findings)} total, {len(failed_findings)} advisory findings")
+        for finding in failed_findings:
+            lines.append(
+                f"- {finding.get('severity', 'warning').upper()}: {finding.get('rule_name')} - {finding.get('recommendation')}"
+            )
+    else:
+        lines.append("- Not requested for this report.")
 
     lines.extend(["", "## Remaining Warnings"])
     if report["warnings"]:

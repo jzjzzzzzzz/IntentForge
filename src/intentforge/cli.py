@@ -40,6 +40,7 @@ from intentforge.llm import (
     translate_prompt_to_build,
     translate_prompt_to_intent,
 )
+from intentforge.knowledge import evaluate_parameter_table, generate_design_rationale, load_rules
 from intentforge.output_manager import (
     build_run_metadata,
     create_parsed_run_context,
@@ -1138,7 +1139,7 @@ def _recognize_features_command(family: str, output: str | None = None, no_expor
     return 0 if report["passed"] else 1
 
 
-def _design_review_command(family: str) -> int:
+def _design_review_command(family: str, include_knowledge: bool = False) -> int:
     parameter_table = _example_parameter_table_for_family(family)
     intent = _example_intent_for_family(family)
     feature_plan = _example_feature_plan_for_family(family)
@@ -1160,12 +1161,35 @@ def _design_review_command(family: str) -> int:
     latest_summary_path = output_root / "design_review_summary.md"
     persistent_report_path = run_context.run_dir / "design_review_report.json"
     persistent_summary_path = run_context.run_dir / "design_review_summary.md"
+    latest_rationale_path = output_root / "design_knowledge_rationale.md"
+    persistent_rationale_path = run_context.run_dir / "design_knowledge_rationale.md"
     artifacts = [
         {"kind": "design_review_report", "path": str(latest_report_path), "persistent": False, "object_type": family},
         {"kind": "design_review_summary", "path": str(latest_summary_path), "persistent": False, "object_type": family},
         {"kind": "design_review_report", "path": str(persistent_report_path), "persistent": True, "object_type": family},
         {"kind": "design_review_summary", "path": str(persistent_summary_path), "persistent": True, "object_type": family},
     ]
+    knowledge_findings = []
+    design_rationale = None
+    if include_knowledge:
+        knowledge_findings = evaluate_parameter_table(parameter_table, feature_plan)
+        design_rationale = generate_design_rationale(knowledge_findings)
+        artifacts.extend(
+            [
+                {
+                    "kind": "design_knowledge_rationale",
+                    "path": str(latest_rationale_path),
+                    "persistent": False,
+                    "object_type": family,
+                },
+                {
+                    "kind": "design_knowledge_rationale",
+                    "path": str(persistent_rationale_path),
+                    "persistent": True,
+                    "object_type": family,
+                },
+            ]
+        )
     report = generate_design_review_report(
         intent_spec=intent,
         parameter_table=parameter_table,
@@ -1174,6 +1198,8 @@ def _design_review_command(family: str) -> int:
         topology_report=topology_report,
         volume_delta_report=volume_delta_report,
         feature_recognition_report=feature_recognition_report,
+        knowledge_findings=knowledge_findings,
+        design_rationale=design_rationale,
         artifacts=artifacts,
         run_id=run_context.run_id,
     )
@@ -1183,23 +1209,44 @@ def _design_review_command(family: str) -> int:
             "latest_summary": latest_summary_path,
             "persistent_report": persistent_report_path,
             "persistent_summary": persistent_summary_path,
+            "latest_rationale": latest_rationale_path if include_knowledge else None,
+            "persistent_rationale": persistent_rationale_path if include_knowledge else None,
         }
     )
     write_design_review_report(report, latest_report_path)
     write_design_review_summary(report, latest_summary_path)
     write_design_review_report(report, persistent_report_path)
     write_design_review_summary(report, persistent_summary_path)
+    if include_knowledge and design_rationale is not None:
+        latest_rationale_path.write_text(design_rationale, encoding="utf-8")
+        persistent_rationale_path.write_text(design_rationale, encoding="utf-8")
 
     print(f"Design review run: {run_context.run_id}")
     print(f"Object type: {parameter_table.family}")
     print(f"Validation valid: {str(validation_report.valid).lower()}")
     print(f"Feature recognition passed: {str(feature_recognition_report['passed']).lower()}")
+    if include_knowledge:
+        failed_knowledge_findings = [finding for finding in knowledge_findings if not finding.passed]
+        print(f"Knowledge findings: {len(knowledge_findings)} total, {len(failed_knowledge_findings)} advisory findings")
+        print(f"Knowledge rationale: {latest_rationale_path}")
+        print(f"Persistent knowledge rationale: {persistent_rationale_path}")
     print(f"Warnings: {len(report['warnings'])}")
     print(f"Latest report: {latest_report_path}")
     print(f"Latest summary: {latest_summary_path}")
     print(f"Persistent report: {persistent_report_path}")
     print(f"Persistent summary: {persistent_summary_path}")
     return 0 if validation_report.valid and feature_recognition_report["passed"] else 1
+
+
+def _knowledge_command(action: str) -> int:
+    if action == "list":
+        rules = load_rules()
+        categories = sorted({rule.category for rule in rules})
+        print(f"Loaded engineering rules: {len(rules)}")
+        print(f"Categories: {', '.join(categories)}")
+        return 0
+    print(f"Unsupported knowledge action: {action}")
+    return 1
 
 
 def _volume_delta_command(family: str) -> int:
@@ -1572,6 +1619,18 @@ def _build_parser() -> ArgumentParser:
         choices=["wall_mounted_bracket", "l_bracket"],
         help="Supported model family to review.",
     )
+    design_review.add_argument(
+        "--knowledge",
+        action="store_true",
+        help="Include engineering knowledge findings and rationale markdown.",
+    )
+
+    knowledge = subparsers.add_parser(
+        "knowledge",
+        help="Inspect deterministic engineering knowledge rules.",
+    )
+    knowledge_subparsers = knowledge.add_subparsers(dest="knowledge_command", required=True)
+    knowledge_subparsers.add_parser("list", help="List loaded engineering knowledge rules.")
 
     volume_delta = subparsers.add_parser(
         "volume-delta",
@@ -1718,7 +1777,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "recognize-features":
             return _recognize_features_command(args.family, args.output, args.no_export)
         if args.command == "design-review":
-            return _design_review_command(args.family)
+            return _design_review_command(args.family, args.knowledge)
+        if args.command == "knowledge":
+            return _knowledge_command(args.knowledge_command)
         if args.command == "volume-delta":
             return _volume_delta_command(args.family)
         if args.command == "sweep":

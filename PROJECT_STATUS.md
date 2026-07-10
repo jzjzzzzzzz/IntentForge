@@ -82,6 +82,7 @@ Current supported model families:
 - Homebrew tap install documentation
 - `src/` layout for importable Python packages
 - uv development workflow documentation
+- deterministic engineering knowledge rule loading, compilation, evaluation, and rationale generation
 
 ## Current Limitations
 
@@ -98,6 +99,7 @@ Current supported model families:
 - no arbitrary CAD
 - no full industrial CAD feature recognition from arbitrary solids
 - Phase 18 feature recognition is topology-informed, parameter-aware, and limited to generated supported families
+- Phase 20 engineering knowledge findings are advisory heuristics, not FEA or certified design approval
 - deterministic parser only
 - no freeform hole placement
 - HTTP API does not serve generated CAD files for download yet (artifact endpoint serves files under output/)

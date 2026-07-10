@@ -51,6 +51,7 @@ include = ["intentforge*", "mcp_server*", "benchmark*", "harness*"]
 "harness.edits" = ["*.json"]
 "harness.sweeps" = ["*.yaml"]
 "intentforge.example_data" = ["*.json", "*.yaml", "*.txt"]
+"intentforge.knowledge.data" = ["*.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

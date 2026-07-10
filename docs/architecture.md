@@ -25,6 +25,8 @@ Project assets such as `tests/`, `docs/`, `examples/`, and `demo/` remain at the
 
 `intentforge.validator` checks geometry and intent. Geometry checks are parameter and bounding-box driven. Intent checks verify object type, required parameters, feature ordering, and pattern consistency.
 
+`intentforge.knowledge` loads YAML engineering rules, compiles them into machine-readable constraints, evaluates parameter-derived metrics, and generates Markdown rationale. It does not generate or modify CAD.
+
 `intentforge.editor` applies structured edits to an existing parameter table and feature state. It preserves unchanged parameters and rejects unsupported or invalid edits before CAD export.
 
 `intentforge.workflows` contains shared orchestration used by both the CLI and MCP wrapper. This keeps command-line and agent-tool behavior aligned.

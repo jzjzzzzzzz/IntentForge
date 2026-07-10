@@ -70,6 +70,7 @@ Supported features:
 - benchmark suite
 - optional MCP wrapper
 - optional LLM intent translator with schema guardrails
+- deterministic engineering knowledge rules and design rationale
 - topology-informed feature recognition for supported generated models
 - design review reports that summarize intent, parameters, validation, topology, recognized features, warnings, and artifacts
 
@@ -385,6 +386,15 @@ Feature recognition inspects generated CadQuery/OpenCascade topology for support
 Design review reports combine structured intent, parameters, feature plan, validation checks, topology metrics, volume delta checks, feature recognition, warnings, artifacts, and known limitations.
 
 See [docs/feature_recognition.md](docs/feature_recognition.md) and [docs/design_review.md](docs/design_review.md).
+
+Design reviews can also include deterministic engineering knowledge findings and Markdown rationale:
+
+```bash
+python -m intentforge.cli knowledge list
+python -m intentforge.cli design-review wall_mounted_bracket --knowledge
+```
+
+The knowledge layer is advisory. It encodes explainable engineering heuristics and does not replace engineering judgment, FEA, certification, or process-specific manufacturing review. See [docs/design_knowledge.md](docs/design_knowledge.md).
 
 ## Technical Harness
 
