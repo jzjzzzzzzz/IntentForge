@@ -1,6 +1,6 @@
 # Project Status
 
-Current development target: Phase 20.6 deterministic engineering reasoning engine on `main`
+Current development target: Phase 20.7 reasoning verification and golden engineering cases on `main`
 
 Current supported model families:
 
@@ -41,6 +41,7 @@ Current supported model families:
 - Phase 20: engineering knowledge rule system foundation
 - Phase 20.5: engineering knowledge layer production hardening
 - Phase 20.6: deterministic engineering reasoning engine
+- Phase 20.7: reasoning verification and golden engineering cases
 
 ## Current Capabilities
 
@@ -87,6 +88,7 @@ Current supported model families:
 - uv development workflow documentation
 - deterministic engineering knowledge rule loading, compilation, evaluation, and rationale generation
 - deterministic engineering reasoning over knowledge findings, rule interactions, trade-offs, conflicts, priorities, and recommendations
+- golden-case reasoning verification with contradiction and applicability checks
 
 ## Current Limitations
 
@@ -157,7 +159,7 @@ Default quality gates require benchmark, sweep, and edit preservation rates of a
 
 Phase 18 adds a warning-oriented feature recognition section to the technical harness. It reports feature recognition pass rate and warning count without making approximate recognition a strict release gate.
 
-Phase 20.6 adds a lightweight engineering reasoning section to the technical harness. It checks deterministic report IDs, unknown rule references, duplicate recommendations, limitations, and the focused reasoning benchmark.
+Phase 20.7 extends the engineering reasoning section in the technical harness. It checks deterministic report IDs, golden report ID regressions, unknown rule references, duplicate recommendations, recommendation contradictions, recommendation applicability, limitations, and the focused reasoning benchmark.
 
 ## API Contract Status
 

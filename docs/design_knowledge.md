@@ -152,6 +152,7 @@ Inspect and validate reasoning metadata:
 ```bash
 python -m intentforge.cli knowledge reasoning-info
 python -m intentforge.cli knowledge reasoning-validate
+python -m intentforge.cli knowledge reasoning-verify
 ```
 
 Generate a design review with knowledge findings:

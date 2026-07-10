@@ -54,6 +54,10 @@ QUALITY_GATES: dict[str, float | int] = {
     "unknown_rule_reference_count_max": 0,
     "duplicate_recommendation_count_max": 0,
     "missing_limitation_count_max": 0,
+    "recommendation_contradiction_count_max": 0,
+    "recommendation_applicability_error_count_max": 0,
+    "nondeterministic_reasoning_report_count_max": 0,
+    "reasoning_report_id_mismatch_count_max": 0,
 }
 
 
@@ -403,6 +407,10 @@ def _reasoning_section(run_dir: Path) -> dict[str, Any]:
         "unknown_rule_reference_count": unknown_rule_reference_count + benchmark["unknown_rule_reference_count"],
         "duplicate_recommendation_count": duplicate_recommendation_count + benchmark["duplicate_recommendation_count"],
         "missing_limitation_count": missing_limitation_count + benchmark["missing_limitation_count"],
+        "recommendation_contradiction_count": benchmark["contradiction_count"],
+        "recommendation_applicability_error_count": benchmark["applicability_error_count"],
+        "nondeterministic_reasoning_report_count": benchmark["nondeterministic_report_count"],
+        "reasoning_report_id_mismatch_count": benchmark["report_id_mismatch_count"],
     }
 
 
@@ -477,6 +485,10 @@ def _build_metrics(sections: dict[str, dict[str, Any]]) -> dict[str, float | int
         "unknown_rule_reference_count": int(reasoning.get("unknown_rule_reference_count", 0) or 0),
         "duplicate_recommendation_count": int(reasoning.get("duplicate_recommendation_count", 0) or 0),
         "missing_limitation_count": int(reasoning.get("missing_limitation_count", 0) or 0),
+        "recommendation_contradiction_count": int(reasoning.get("recommendation_contradiction_count", 0) or 0),
+        "recommendation_applicability_error_count": int(reasoning.get("recommendation_applicability_error_count", 0) or 0),
+        "nondeterministic_reasoning_report_count": int(reasoning.get("nondeterministic_reasoning_report_count", 0) or 0),
+        "reasoning_report_id_mismatch_count": int(reasoning.get("reasoning_report_id_mismatch_count", 0) or 0),
         "unexpected_failure_count": unexpected_failure_count,
         "unsafe_acceptance_count": unsafe_acceptance_count,
         "unexpected_exception_count": unexpected_exception_count,
@@ -502,6 +514,10 @@ def compute_quality_gates(report: dict[str, Any]) -> dict[str, Any]:
         ("unknown_rule_reference_count_max", "unknown_rule_reference_count", "<="),
         ("duplicate_recommendation_count_max", "duplicate_recommendation_count", "<="),
         ("missing_limitation_count_max", "missing_limitation_count", "<="),
+        ("recommendation_contradiction_count_max", "recommendation_contradiction_count", "<="),
+        ("recommendation_applicability_error_count_max", "recommendation_applicability_error_count", "<="),
+        ("nondeterministic_reasoning_report_count_max", "nondeterministic_reasoning_report_count", "<="),
+        ("reasoning_report_id_mismatch_count_max", "reasoning_report_id_mismatch_count", "<="),
     )
     for gate_name, metric_name, operator in gate_specs:
         expected = gates[gate_name]
@@ -542,6 +558,10 @@ def _build_summary(report: dict[str, Any]) -> str:
         f"  - unknown_rule_reference_count: {int(metrics.get('unknown_rule_reference_count', 0))}",
         f"  - duplicate_recommendation_count: {int(metrics.get('duplicate_recommendation_count', 0))}",
         f"  - missing_limitation_count: {int(metrics.get('missing_limitation_count', 0))}",
+        f"  - recommendation_contradiction_count: {int(metrics.get('recommendation_contradiction_count', 0))}",
+        f"  - recommendation_applicability_error_count: {int(metrics.get('recommendation_applicability_error_count', 0))}",
+        f"  - nondeterministic_reasoning_report_count: {int(metrics.get('nondeterministic_reasoning_report_count', 0))}",
+        f"  - reasoning_report_id_mismatch_count: {int(metrics.get('reasoning_report_id_mismatch_count', 0))}",
         f"  - unexpected_failure_count: {metrics['unexpected_failure_count']}",
         f"  - unsafe_acceptance_count: {metrics['unsafe_acceptance_count']}",
         f"  - unexpected_exception_count: {metrics['unexpected_exception_count']}",

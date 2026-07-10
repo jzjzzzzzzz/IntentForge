@@ -33,6 +33,8 @@ Implementation lives under `src/intentforge/knowledge/reasoning/`:
 - `engine.py`: report orchestration
 - `templates.py`: Markdown rendering
 - `benchmark.py`: focused reasoning benchmark
+- `verification.py`: golden-case verification, contradiction checks, and applicability checks
+- `data/golden_cases.yaml`: reproducible engineering cases with expected reasoning outputs
 
 The reasoning package is independent from CadQuery. It consumes knowledge rules, knowledge findings, optional metrics dictionaries, and feature-recognition metadata.
 
@@ -49,6 +51,8 @@ The same inputs should produce the same structured reasoning result:
 - optional metrics
 
 `EngineeringReasoningReport.report_id` is deterministic and excludes timestamps and local file paths.
+
+Phase 20.7 adds golden engineering cases. Each case records expected triggered rules, expected interactions, expected conflicts, expected recommendation priorities, and expected deterministic report ID. This makes reasoning regressions explicit rather than relying only on broad test coverage.
 
 Rule version and reasoning engine version are separate:
 
@@ -120,6 +124,18 @@ Validate reasoning metadata:
 python -m intentforge.cli knowledge reasoning-validate
 ```
 
+Run golden-case reasoning verification:
+
+```bash
+python -m intentforge.cli knowledge reasoning-verify
+```
+
+Run the standalone reasoning benchmark:
+
+```bash
+python -m intentforge.cli knowledge reasoning-benchmark
+```
+
 Generate a design review with knowledge and reasoning:
 
 ```bash
@@ -139,7 +155,24 @@ Reasoning outputs include:
 output/engineering_reasoning_report.md
 output/engineering_reasoning_report.json
 output/design_review_runs/<run_id>/
+output/harness/reasoning_verification_report.json
+output/harness/reasoning_benchmark_report.json
 ```
+
+## Verification Checks
+
+Golden verification checks:
+
+- expected deterministic report IDs
+- stable repeated report generation
+- expected interaction types
+- expected conflict counts
+- expected recommendation priorities
+- expected recommendation text keys
+- direct recommendation contradictions
+- recommendation applicability to supported family rules and declared parameters
+
+Contradiction detection is intentionally conservative. It only flags direct opposite actions over the same explicitly mentioned affected parameter.
 
 ## Example: Wall Bracket
 
@@ -169,3 +202,4 @@ If a tall thin L-bracket triggers the gusset recommendation, the reasoning engin
 - Reasoning quality depends on encoded rule quality.
 - Recommendations remain advisory.
 - Unsupported engineering domains must be rejected or left unknown.
+- Golden cases verify deterministic behavior for encoded scenarios; they are not proof of structural safety.

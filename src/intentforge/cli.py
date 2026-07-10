@@ -59,6 +59,8 @@ from intentforge.knowledge import (
     write_engineering_reasoning_report,
     write_knowledge_report,
 )
+from intentforge.knowledge.reasoning.benchmark import run_reasoning_benchmark
+from intentforge.knowledge.reasoning.verification import run_reasoning_verification
 from intentforge.output_manager import (
     build_run_metadata,
     create_parsed_run_context,
@@ -1407,8 +1409,73 @@ def _knowledge_command(action: str) -> int:
             field = f" {error.get('field')}" if error.get("field") else ""
             print(f"- {rule}{field}: {error.get('message')}")
         return 0 if result["ok"] else 1
+    if action == "reasoning-verify":
+        return _reasoning_verification_command(benchmark_mode=False)
+    if action == "reasoning-benchmark":
+        return _reasoning_verification_command(benchmark_mode=True)
     print(f"Unsupported knowledge action: {action}")
     return 1
+
+
+def _reasoning_verification_summary(result: dict, *, title: str) -> str:
+    failed_ids = [case["id"] for case in result["failed_cases"]]
+    return "\n".join(
+        [
+            title,
+            f"Run ID: {result['run_id']}",
+            f"Total cases: {result['total_cases']}",
+            f"Passed: {result['passed']}",
+            f"Failed: {result['failed']}",
+            f"Pass rate: {result['pass_rate']:.4f}",
+            f"Contradictions: {result['contradiction_count']}",
+            f"Applicability errors: {result['applicability_error_count']}",
+            f"Nondeterministic reports: {result['nondeterministic_report_count']}",
+            f"Report ID mismatches: {result['report_id_mismatch_count']}",
+            f"Failed case IDs: {', '.join(failed_ids) if failed_ids else 'none'}",
+            f"Report path: {result['report_path']}",
+            f"Summary path: {result['summary_path']}",
+            f"Persistent output dir: {result['persistent_output_dir']}",
+            "",
+        ]
+    )
+
+
+def _reasoning_verification_command(*, benchmark_mode: bool) -> int:
+    harness_root = _project_root() / "output" / "harness"
+    run_context = create_run_context(
+        "reasoning benchmark" if benchmark_mode else "reasoning verification",
+        harness_root,
+        "reasoning_verification_runs",
+    )
+    latest_report_path = harness_root / (
+        "reasoning_benchmark_report.json" if benchmark_mode else "reasoning_verification_report.json"
+    )
+    latest_summary_path = harness_root / (
+        "reasoning_benchmark_summary.txt" if benchmark_mode else "reasoning_verification_summary.txt"
+    )
+    persistent_report_path = run_context.run_dir / latest_report_path.name
+    persistent_summary_path = run_context.run_dir / latest_summary_path.name
+
+    result = run_reasoning_benchmark() if benchmark_mode else run_reasoning_verification()
+    result = {
+        **result,
+        "run_id": run_context.run_id,
+        "created_at": run_context.created_at.isoformat(),
+        "report_path": str(latest_report_path),
+        "summary_path": str(latest_summary_path),
+        "persistent_report_path": str(persistent_report_path),
+        "persistent_summary_path": str(persistent_summary_path),
+        "persistent_output_dir": str(run_context.run_dir),
+    }
+    title = "Engineering reasoning benchmark" if benchmark_mode else "Engineering reasoning verification"
+    result["summary"] = _reasoning_verification_summary(result, title=title)
+    _write_json_data(result, latest_report_path)
+    _write_json_data(result, persistent_report_path)
+    _write_text_data(result["summary"], latest_summary_path)
+    _write_text_data(result["summary"], persistent_summary_path)
+
+    print(result["summary"], end="")
+    return 0 if result["failed"] == 0 else 1
 
 
 def _volume_delta_command(family: str) -> int:
@@ -1556,6 +1623,8 @@ def _technical_harness_command(quick: bool, include_demo: bool) -> int:
     print(f"Feature recognition warnings: {metrics.get('feature_recognition_warning_count', 0)}")
     print(f"Reasoning generation pass rate: {metrics.get('reasoning_generation_pass_rate', 0.0):.4f}")
     print(f"Unknown reasoning rule references: {metrics.get('unknown_rule_reference_count', 0)}")
+    print(f"Recommendation contradictions: {metrics.get('recommendation_contradiction_count', 0)}")
+    print(f"Recommendation applicability errors: {metrics.get('recommendation_applicability_error_count', 0)}")
     if result["failed_gates"]:
         print("Failed gates:")
         for gate in result["failed_gates"]:
@@ -1808,6 +1877,8 @@ def _build_parser() -> ArgumentParser:
     knowledge_subparsers.add_parser("validate", help="Validate engineering knowledge rule database integrity.")
     knowledge_subparsers.add_parser("reasoning-info", help="Describe deterministic engineering reasoning support.")
     knowledge_subparsers.add_parser("reasoning-validate", help="Validate reasoning metadata in engineering rules.")
+    knowledge_subparsers.add_parser("reasoning-verify", help="Run golden engineering reasoning verification cases.")
+    knowledge_subparsers.add_parser("reasoning-benchmark", help="Run the standalone deterministic reasoning benchmark.")
 
     volume_delta = subparsers.add_parser(
         "volume-delta",

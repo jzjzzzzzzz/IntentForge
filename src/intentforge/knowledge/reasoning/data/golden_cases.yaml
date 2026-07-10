@@ -1,0 +1,102 @@
+cases:
+  - id: reasoning_001_valid_wall
+    model_family: wall_mounted_bracket
+    failed_rules: []
+    passed_rules: [hole_edge_margin_001, hole_spacing_001]
+    expected_report_id: reasoning_a2c4cd9a1f9c
+    expected_interaction_types: []
+    expected_conflict_count: 0
+    expected_priorities: []
+    expected_recommendation_contains: []
+    expected_no_contradictions: true
+
+  - id: reasoning_002_edge_margin
+    model_family: wall_mounted_bracket
+    failed_rules: [hole_edge_margin_001]
+    expected_report_id: reasoning_61db58d9097a
+    expected_interaction_types: []
+    expected_conflict_count: 0
+    expected_priorities: [high]
+    expected_recommendation_contains: [plate width]
+    expected_no_contradictions: true
+
+  - id: reasoning_003_hole_spacing
+    model_family: wall_mounted_bracket
+    failed_rules: [hole_spacing_001]
+    expected_report_id: reasoning_720a6d2ccbc9
+    expected_interaction_types: []
+    expected_conflict_count: 0
+    expected_priorities: [high]
+    expected_recommendation_contains: [design envelope]
+    expected_no_contradictions: true
+
+  - id: reasoning_004_edge_and_spacing
+    model_family: wall_mounted_bracket
+    failed_rules: [hole_edge_margin_001, hole_spacing_001]
+    expected_report_id: reasoning_18b73e5609a5
+    expected_interaction_types: [conflicts]
+    expected_conflict_count: 2
+    expected_priorities: [high]
+    expected_recommendation_contains: [plate width]
+    expected_no_contradictions: true
+
+  - id: reasoning_005_l_gusset_recommended
+    model_family: l_bracket
+    failed_rules: [gusset_recommendation_001]
+    expected_report_id: reasoning_ed0975d176ed
+    expected_interaction_types: []
+    expected_conflict_count: 0
+    expected_priorities: [low]
+    expected_recommendation_contains: [gusset]
+    expected_no_contradictions: true
+
+  - id: reasoning_006_l_gusset_present
+    model_family: l_bracket
+    failed_rules: []
+    passed_rules: [gusset_recommendation_001]
+    expected_report_id: reasoning_7eac0d4afd7c
+    expected_interaction_types: []
+    expected_conflict_count: 0
+    expected_priorities: []
+    expected_recommendation_contains: []
+    expected_no_contradictions: true
+
+  - id: reasoning_007_cutout_thin_section
+    model_family: wall_mounted_bracket
+    failed_rules: [cutout_stiffness_tradeoff_001, thin_section_warning_001]
+    expected_report_id: reasoning_0d5da7397ce7
+    expected_interaction_types: [reinforces]
+    expected_conflict_count: 0
+    expected_priorities: [high]
+    expected_recommendation_contains: [cutout]
+    expected_no_contradictions: true
+
+  - id: reasoning_008_manufacturing_complexity
+    model_family: l_bracket
+    failed_rules: [manufacturing_simplicity_001, corner_radius_001]
+    expected_report_id: reasoning_2f3ebc57829d
+    expected_interaction_types: [conflicts]
+    expected_conflict_count: 1
+    expected_priorities: [medium]
+    expected_recommendation_contains: [optional]
+    expected_no_contradictions: true
+
+  - id: reasoning_009_fastener_access
+    model_family: wall_mounted_bracket
+    failed_rules: [fastener_accessibility_001, hole_edge_margin_001]
+    expected_report_id: reasoning_34f8b0ae6a38
+    expected_interaction_types: [depends_on]
+    expected_conflict_count: 1
+    expected_priorities: [high]
+    expected_recommendation_contains: [clearance]
+    expected_no_contradictions: true
+
+  - id: reasoning_010_plate_size_conflict
+    model_family: wall_mounted_bracket
+    failed_rules: [hole_edge_margin_001, hole_spacing_001, fastener_accessibility_001]
+    expected_report_id: reasoning_a526908c7a8d
+    expected_interaction_types: [conflicts]
+    expected_conflict_count: 3
+    expected_priorities: [high]
+    expected_recommendation_contains: [plate width]
+    expected_no_contradictions: true

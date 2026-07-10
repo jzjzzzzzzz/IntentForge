@@ -24,6 +24,14 @@ from intentforge.knowledge.reasoning.templates import (
     render_engineering_reasoning_markdown,
     write_engineering_reasoning_markdown,
 )
+from intentforge.knowledge.reasoning.verification import (
+    detect_recommendation_contradictions,
+    load_golden_cases,
+    run_golden_case,
+    run_reasoning_verification,
+    validate_golden_cases,
+    validate_recommendation_applicability,
+)
 
 __all__ = [
     "ALLOWED_CONFLICT_TYPES",
@@ -41,7 +49,13 @@ __all__ = [
     "RuleInteraction",
     "SUPPORTED_REASONING_FAMILIES",
     "build_engineering_reasoning_report",
+    "detect_recommendation_contradictions",
+    "load_golden_cases",
     "render_engineering_reasoning_markdown",
+    "run_golden_case",
+    "run_reasoning_verification",
+    "validate_golden_cases",
+    "validate_recommendation_applicability",
     "write_engineering_reasoning_markdown",
     "write_engineering_reasoning_report",
 ]

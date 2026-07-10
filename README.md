@@ -72,6 +72,7 @@ Supported features:
 - optional LLM intent translator with schema guardrails
 - deterministic engineering knowledge rules and design rationale
 - deterministic engineering reasoning over knowledge findings
+- golden-case reasoning verification and recommendation consistency checks
 - topology-informed feature recognition for supported generated models
 - design review reports that summarize intent, parameters, validation, topology, recognized features, warnings, and artifacts
 
@@ -393,6 +394,8 @@ Design reviews can also include deterministic engineering knowledge findings and
 ```bash
 python -m intentforge.cli knowledge list
 python -m intentforge.cli knowledge reasoning-info
+python -m intentforge.cli knowledge reasoning-verify
+python -m intentforge.cli knowledge reasoning-benchmark
 python -m intentforge.cli design-review wall_mounted_bracket --knowledge
 python -m intentforge.cli design-review wall_mounted_bracket --knowledge --reasoning
 ```
@@ -423,6 +426,9 @@ Default quality gates require:
 - adversarial rejection success rate == 1.0
 - reasoning generation pass rate == 1.0
 - unknown reasoning rule references == 0
+- recommendation contradictions == 0
+- recommendation applicability errors == 0
+- reasoning report ID mismatches == 0
 - unsafe acceptances == 0
 - unexpected failures and exceptions == 0
 
