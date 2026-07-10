@@ -2,6 +2,8 @@
 
 IntentForge validates both geometry and design intent.
 
+Phase 21 adds capability coverage validation. This is not geometry validation. It validates product support declarations: known families, valid stages, rule-to-capability mapping, evidence references, unsupported boundaries, and orphan active rules.
+
 ## Geometry Validation
 
 Geometry validation checks the generated CadQuery model against the parameter table. Current checks include:

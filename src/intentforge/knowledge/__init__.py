@@ -1,6 +1,26 @@
 """Engineering knowledge rules for IntentForge design review."""
 
 from intentforge.knowledge.compiler import compile_rule, compile_rules
+from intentforge.knowledge.capabilities import (
+    DEFAULT_CAPABILITY_MANIFEST_RESOURCE,
+    CapabilityManifestError,
+    load_capabilities,
+    load_capability_manifest,
+)
+from intentforge.knowledge.capability_schema import (
+    CapabilityDefinition,
+    CapabilityManifest,
+    CapabilityMatrix,
+    CapabilityMatrixRow,
+    CoverageReport,
+    EvidenceReference,
+)
+from intentforge.knowledge.coverage import (
+    CapabilityValidationResult,
+    build_capability_matrix,
+    build_coverage_report,
+    validate_capability_manifest,
+)
 from intentforge.knowledge.evaluator import (
     build_design_metrics,
     evaluate_design,
@@ -47,6 +67,14 @@ __all__ = [
     "DesignKnowledgeRule",
     "KnowledgeFinding",
     "KnowledgeReport",
+    "CapabilityDefinition",
+    "CapabilityManifest",
+    "CapabilityManifestError",
+    "CapabilityMatrix",
+    "CapabilityMatrixRow",
+    "CapabilityValidationResult",
+    "CoverageReport",
+    "EvidenceReference",
     "EngineeringReasoningReport",
     "RuleProvenance",
     "RulePack",
@@ -54,12 +82,15 @@ __all__ = [
     "RulePackValidationResult",
     "RuleRegistry",
     "DEFAULT_BRACKET_PACK_RESOURCES",
+    "DEFAULT_CAPABILITY_MANIFEST_RESOURCE",
     "ALLOWED_CONFLICT_TYPES",
     "ALLOWED_INTERACTION_TYPES",
     "ALLOWED_PRIORITIES",
     "ALLOWED_STEP_TYPES",
     "REASONING_ENGINE_VERSION",
     "build_design_metrics",
+    "build_capability_matrix",
+    "build_coverage_report",
     "build_engineering_reasoning_report",
     "compile_rule",
     "compile_rules",
@@ -68,6 +99,8 @@ __all__ = [
     "evaluate_expression",
     "evaluate_parameter_table",
     "generate_design_rationale",
+    "load_capabilities",
+    "load_capability_manifest",
     "load_rules",
     "load_default_bracket_rule_packs",
     "load_golden_cases",
@@ -79,6 +112,7 @@ __all__ = [
     "run_golden_case",
     "run_reasoning_verification",
     "validate_golden_cases",
+    "validate_capability_manifest",
     "validate_reasoning_metadata",
     "validate_recommendation_applicability",
     "validate_default_rule_packs",

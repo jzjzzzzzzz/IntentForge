@@ -4,6 +4,8 @@ Phase 20 adds the foundation for an engineering knowledge layer in IntentForge.
 
 IntentForge does not replace engineering judgment. It encodes engineering knowledge into explainable validation rules that can support review, recommendations, and design rationale.
 
+The capability coverage layer is separate from rule evaluation. It answers which supported and unsupported capabilities are declared, which rules contribute to them, and what implementation or verification evidence backs each claim. It does not add engineering rules or change rule thresholds.
+
 The knowledge layer does not generate CAD. It does not write CadQuery code, edit topology, run FEA, or claim certified safety. It provides deterministic advisory findings that can be traced back to YAML rules.
 
 ## Purpose

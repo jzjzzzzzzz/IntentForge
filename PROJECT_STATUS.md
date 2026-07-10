@@ -1,6 +1,6 @@
 # Project Status
 
-Current development target: Phase 20.8.1 knowledge rule pack foundation on `main`
+Current development target: Phase 21 engineering knowledge coverage and capability matrix on `main`
 
 Current supported model families:
 
@@ -43,6 +43,7 @@ Current supported model families:
 - Phase 20.6: deterministic engineering reasoning engine
 - Phase 20.7: reasoning verification and golden engineering cases
 - Phase 20.8.1: modular engineering knowledge rule pack foundation
+- Phase 21: engineering knowledge coverage and capability matrix
 
 ## Current Capabilities
 
@@ -89,6 +90,7 @@ Current supported model families:
 - uv development workflow documentation
 - deterministic engineering knowledge rule loading, compilation, evaluation, and rationale generation
 - modular engineering knowledge rule packs with validation and legacy manifest compatibility
+- machine-readable engineering capability coverage and capability matrix
 - deterministic engineering reasoning over knowledge findings, rule interactions, trade-offs, conflicts, priorities, and recommendations
 - golden-case reasoning verification with contradiction and applicability checks
 
@@ -109,6 +111,7 @@ Current supported model families:
 - Phase 18 feature recognition is topology-informed, parameter-aware, and limited to generated supported families
 - Phase 20 engineering knowledge findings are advisory heuristics, not FEA or certified design approval
 - Phase 20.8.1 rule packs organize existing bracket rules; they do not expand support beyond the two supported bracket families
+- Phase 21 capability coverage describes current support and rejection boundaries; it does not add CAD behavior or imply arbitrary CAD support
 - Phase 20.6 engineering reasoning is advisory, deterministic, and rule-driven; it does not run FEA, certify safety, call an LLM, or modify CAD
 - deterministic parser only
 - no freeform hole placement
@@ -163,6 +166,8 @@ Default quality gates require benchmark, sweep, and edit preservation rates of a
 Phase 18 adds a warning-oriented feature recognition section to the technical harness. It reports feature recognition pass rate and warning count without making approximate recognition a strict release gate.
 
 Phase 20.7 extends the engineering reasoning section in the technical harness. It checks deterministic report IDs, golden report ID regressions, unknown rule references, duplicate recommendations, recommendation contradictions, recommendation applicability, limitations, and the focused reasoning benchmark.
+
+Phase 21 adds a capability coverage section. It checks capability manifest validity, rule-to-capability mapping, implementation and verification evidence, explicit limitations for partial capabilities, explicit rejection evidence for unsupported boundaries, unknown references, orphan active rules, and deterministic coverage report IDs.
 
 ## API Contract Status
 

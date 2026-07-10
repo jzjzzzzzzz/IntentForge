@@ -47,13 +47,16 @@ from intentforge.knowledge import (
     RulePackRegistry,
     RuleRegistry,
     REASONING_ENGINE_VERSION,
+    build_capability_matrix,
     build_design_metrics,
+    build_coverage_report,
     build_engineering_reasoning_report,
     evaluate_parameter_table,
     generate_design_rationale,
     load_rules,
     make_knowledge_report,
     render_engineering_reasoning_markdown,
+    validate_capability_manifest,
     validate_reasoning_metadata,
     validate_default_rule_packs,
     validate_rule_data,
@@ -1364,7 +1367,60 @@ def _design_review_command(
     return 0 if validation_report.valid and feature_recognition_report["passed"] else 1
 
 
-def _knowledge_command(action: str) -> int:
+def _print_coverage_report(report) -> None:
+    print("Engineering Knowledge Coverage")
+    print("PASS" if report.passed else "FAIL")
+    print(f"Report ID: {report.report_id}")
+    print(f"Declared capabilities: {report.declared_capability_count}")
+    print(f"Supported: {report.supported_capability_count}")
+    print(f"Partially supported: {report.partially_supported_capability_count}")
+    print(f"Unsupported boundaries: {report.unsupported_capability_count}")
+    print(f"Not applicable: {report.not_applicable_capability_count}")
+    print(f"Active rules: {report.active_rule_count}")
+    print(f"Mapped active rules: {report.mapped_active_rule_count}")
+    print(f"Orphan active rules: {report.orphan_active_rule_count}")
+    print(f"Implementation evidence completeness: {report.implementation_evidence_completeness:.4f}")
+    print(f"Verification evidence completeness: {report.verification_evidence_completeness:.4f}")
+    print("Families:")
+    for family, counts in report.per_family.items():
+        print(
+            f"  - {family}: total {counts['total']}, supported {counts['supported']}, "
+            f"partial {counts['partially_supported']}, unsupported {counts['unsupported']}"
+        )
+    if report.validation_errors:
+        print("Coverage gaps:")
+        for error in report.validation_errors:
+            prefix = error.get("capability_id") or error.get("rule_id") or "manifest"
+            print(f"  - {prefix}: {error.get('message')}")
+    else:
+        print("Coverage gaps: none")
+
+
+def _print_capability_matrix(matrix) -> None:
+    print("Engineering Capability Matrix")
+    print(f"Matrix ID: {matrix.matrix_id}")
+    print(f"Capabilities: {len(matrix.rows)}")
+    print("Status counts:")
+    for status, count in matrix.summary.get("by_status", {}).items():
+        print(f"  - {status}: {count}")
+    print("")
+    for row in matrix.rows:
+        print(row.capability_id)
+        print(f"  family: {row.family}")
+        print(f"  status: {row.status}")
+        print(f"  stages: {', '.join(row.stages)}")
+        print(f"  packs: {', '.join(row.knowledge_packs) if row.knowledge_packs else 'none'}")
+        print(f"  rules: {', '.join(row.rule_ids) if row.rule_ids else 'none'}")
+        print(f"  implementation evidence: {row.implementation_evidence_count}")
+        print(f"  verification evidence: {row.verification_evidence_count}")
+        if row.limitations:
+            print(f"  limitations: {'; '.join(row.limitations)}")
+        if row.rejection_behavior:
+            print(f"  rejection: {row.rejection_behavior}")
+
+
+def _knowledge_command(args) -> int:
+    action = args.knowledge_command
     if action == "list":
         registry = RuleRegistry.load()
         categories = sorted({rule.category for rule in registry.rules})
@@ -1415,6 +1471,41 @@ def _knowledge_command(action: str) -> int:
             pack = warning.get("pack_id") or "unknown pack"
             print(f"- warning {pack}: {warning.get('message')}")
         return 0 if result.passed else 1
+    if action == "coverage":
+        report = build_coverage_report()
+        if getattr(args, "json", False):
+            print(report.to_json(), end="")
+        else:
+            _print_coverage_report(report)
+        return 0 if report.passed else 1
+    if action == "coverage-validate" or action == "capability-validate":
+        result = validate_capability_manifest()
+        print("Engineering capability validation")
+        print("PASS" if result.passed else "FAIL")
+        print(f"{result.capabilities_checked} capabilities checked")
+        print(f"{len(result.errors)} errors")
+        print(f"{len(result.warnings)} warnings")
+        print(f"Active rules: {result.summary.get('active_rule_count', 0)}")
+        print(f"Mapped active rules: {result.summary.get('mapped_active_rule_count', 0)}")
+        print(f"Orphan active rules: {result.summary.get('orphan_active_rule_count', 0)}")
+        print(f"Unknown references: {result.summary.get('unknown_rule_reference_count', 0) + result.summary.get('unknown_pack_reference_count', 0) + result.summary.get('unknown_evidence_reference_count', 0)}")
+        for error in result.errors:
+            prefix = error.get("capability_id") or error.get("rule_id") or "manifest"
+            print(f"- {prefix}: {error.get('message')}")
+        return 0 if result.passed else 1
+    if action == "capability-matrix":
+        matrix = build_capability_matrix(
+            family=getattr(args, "family", None),
+            status=getattr(args, "status", None),
+            stage=getattr(args, "stage", None),
+            knowledge_pack=getattr(args, "knowledge_pack", None),
+            rule_id=getattr(args, "rule_id", None),
+        )
+        if getattr(args, "json", False):
+            print(matrix.to_json(), end="")
+        else:
+            _print_capability_matrix(matrix)
+        return 0
     if action == "reasoning-info":
         print("Engineering reasoning engine")
         print(f"Version: {REASONING_ENGINE_VERSION}")
@@ -1911,6 +2002,37 @@ def _build_parser() -> ArgumentParser:
     knowledge_subparsers.add_parser("validate", help="Validate engineering knowledge rule database integrity.")
     knowledge_subparsers.add_parser("packs", help="List loaded engineering knowledge rule packs.")
     knowledge_subparsers.add_parser("packs-validate", help="Validate engineering knowledge rule pack integrity.")
+    coverage_parser = knowledge_subparsers.add_parser("coverage", help="Summarize engineering capability coverage.")
+    coverage_parser.add_argument("--json", action="store_true", help="Print stable JSON coverage report.")
+    knowledge_subparsers.add_parser("coverage-validate", help="Validate engineering capability coverage declarations.")
+    matrix_parser = knowledge_subparsers.add_parser("capability-matrix", help="Print the engineering capability matrix.")
+    matrix_parser.add_argument("--json", action="store_true", help="Print stable JSON capability matrix.")
+    matrix_parser.add_argument("--family", choices=["wall_mounted_bracket", "l_bracket"], default=None)
+    matrix_parser.add_argument(
+        "--status",
+        choices=["supported", "partially_supported", "unsupported", "not_applicable"],
+        default=None,
+    )
+    matrix_parser.add_argument(
+        "--stage",
+        choices=[
+            "parsing",
+            "intent_schema",
+            "knowledge",
+            "constraint_compilation",
+            "cad_generation",
+            "geometry_validation",
+            "topology_inspection",
+            "feature_recognition",
+            "engineering_reasoning",
+            "golden_verification",
+            "rejection",
+        ],
+        default=None,
+    )
+    matrix_parser.add_argument("--knowledge-pack", default=None, help="Filter by contributing knowledge pack ID.")
+    matrix_parser.add_argument("--rule-id", default=None, help="Filter by contributing knowledge rule ID.")
+    knowledge_subparsers.add_parser("capability-validate", help="Alias for coverage-validate.")
     knowledge_subparsers.add_parser("reasoning-info", help="Describe deterministic engineering reasoning support.")
     knowledge_subparsers.add_parser("reasoning-validate", help="Validate reasoning metadata in engineering rules.")
     knowledge_subparsers.add_parser("reasoning-verify", help="Run golden engineering reasoning verification cases.")
@@ -2063,7 +2185,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "design-review":
             return _design_review_command(args.family, args.knowledge, args.json, args.reasoning)
         if args.command == "knowledge":
-            return _knowledge_command(args.knowledge_command)
+            return _knowledge_command(args)
         if args.command == "volume-delta":
             return _volume_delta_command(args.family)
         if args.command == "sweep":

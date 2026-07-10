@@ -1,0 +1,919 @@
+manifest_version: "1.0"
+generated_by: intentforge
+metadata:
+  purpose: Declarative support boundary and evidence map for IntentForge bracket capabilities.
+  source_of_truth: "This manifest describes product capability claims. Engineering rules remain authoritative in intentforge.knowledge.packs.data."
+capabilities:
+  - capability_id: wall_basic_mounting_plate_generation
+    title: Wall-mounted bracket base plate generation
+    description: Generate a rectangular mounting plate for the wall_mounted_bracket family.
+    family: wall_mounted_bracket
+    status: supported
+    stages: [parsing, intent_schema, cad_generation, geometry_validation]
+    rule_ids: []
+    knowledge_packs: []
+    implementation_evidence:
+      - evidence_type: parser
+        reference: intentforge.parser.requirement_parser
+        description: Deterministic parser recognizes wall-mounted bracket and mounting plate prompts.
+        family: wall_mounted_bracket
+        stage: parsing
+      - evidence_type: generator
+        reference: intentforge.generator.cadquery_generator.build_wall_bracket
+        description: CadQuery generator builds wall-mounted bracket geometry.
+        family: wall_mounted_bracket
+        stage: cad_generation
+      - evidence_type: schema
+        reference: intentforge.schemas.ParameterTable
+        description: Parameter table schema carries wall bracket dimensions.
+        family: wall_mounted_bracket
+        stage: intent_schema
+    verification_evidence:
+      - evidence_type: benchmark_case
+        reference: clean_003
+        description: Plain mounting plate parse-build benchmark case.
+        family: wall_mounted_bracket
+        stage: golden_verification
+      - evidence_type: test
+        reference: tests/test_benchmark.py
+        description: Benchmark loader and runner regression coverage.
+        family: wall_mounted_bracket
+    limitations:
+      - Only rectangular mounting plate style geometry is supported.
+    rejection_behavior: ""
+    provenance:
+      source: deterministic_pipeline
+    version: "1.0"
+
+  - capability_id: wall_no_hole_configuration
+    title: Wall bracket no-hole configuration
+    description: Generate wall-mounted brackets or mounting plates without mounting holes when holes are omitted.
+    family: wall_mounted_bracket
+    status: supported
+    stages: [parsing, intent_schema, cad_generation, geometry_validation, feature_recognition]
+    rule_ids: []
+    knowledge_packs: []
+    implementation_evidence:
+      - evidence_type: parser
+        reference: intentforge.parser.requirement_parser
+        description: Parser recognizes no-hole and plain mounting plate prompts.
+        family: wall_mounted_bracket
+        stage: parsing
+      - evidence_type: generator
+        reference: intentforge.generator.cadquery_generator.build_wall_bracket
+        description: Generator omits mounting holes when the feature is omitted.
+        family: wall_mounted_bracket
+        stage: cad_generation
+    verification_evidence:
+      - evidence_type: benchmark_case
+        reference: hole_001
+        description: No-hole wall bracket benchmark case.
+        family: wall_mounted_bracket
+      - evidence_type: benchmark_case
+        reference: optional_003
+        description: Optional feature benchmark with mounting holes omitted.
+        family: wall_mounted_bracket
+    limitations:
+      - A plain plate remains limited to the wall_mounted_bracket/mounting plate family.
+    rejection_behavior: ""
+    provenance:
+      source: optional_feature_pipeline
+    version: "1.0"
+
+  - capability_id: wall_two_hole_symmetric_horizontal_pattern
+    title: Wall bracket two-hole symmetric horizontal pattern
+    description: Support two symmetric horizontal mounting holes centered on the plate.
+    family: wall_mounted_bracket
+    status: supported
+    stages: [parsing, intent_schema, knowledge, cad_generation, geometry_validation, feature_recognition]
+    rule_ids: [hole_edge_margin_001, hole_spacing_001, fastener_accessibility_001, installation_difficulty_001]
+    knowledge_packs: [bracket_mechanical, bracket_assembly]
+    implementation_evidence:
+      - evidence_type: parser
+        reference: intentforge.parser.requirement_parser
+        description: Parser detects two screw/mounting holes.
+        family: wall_mounted_bracket
+      - evidence_type: generator
+        reference: intentforge.generator.cadquery_generator.build_wall_bracket
+        description: Generator cuts two symmetric horizontal holes from spacing parameters.
+        family: wall_mounted_bracket
+      - evidence_type: validator
+        reference: intentforge.validator.geometry_validator
+        description: Geometry validator checks hole spacing and edge distance.
+        family: wall_mounted_bracket
+    verification_evidence:
+      - evidence_type: benchmark_case
+        reference: hole_002
+        description: Two-hole wall bracket benchmark case.
+        family: wall_mounted_bracket
+      - evidence_type: benchmark_case
+        reference: clean_009
+        description: Clean two-hole parse-build benchmark case.
+        family: wall_mounted_bracket
+    limitations:
+      - Free-form two-hole coordinates are not supported.
+    rejection_behavior: ""
+    provenance:
+      source: hole_pattern_pipeline
+    version: "1.0"
+
+  - capability_id: wall_four_hole_rectangular_corner_pattern
+    title: Wall bracket four-hole rectangular corner pattern
+    description: Support four mounting holes arranged as a rectangular pattern.
+    family: wall_mounted_bracket
+    status: supported
+    stages: [parsing, intent_schema, knowledge, cad_generation, geometry_validation, feature_recognition]
+    rule_ids: [hole_edge_margin_001, hole_spacing_001, fastener_accessibility_001, installation_difficulty_001]
+    knowledge_packs: [bracket_mechanical, bracket_assembly]
+    implementation_evidence:
+      - evidence_type: parser
+        reference: intentforge.parser.requirement_parser
+        description: Parser detects four screw holes and four corner holes.
+        family: wall_mounted_bracket
+      - evidence_type: generator
+        reference: intentforge.generator.cadquery_generator.build_wall_bracket
+        description: Generator cuts rectangular four-hole patterns using x/y spacing.
+        family: wall_mounted_bracket
+      - evidence_type: validator
+        reference: intentforge.validator.geometry_validator
+        description: Validator checks x and y hole spacing against edge distance constraints.
+        family: wall_mounted_bracket
+    verification_evidence:
+      - evidence_type: benchmark_case
+        reference: hole_004
+        description: Four-hole rectangular benchmark case.
+        family: wall_mounted_bracket
+      - evidence_type: benchmark_case
+        reference: clean_002
+        description: Clean four-hole parse-build benchmark case.
+        family: wall_mounted_bracket
+    limitations:
+      - Only rectangular four-hole placement is supported, not circular or diagonal patterns.
+    rejection_behavior: ""
+    provenance:
+      source: hole_pattern_pipeline
+    version: "1.0"
+
+  - capability_id: wall_center_cutout
+    title: Wall bracket optional center cutout
+    description: Support optional rectangular center cutout when requested.
+    family: wall_mounted_bracket
+    status: supported
+    stages: [parsing, intent_schema, knowledge, cad_generation, geometry_validation, feature_recognition]
+    rule_ids: [cutout_stiffness_tradeoff_001, thin_section_warning_001, tool_clearance_001]
+    knowledge_packs: [bracket_structural, bracket_manufacturing]
+    implementation_evidence:
+      - evidence_type: parser
+        reference: intentforge.parser.requirement_parser
+        description: Parser detects center cutout requests.
+        family: wall_mounted_bracket
+      - evidence_type: generator
+        reference: intentforge.generator.cadquery_generator.build_wall_bracket
+        description: Generator cuts the center cutout only when active.
+        family: wall_mounted_bracket
+      - evidence_type: feature_recognizer
+        reference: harness.topology.feature_recognizer.recognize_center_cutout
+        description: Topology-informed recognizer reports center cutout evidence when practical.
+        family: wall_mounted_bracket
+        stage: feature_recognition
+    verification_evidence:
+      - evidence_type: benchmark_case
+        reference: optional_002
+        description: Optional center cutout benchmark case.
+        family: wall_mounted_bracket
+      - evidence_type: reasoning_case
+        reference: reasoning_007_cutout_thin_section
+        description: Golden reasoning case for cutout and thin-section interaction.
+        family: wall_mounted_bracket
+    limitations:
+      - Topology recognition is approximate and does not replace industrial CAD feature recognition.
+    rejection_behavior: ""
+    provenance:
+      source: optional_feature_pipeline
+    version: "1.0"
+
+  - capability_id: wall_rounded_corners
+    title: Wall bracket rounded corners
+    description: Support requested rounded corner intent with conservative validation and limited recognition.
+    family: wall_mounted_bracket
+    status: partially_supported
+    stages: [parsing, intent_schema, knowledge, cad_generation, geometry_validation]
+    rule_ids: [corner_radius_001, manufacturing_simplicity_001]
+    knowledge_packs: [bracket_mechanical, bracket_manufacturing]
+    implementation_evidence:
+      - evidence_type: parser
+        reference: intentforge.parser.requirement_parser
+        description: Parser detects rounded corner requests.
+        family: wall_mounted_bracket
+      - evidence_type: validator
+        reference: intentforge.validator.geometry_validator
+        description: Validator checks requested corner radius when active.
+        family: wall_mounted_bracket
+    verification_evidence:
+      - evidence_type: benchmark_case
+        reference: optional_004
+        description: Rounded-corner optional feature benchmark case.
+        family: wall_mounted_bracket
+    limitations:
+      - Rounded-corner topology recognition is conservative and not a full edge-feature classifier.
+    rejection_behavior: ""
+    provenance:
+      source: optional_feature_pipeline
+    version: "1.0"
+
+  - capability_id: wall_edge_fillets
+    title: Wall bracket optional edge fillets
+    description: Represent and validate edge fillet intent when active, with limited topology recognition.
+    family: wall_mounted_bracket
+    status: partially_supported
+    stages: [intent_schema, knowledge, geometry_validation]
+    rule_ids: [corner_radius_001, manufacturing_simplicity_001]
+    knowledge_packs: [bracket_mechanical, bracket_manufacturing]
+    implementation_evidence:
+      - evidence_type: schema
+        reference: intentforge.schemas.ParameterTable
+        description: Parameter table carries optional edge fillet state and radius.
+        family: wall_mounted_bracket
+      - evidence_type: validator
+        reference: intentforge.validator.geometry_validator
+        description: Validator checks active fillet radius.
+        family: wall_mounted_bracket
+    verification_evidence:
+      - evidence_type: test
+        reference: tests/test_feature_recognition.py
+        description: Feature recognition tests allow structured warnings for practical limits.
+        family: wall_mounted_bracket
+    limitations:
+      - Edge fillet recognition is not yet a robust topology-level feature check.
+    rejection_behavior: ""
+    provenance:
+      source: optional_feature_pipeline
+    version: "1.0"
+
+  - capability_id: wall_geometry_validation
+    title: Wall bracket geometry validation
+    description: Validate dimensions, hole patterns, cutouts, feature flags, and export artifacts for wall brackets.
+    family: wall_mounted_bracket
+    status: supported
+    stages: [geometry_validation, knowledge, constraint_compilation]
+    rule_ids: [hole_edge_margin_001, hole_spacing_001, corner_radius_001, cutout_stiffness_tradeoff_001, thin_section_warning_001, tool_clearance_001]
+    knowledge_packs: [bracket_mechanical, bracket_structural, bracket_manufacturing]
+    implementation_evidence:
+      - evidence_type: validator
+        reference: intentforge.validator.geometry_validator
+        description: Deterministic geometry validator applies parameter and artifact checks.
+        family: wall_mounted_bracket
+      - evidence_type: validator
+        reference: intentforge.validator.intent_validator
+        description: Intent validator checks active feature consistency.
+        family: wall_mounted_bracket
+    verification_evidence:
+      - evidence_type: benchmark_case
+        reference: clean_001
+        description: CAD benchmark verifies valid wall bracket parse-build workflow.
+        family: wall_mounted_bracket
+      - evidence_type: test
+        reference: tests/test_validation.py
+        description: Validation regression tests.
+        family: wall_mounted_bracket
+    limitations:
+      - Validation is parameter- and topology-informed, not certified structural analysis.
+    rejection_behavior: ""
+    provenance:
+      source: validation_pipeline
+    version: "1.0"
+
+  - capability_id: wall_topology_inspection
+    title: Wall bracket topology inspection
+    description: Inspect generated wall bracket shapes for bounding box, volume, and basic topology metrics.
+    family: wall_mounted_bracket
+    status: supported
+    stages: [topology_inspection, geometry_validation]
+    rule_ids: []
+    knowledge_packs: []
+    implementation_evidence:
+      - evidence_type: topology_metric
+        reference: harness.topology.shape_inspector
+        description: Shape inspector extracts CadQuery/OpenCascade topology metrics.
+        family: wall_mounted_bracket
+    verification_evidence:
+      - evidence_type: test
+        reference: tests/test_shape_inspector.py
+        description: Shape inspection tests for wall bracket examples.
+        family: wall_mounted_bracket
+    limitations:
+      - Metrics depend on CadQuery/OpenCascade availability.
+    rejection_behavior: ""
+    provenance:
+      source: topology_harness
+    version: "1.0"
+
+  - capability_id: wall_feature_recognition
+    title: Wall bracket topology-informed feature recognition
+    description: Recognize through holes, center cutout, and basic topology consistency where practical.
+    family: wall_mounted_bracket
+    status: partially_supported
+    stages: [feature_recognition, topology_inspection, geometry_validation]
+    rule_ids: [hole_edge_margin_001, hole_spacing_001, cutout_stiffness_tradeoff_001]
+    knowledge_packs: [bracket_mechanical, bracket_structural]
+    implementation_evidence:
+      - evidence_type: feature_recognizer
+        reference: harness.topology.feature_recognizer.recognize_wall_bracket_features
+        description: Wall bracket feature recognizer reports feature-level topology evidence.
+        family: wall_mounted_bracket
+      - evidence_type: feature_recognizer
+        reference: harness.topology.feature_recognizer.recognize_through_holes
+        description: Through-hole recognizer estimates hole count from cylindrical topology.
+        family: wall_mounted_bracket
+    verification_evidence:
+      - evidence_type: test
+        reference: tests/test_feature_recognition.py
+        description: Feature recognition tests cover wall bracket holes and cutouts.
+        family: wall_mounted_bracket
+    limitations:
+      - Recognition is topology-informed but not full industrial CAD feature recognition.
+    rejection_behavior: ""
+    provenance:
+      source: topology_feature_recognition
+    version: "1.0"
+
+  - capability_id: wall_knowledge_evaluation
+    title: Wall bracket engineering knowledge evaluation
+    description: Evaluate applicable engineering knowledge rules against wall bracket design metrics.
+    family: wall_mounted_bracket
+    status: supported
+    stages: [knowledge, constraint_compilation, geometry_validation]
+    rule_ids: [hole_edge_margin_001, hole_spacing_001, corner_radius_001, tool_clearance_001, manufacturing_simplicity_001, fastener_accessibility_001, installation_difficulty_001, cutout_stiffness_tradeoff_001, thin_section_warning_001]
+    knowledge_packs: [bracket_mechanical, bracket_manufacturing, bracket_assembly, bracket_structural]
+    implementation_evidence:
+      - evidence_type: schema
+        reference: intentforge.knowledge.schema.DesignKnowledgeRule
+        description: Rule schema validates deterministic engineering knowledge rules.
+        family: wall_mounted_bracket
+      - evidence_type: validator
+        reference: intentforge.knowledge.evaluator.evaluate_parameter_table
+        description: Knowledge evaluator applies rules to design metrics.
+        family: wall_mounted_bracket
+    verification_evidence:
+      - evidence_type: test
+        reference: tests/test_rule_evaluator.py
+        description: Knowledge evaluator tests.
+        family: wall_mounted_bracket
+      - evidence_type: reasoning_case
+        reference: reasoning_004_edge_and_spacing
+        description: Golden case uses wall bracket mechanical findings.
+        family: wall_mounted_bracket
+    limitations:
+      - Knowledge findings are heuristic and advisory unless also backed by deterministic geometry validation.
+    rejection_behavior: ""
+    provenance:
+      source: knowledge_rule_system
+    version: "1.0"
+
+  - capability_id: wall_deterministic_engineering_reasoning
+    title: Wall bracket deterministic engineering reasoning
+    description: Connect wall bracket knowledge findings into interactions, trade-offs, conflicts, and recommendations.
+    family: wall_mounted_bracket
+    status: supported
+    stages: [engineering_reasoning, golden_verification, knowledge]
+    rule_ids: [hole_edge_margin_001, hole_spacing_001, corner_radius_001, manufacturing_simplicity_001, fastener_accessibility_001, cutout_stiffness_tradeoff_001, thin_section_warning_001]
+    knowledge_packs: [bracket_mechanical, bracket_manufacturing, bracket_assembly, bracket_structural]
+    implementation_evidence:
+      - evidence_type: schema
+        reference: intentforge.knowledge.reasoning.EngineeringReasoningReport
+        description: Stable reasoning report schema.
+        family: wall_mounted_bracket
+      - evidence_type: validator
+        reference: intentforge.knowledge.reasoning.build_engineering_reasoning_report
+        description: Offline deterministic reasoning engine.
+        family: wall_mounted_bracket
+    verification_evidence:
+      - evidence_type: reasoning_case
+        reference: reasoning_004_edge_and_spacing
+        description: Golden reasoning case for edge margin and spacing conflict.
+        family: wall_mounted_bracket
+      - evidence_type: reasoning_case
+        reference: reasoning_010_plate_size_conflict
+        description: Golden reasoning case for plate-size recommendation conflict.
+        family: wall_mounted_bracket
+    limitations:
+      - Reasoning remains advisory and does not perform FEA or certify safety.
+    rejection_behavior: ""
+    provenance:
+      source: deterministic_reasoning_engine
+    version: "1.0"
+
+  - capability_id: wall_freeform_hole_placement
+    title: Wall bracket free-form hole placement
+    description: Arbitrary coordinate-based hole placement is outside the supported wall bracket scope.
+    family: wall_mounted_bracket
+    status: unsupported
+    stages: [rejection, parsing]
+    rule_ids: []
+    knowledge_packs: []
+    implementation_evidence:
+      - evidence_type: parser
+        reference: intentforge.parser.requirement_parser
+        description: Parser rejects free-form coordinate hole placement.
+        family: wall_mounted_bracket
+        stage: rejection
+    verification_evidence:
+      - evidence_type: rejection_case
+        reference: reject_015
+        description: Rejection benchmark for arbitrary coordinates.
+        family: wall_mounted_bracket
+    limitations:
+      - Only no holes, two horizontal symmetric holes, and four rectangular holes are supported.
+    rejection_behavior: Rejected by deterministic parser; no CAD is exported.
+    provenance:
+      source: explicit_boundary
+    version: "1.0"
+
+  - capability_id: wall_unsupported_hole_patterns
+    title: Wall bracket unsupported hole patterns
+    description: One, three, five-plus, circular, diagonal, and arbitrary hole patterns are outside scope.
+    family: wall_mounted_bracket
+    status: unsupported
+    stages: [rejection, parsing]
+    rule_ids: []
+    knowledge_packs: []
+    implementation_evidence:
+      - evidence_type: parser
+        reference: intentforge.parser.requirement_parser
+        description: Parser rejects unsupported wall bracket hole patterns.
+        family: wall_mounted_bracket
+    verification_evidence:
+      - evidence_type: rejection_case
+        reference: hole_008
+        description: Three-hole wall bracket rejection.
+        family: wall_mounted_bracket
+      - evidence_type: rejection_case
+        reference: hole_009
+        description: Circular hole pattern rejection.
+        family: wall_mounted_bracket
+      - evidence_type: rejection_case
+        reference: hole_010
+        description: Diagonal hole pattern rejection.
+        family: wall_mounted_bracket
+    limitations:
+      - Unsupported hole patterns are rejected rather than approximated.
+    rejection_behavior: Rejected by deterministic parser; no CAD is exported.
+    provenance:
+      source: explicit_boundary
+    version: "1.0"
+
+  - capability_id: wall_arbitrary_cad_rejection
+    title: Wall bracket arbitrary CAD and unsupported object rejection
+    description: Unsupported object requests are rejected instead of being converted into bracket geometry.
+    family: wall_mounted_bracket
+    status: unsupported
+    stages: [rejection, parsing]
+    rule_ids: []
+    knowledge_packs: []
+    implementation_evidence:
+      - evidence_type: parser
+        reference: intentforge.parser.requirement_parser
+        description: Parser restricts object families to supported brackets.
+        family: wall_mounted_bracket
+    verification_evidence:
+      - evidence_type: rejection_case
+        reference: reject_001
+        description: Gear prompt rejection.
+        family: wall_mounted_bracket
+      - evidence_type: rejection_case
+        reference: reject_008
+        description: Enclosure prompt rejection.
+        family: wall_mounted_bracket
+      - evidence_type: rejection_case
+        reference: reject_004
+        description: Drone frame prompt rejection.
+        family: wall_mounted_bracket
+    limitations:
+      - IntentForge is not an arbitrary CAD generator.
+    rejection_behavior: Rejected as unsupported object or unsupported request; no CAD is exported.
+    provenance:
+      source: explicit_boundary
+    version: "1.0"
+
+  - capability_id: l_basic_right_angle_bracket_generation
+    title: L-bracket base and vertical leg generation
+    description: Generate an L-bracket with perpendicular base and vertical rectangular legs.
+    family: l_bracket
+    status: supported
+    stages: [parsing, intent_schema, cad_generation, geometry_validation, topology_inspection]
+    rule_ids: []
+    knowledge_packs: []
+    implementation_evidence:
+      - evidence_type: parser
+        reference: intentforge.parser.requirement_parser
+        description: Parser recognizes L-bracket and right-angle bracket prompts.
+        family: l_bracket
+      - evidence_type: generator
+        reference: intentforge.generator.cadquery_generator.build_l_bracket
+        description: CadQuery generator builds L-bracket base and vertical legs.
+        family: l_bracket
+      - evidence_type: feature_recognizer
+        reference: harness.topology.feature_recognizer.recognize_solid_connectivity
+        description: Connectivity recognizer checks single connected solid where practical.
+        family: l_bracket
+    verification_evidence:
+      - evidence_type: benchmark_case
+        reference: l_clean_001
+        description: Clean L-bracket parse-build benchmark case.
+        family: l_bracket
+      - evidence_type: test
+        reference: tests/test_feature_recognition.py
+        description: L-bracket connected solid recognition tests.
+        family: l_bracket
+    limitations:
+      - Only simple right-angle L-bracket geometry is supported.
+    rejection_behavior: ""
+    provenance:
+      source: deterministic_pipeline
+    version: "1.0"
+
+  - capability_id: l_zero_hole_configuration
+    title: L-bracket zero-hole configuration
+    description: Generate plain L-brackets without base or vertical mounting holes.
+    family: l_bracket
+    status: supported
+    stages: [parsing, intent_schema, cad_generation, geometry_validation]
+    rule_ids: []
+    knowledge_packs: []
+    implementation_evidence:
+      - evidence_type: parser
+        reference: intentforge.parser.requirement_parser
+        description: Parser recognizes plain L-bracket and no-hole prompts.
+        family: l_bracket
+      - evidence_type: generator
+        reference: intentforge.generator.cadquery_generator.build_l_bracket
+        description: Generator omits holes when base and vertical hole features are omitted.
+        family: l_bracket
+    verification_evidence:
+      - evidence_type: benchmark_case
+        reference: l_clean_003
+        description: Plain L-bracket benchmark case.
+        family: l_bracket
+      - evidence_type: benchmark_case
+        reference: l_default_001
+        description: Defaulted plain L-bracket benchmark case.
+        family: l_bracket
+    limitations:
+      - Zero-hole support is limited to the L-bracket family.
+    rejection_behavior: ""
+    provenance:
+      source: optional_feature_pipeline
+    version: "1.0"
+
+  - capability_id: l_two_base_leg_holes
+    title: L-bracket two base-leg holes
+    description: Support zero or two holes on the L-bracket base leg.
+    family: l_bracket
+    status: supported
+    stages: [parsing, intent_schema, knowledge, cad_generation, geometry_validation, feature_recognition]
+    rule_ids: [hole_edge_margin_001, hole_spacing_001, fastener_accessibility_001, installation_difficulty_001]
+    knowledge_packs: [bracket_mechanical, bracket_assembly]
+    implementation_evidence:
+      - evidence_type: parser
+        reference: intentforge.parser.requirement_parser
+        description: Parser detects base-leg holes.
+        family: l_bracket
+      - evidence_type: generator
+        reference: intentforge.generator.cadquery_generator.build_l_bracket
+        description: Generator cuts supported base-leg hole pattern.
+        family: l_bracket
+      - evidence_type: validator
+        reference: intentforge.validator.geometry_validator
+        description: Validator checks base hole fit and spacing.
+        family: l_bracket
+    verification_evidence:
+      - evidence_type: benchmark_case
+        reference: l_clean_004
+        description: L-bracket base-hole benchmark case.
+        family: l_bracket
+      - evidence_type: benchmark_case
+        reference: l_default_002
+        description: Defaulted L-bracket base-hole benchmark case.
+        family: l_bracket
+    limitations:
+      - Only zero or two holes per leg are supported.
+    rejection_behavior: ""
+    provenance:
+      source: l_bracket_hole_pipeline
+    version: "1.0"
+
+  - capability_id: l_two_vertical_leg_holes
+    title: L-bracket two vertical-leg holes
+    description: Support zero or two holes on the L-bracket vertical leg.
+    family: l_bracket
+    status: supported
+    stages: [parsing, intent_schema, knowledge, cad_generation, geometry_validation, feature_recognition]
+    rule_ids: [hole_edge_margin_001, hole_spacing_001, fastener_accessibility_001, installation_difficulty_001]
+    knowledge_packs: [bracket_mechanical, bracket_assembly]
+    implementation_evidence:
+      - evidence_type: parser
+        reference: intentforge.parser.requirement_parser
+        description: Parser detects vertical-face holes.
+        family: l_bracket
+      - evidence_type: generator
+        reference: intentforge.generator.cadquery_generator.build_l_bracket
+        description: Generator cuts supported vertical-leg hole pattern.
+        family: l_bracket
+      - evidence_type: validator
+        reference: intentforge.validator.geometry_validator
+        description: Validator checks vertical hole fit and spacing.
+        family: l_bracket
+    verification_evidence:
+      - evidence_type: benchmark_case
+        reference: l_clean_005
+        description: L-bracket vertical-hole benchmark case.
+        family: l_bracket
+      - evidence_type: benchmark_case
+        reference: l_default_003
+        description: Defaulted L-bracket vertical-hole benchmark case.
+        family: l_bracket
+    limitations:
+      - Only zero or two holes per leg are supported.
+    rejection_behavior: ""
+    provenance:
+      source: l_bracket_hole_pipeline
+    version: "1.0"
+
+  - capability_id: l_triangular_gusset
+    title: L-bracket optional triangular gusset
+    description: Support optional triangular gusset intent and generation when requested.
+    family: l_bracket
+    status: supported
+    stages: [parsing, intent_schema, knowledge, cad_generation, geometry_validation, feature_recognition]
+    rule_ids: [gusset_recommendation_001, manufacturing_simplicity_001, thin_section_warning_001]
+    knowledge_packs: [bracket_mechanical, bracket_manufacturing, bracket_structural]
+    implementation_evidence:
+      - evidence_type: parser
+        reference: intentforge.parser.requirement_parser
+        description: Parser detects triangular gusset prompts.
+        family: l_bracket
+      - evidence_type: generator
+        reference: intentforge.generator.cadquery_generator.build_l_bracket
+        description: Generator adds triangular gusset when active.
+        family: l_bracket
+      - evidence_type: feature_recognizer
+        reference: harness.topology.feature_recognizer.recognize_l_bracket_gusset
+        description: Recognizer reports gusset evidence where practical.
+        family: l_bracket
+    verification_evidence:
+      - evidence_type: benchmark_case
+        reference: l_optional_002
+        description: L-bracket gusset benchmark case.
+        family: l_bracket
+      - evidence_type: reasoning_case
+        reference: reasoning_005_l_gusset_recommended
+        description: Golden reasoning case for gusset recommendation.
+        family: l_bracket
+    limitations:
+      - Gusset reasoning is heuristic and does not quantify bending stiffness.
+    rejection_behavior: ""
+    provenance:
+      source: l_bracket_optional_feature_pipeline
+    version: "1.0"
+
+  - capability_id: l_inside_fillet_intent
+    title: L-bracket inside fillet intent
+    description: Represent and validate inside fillet intent while robust inside-corner geometric filleting remains future work.
+    family: l_bracket
+    status: partially_supported
+    stages: [parsing, intent_schema, knowledge, geometry_validation]
+    rule_ids: [corner_radius_001, manufacturing_simplicity_001]
+    knowledge_packs: [bracket_mechanical, bracket_manufacturing]
+    implementation_evidence:
+      - evidence_type: parser
+        reference: intentforge.parser.requirement_parser
+        description: Parser can represent inside fillet intent.
+        family: l_bracket
+      - evidence_type: validator
+        reference: intentforge.validator.geometry_validator
+        description: Validator checks active fillet dimensions.
+        family: l_bracket
+    verification_evidence:
+      - evidence_type: benchmark_case
+        reference: l_optional_004
+        description: L-bracket inside fillet benchmark case.
+        family: l_bracket
+    limitations:
+      - Robust inside-corner fillet geometry is future work.
+    rejection_behavior: ""
+    provenance:
+      source: l_bracket_optional_feature_pipeline
+    version: "1.0"
+
+  - capability_id: l_geometry_validation
+    title: L-bracket geometry validation
+    description: Validate L-bracket dimensions, hole counts, hole fit, gussets, fillets, and export artifacts.
+    family: l_bracket
+    status: supported
+    stages: [geometry_validation, knowledge, constraint_compilation]
+    rule_ids: [hole_edge_margin_001, hole_spacing_001, gusset_recommendation_001, corner_radius_001, tool_clearance_001, manufacturing_simplicity_001, fastener_accessibility_001, installation_difficulty_001, thin_section_warning_001]
+    knowledge_packs: [bracket_mechanical, bracket_manufacturing, bracket_assembly, bracket_structural]
+    implementation_evidence:
+      - evidence_type: validator
+        reference: intentforge.validator.geometry_validator
+        description: Deterministic L-bracket geometry validator.
+        family: l_bracket
+      - evidence_type: validator
+        reference: intentforge.validator.intent_validator
+        description: Intent validator checks active feature consistency.
+        family: l_bracket
+    verification_evidence:
+      - evidence_type: benchmark_case
+        reference: l_clean_002
+        description: L-bracket holes parse-build benchmark case.
+        family: l_bracket
+      - evidence_type: test
+        reference: tests/test_validation.py
+        description: Validation regression tests.
+        family: l_bracket
+    limitations:
+      - Validation is parameter- and topology-informed, not certified structural analysis.
+    rejection_behavior: ""
+    provenance:
+      source: validation_pipeline
+    version: "1.0"
+
+  - capability_id: l_topology_inspection
+    title: L-bracket topology inspection
+    description: Inspect L-bracket bounding box, volume, connected solid count, and related topology metrics.
+    family: l_bracket
+    status: supported
+    stages: [topology_inspection, geometry_validation]
+    rule_ids: []
+    knowledge_packs: []
+    implementation_evidence:
+      - evidence_type: topology_metric
+        reference: harness.topology.shape_inspector
+        description: Shape inspector extracts CadQuery/OpenCascade topology metrics.
+        family: l_bracket
+    verification_evidence:
+      - evidence_type: test
+        reference: tests/test_shape_inspector.py
+        description: Shape inspection tests for L-bracket examples.
+        family: l_bracket
+    limitations:
+      - Metrics depend on CadQuery/OpenCascade availability.
+    rejection_behavior: ""
+    provenance:
+      source: topology_harness
+    version: "1.0"
+
+  - capability_id: l_feature_recognition
+    title: L-bracket topology-informed feature recognition
+    description: Recognize connected L-bracket solid, leg connectivity, holes, and gusset where practical.
+    family: l_bracket
+    status: partially_supported
+    stages: [feature_recognition, topology_inspection, geometry_validation]
+    rule_ids: [hole_edge_margin_001, hole_spacing_001, gusset_recommendation_001]
+    knowledge_packs: [bracket_mechanical]
+    implementation_evidence:
+      - evidence_type: feature_recognizer
+        reference: harness.topology.feature_recognizer.recognize_l_bracket_features
+        description: L-bracket feature recognizer reports topology-informed features.
+        family: l_bracket
+      - evidence_type: feature_recognizer
+        reference: harness.topology.feature_recognizer.recognize_solid_connectivity
+        description: Connectivity recognizer checks L-bracket solid connection.
+        family: l_bracket
+    verification_evidence:
+      - evidence_type: test
+        reference: tests/test_feature_recognition.py
+        description: L-bracket feature recognition tests.
+        family: l_bracket
+    limitations:
+      - Recognition remains approximate and does not identify every CAD feature topologically.
+    rejection_behavior: ""
+    provenance:
+      source: topology_feature_recognition
+    version: "1.0"
+
+  - capability_id: l_knowledge_evaluation
+    title: L-bracket engineering knowledge evaluation
+    description: Evaluate applicable engineering knowledge rules against L-bracket design metrics.
+    family: l_bracket
+    status: supported
+    stages: [knowledge, constraint_compilation, geometry_validation]
+    rule_ids: [hole_edge_margin_001, hole_spacing_001, gusset_recommendation_001, corner_radius_001, tool_clearance_001, manufacturing_simplicity_001, fastener_accessibility_001, installation_difficulty_001, thin_section_warning_001]
+    knowledge_packs: [bracket_mechanical, bracket_manufacturing, bracket_assembly, bracket_structural]
+    implementation_evidence:
+      - evidence_type: schema
+        reference: intentforge.knowledge.schema.DesignKnowledgeRule
+        description: Rule schema validates deterministic engineering knowledge rules.
+        family: l_bracket
+      - evidence_type: validator
+        reference: intentforge.knowledge.evaluator.evaluate_parameter_table
+        description: Knowledge evaluator applies L-bracket rules to design metrics.
+        family: l_bracket
+    verification_evidence:
+      - evidence_type: test
+        reference: tests/test_rule_evaluator.py
+        description: Knowledge evaluator tests.
+        family: l_bracket
+      - evidence_type: reasoning_case
+        reference: reasoning_005_l_gusset_recommended
+        description: Golden case uses L-bracket gusset knowledge.
+        family: l_bracket
+    limitations:
+      - Knowledge findings are heuristic and advisory unless backed by deterministic geometry validation.
+    rejection_behavior: ""
+    provenance:
+      source: knowledge_rule_system
+    version: "1.0"
+
+  - capability_id: l_deterministic_engineering_reasoning
+    title: L-bracket deterministic engineering reasoning
+    description: Connect L-bracket knowledge findings into interactions, trade-offs, conflicts, and recommendations.
+    family: l_bracket
+    status: supported
+    stages: [engineering_reasoning, golden_verification, knowledge]
+    rule_ids: [gusset_recommendation_001, manufacturing_simplicity_001, thin_section_warning_001, hole_edge_margin_001, hole_spacing_001, fastener_accessibility_001]
+    knowledge_packs: [bracket_mechanical, bracket_manufacturing, bracket_structural, bracket_assembly]
+    implementation_evidence:
+      - evidence_type: schema
+        reference: intentforge.knowledge.reasoning.EngineeringReasoningReport
+        description: Stable reasoning report schema.
+        family: l_bracket
+      - evidence_type: validator
+        reference: intentforge.knowledge.reasoning.build_engineering_reasoning_report
+        description: Offline deterministic reasoning engine.
+        family: l_bracket
+    verification_evidence:
+      - evidence_type: reasoning_case
+        reference: reasoning_005_l_gusset_recommended
+        description: Golden reasoning case for L-bracket gusset recommendation.
+        family: l_bracket
+      - evidence_type: reasoning_case
+        reference: reasoning_006_l_gusset_present
+        description: Golden reasoning case for L-bracket with gusset.
+        family: l_bracket
+    limitations:
+      - Reasoning remains advisory and does not perform FEA or certify safety.
+    rejection_behavior: ""
+    provenance:
+      source: deterministic_reasoning_engine
+    version: "1.0"
+
+  - capability_id: l_four_hole_pattern
+    title: L-bracket four-hole pattern
+    description: Four-hole L-bracket patterns are outside current scope.
+    family: l_bracket
+    status: unsupported
+    stages: [rejection, parsing]
+    rule_ids: []
+    knowledge_packs: []
+    implementation_evidence:
+      - evidence_type: parser
+        reference: intentforge.parser.requirement_parser
+        description: Parser rejects unsupported L-bracket four-hole patterns.
+        family: l_bracket
+    verification_evidence:
+      - evidence_type: rejection_case
+        reference: l_reject_002
+        description: Four-hole L-bracket rejection case.
+        family: l_bracket
+    limitations:
+      - L-bracket supports only zero or two holes per leg.
+    rejection_behavior: Rejected by deterministic parser; no CAD is exported.
+    provenance:
+      source: explicit_boundary
+    version: "1.0"
+
+  - capability_id: l_curved_adjustable_or_sheet_metal_bracket
+    title: L-bracket curved, adjustable, and sheet-metal flat-pattern variants
+    description: Curved, adjustable, and sheet-metal unfolding variants are outside current scope.
+    family: l_bracket
+    status: unsupported
+    stages: [rejection, parsing]
+    rule_ids: []
+    knowledge_packs: []
+    implementation_evidence:
+      - evidence_type: parser
+        reference: intentforge.parser.requirement_parser
+        description: Parser rejects unsupported L-bracket geometry variants.
+        family: l_bracket
+    verification_evidence:
+      - evidence_type: rejection_case
+        reference: l_reject_001
+        description: Curved L-bracket rejection case.
+        family: l_bracket
+      - evidence_type: rejection_case
+        reference: l_reject_004
+        description: Flat pattern rejection case.
+        family: l_bracket
+      - evidence_type: rejection_case
+        reference: l_reject_005
+        description: Adjustable L-bracket rejection case.
+        family: l_bracket
+    limitations:
+      - Only simple right-angle L-brackets are supported.
+    rejection_behavior: Rejected by deterministic parser; no CAD is exported.
+    provenance:
+      source: explicit_boundary
+    version: "1.0"
+
+cross_cutting_rules: {}

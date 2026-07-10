@@ -34,6 +34,7 @@ from intentforge.schemas import ParameterTable
 from intentforge.knowledge import (
     RulePackRegistry,
     RuleRegistry,
+    build_coverage_report,
     build_design_metrics,
     build_engineering_reasoning_report,
     evaluate_parameter_table,
@@ -72,6 +73,15 @@ QUALITY_GATES: dict[str, float | int] = {
     "rule_pack_unknown_rule_reference_count_max": 0,
     "legacy_compatibility_passed_min": 1,
     "rule_pack_reasoning_regression_pass_rate_min": 1.0,
+    "capability_manifest_valid_min": 1,
+    "capability_duplicate_id_count_max": 0,
+    "capability_unknown_reference_count_max": 0,
+    "capability_supported_missing_implementation_count_max": 0,
+    "capability_supported_missing_verification_count_max": 0,
+    "capability_partial_missing_limitation_count_max": 0,
+    "capability_unsupported_missing_boundary_count_max": 0,
+    "capability_orphan_rule_count_max": 0,
+    "capability_nondeterministic_report_count_max": 0,
 }
 
 
@@ -467,6 +477,46 @@ def _rule_pack_section(run_dir: Path) -> dict[str, Any]:
     return report
 
 
+def _capability_coverage_section(run_dir: Path) -> dict[str, Any]:
+    coverage_dir = run_dir / "capability_coverage"
+    first_report = build_coverage_report()
+    second_report = build_coverage_report()
+    nondeterministic_count = 0 if first_report.report_id == second_report.report_id else 1
+    report_data = first_report.model_dump(mode="json")
+    unknown_reference_count = (
+        len(first_report.unknown_rule_references)
+        + len(first_report.unknown_pack_references)
+        + len(first_report.unknown_evidence_references)
+    )
+    result = {
+        "passed": first_report.passed and nondeterministic_count == 0,
+        "capability_manifest_valid": first_report.passed,
+        "capability_count": first_report.declared_capability_count,
+        "supported_capability_count": first_report.supported_capability_count,
+        "partial_capability_count": first_report.partially_supported_capability_count,
+        "unsupported_capability_count": first_report.unsupported_capability_count,
+        "active_rule_count": first_report.active_rule_count,
+        "mapped_rule_count": first_report.mapped_active_rule_count,
+        "orphan_rule_count": first_report.orphan_active_rule_count,
+        "unknown_reference_count": unknown_reference_count,
+        "duplicate_capability_id_count": len(first_report.duplicate_capability_ids),
+        "duplicate_evidence_reference_count": len(first_report.duplicate_evidence_references),
+        "supported_missing_implementation_count": len(first_report.supported_capabilities_missing_implementation_evidence),
+        "supported_missing_verification_count": len(first_report.supported_capabilities_missing_verification_evidence),
+        "partial_missing_limitation_count": len(first_report.partial_capabilities_missing_limitations),
+        "unsupported_missing_boundary_count": len(first_report.unsupported_capabilities_missing_rejection_or_boundary_evidence),
+        "implementation_evidence_completeness": first_report.implementation_evidence_completeness,
+        "verification_evidence_completeness": first_report.verification_evidence_completeness,
+        "nondeterministic_report_count": nondeterministic_count,
+        "coverage_gate_passed": first_report.passed and nondeterministic_count == 0,
+        "coverage_report": report_data,
+    }
+    report_path = coverage_dir / "capability_coverage_report.json"
+    _write_json(result, report_path)
+    result["report_path"] = str(report_path)
+    return result
+
+
 def _demo_section(output_root: Path) -> dict[str, Any]:
     from intentforge.demo_runner import run_demo
 
@@ -508,6 +558,7 @@ def _build_metrics(sections: dict[str, dict[str, Any]]) -> dict[str, float | int
     feature_recognition = sections.get("feature_recognition", {})
     reasoning = sections.get("engineering_reasoning", {})
     rule_packs = sections.get("rule_packs", {})
+    capability_coverage = sections.get("capability_coverage", {})
     demo = sections.get("demo", {})
 
     unexpected_failure_count = int(benchmark.get("failed_cases", 0) or 0)
@@ -519,6 +570,7 @@ def _build_metrics(sections: dict[str, dict[str, Any]]) -> dict[str, float | int
     unexpected_failure_count += len(reasoning.get("failed_families", []) or [])
     unexpected_failure_count += int(rule_packs.get("invalid_pack_count", 0) or 0)
     unexpected_failure_count += 0 if rule_packs.get("legacy_compatibility_passed", True) else 1
+    unexpected_failure_count += 0 if capability_coverage.get("passed", True) else 1
     unexpected_failure_count += int(demo.get("failed_step_count", 0) or 0)
     unexpected_failure_count += sum(_section_error_count(section) for section in sections.values())
 
@@ -554,6 +606,23 @@ def _build_metrics(sections: dict[str, dict[str, Any]]) -> dict[str, float | int
         "rule_pack_unknown_rule_reference_count": int(rule_packs.get("unknown_rule_reference_count", 0) or 0),
         "legacy_compatibility_passed": 1 if rule_packs.get("legacy_compatibility_passed", False) else 0,
         "rule_pack_reasoning_regression_pass_rate": float(rule_packs.get("reasoning_regression_pass_rate", 0.0) or 0.0),
+        "capability_manifest_valid": 1 if capability_coverage.get("capability_manifest_valid", False) else 0,
+        "capability_count": int(capability_coverage.get("capability_count", 0) or 0),
+        "supported_capability_count": int(capability_coverage.get("supported_capability_count", 0) or 0),
+        "partial_capability_count": int(capability_coverage.get("partial_capability_count", 0) or 0),
+        "unsupported_capability_count": int(capability_coverage.get("unsupported_capability_count", 0) or 0),
+        "capability_active_rule_count": int(capability_coverage.get("active_rule_count", 0) or 0),
+        "capability_mapped_rule_count": int(capability_coverage.get("mapped_rule_count", 0) or 0),
+        "capability_orphan_rule_count": int(capability_coverage.get("orphan_rule_count", 0) or 0),
+        "capability_unknown_reference_count": int(capability_coverage.get("unknown_reference_count", 0) or 0),
+        "capability_duplicate_id_count": int(capability_coverage.get("duplicate_capability_id_count", 0) or 0),
+        "capability_supported_missing_implementation_count": int(capability_coverage.get("supported_missing_implementation_count", 0) or 0),
+        "capability_supported_missing_verification_count": int(capability_coverage.get("supported_missing_verification_count", 0) or 0),
+        "capability_partial_missing_limitation_count": int(capability_coverage.get("partial_missing_limitation_count", 0) or 0),
+        "capability_unsupported_missing_boundary_count": int(capability_coverage.get("unsupported_missing_boundary_count", 0) or 0),
+        "capability_implementation_evidence_completeness": float(capability_coverage.get("implementation_evidence_completeness", 0.0) or 0.0),
+        "capability_verification_evidence_completeness": float(capability_coverage.get("verification_evidence_completeness", 0.0) or 0.0),
+        "capability_nondeterministic_report_count": int(capability_coverage.get("nondeterministic_report_count", 0) or 0),
         "unexpected_failure_count": unexpected_failure_count,
         "unsafe_acceptance_count": unsafe_acceptance_count,
         "unexpected_exception_count": unexpected_exception_count,
@@ -594,6 +663,15 @@ def compute_quality_gates(report: dict[str, Any]) -> dict[str, Any]:
         ("rule_pack_unknown_rule_reference_count_max", "rule_pack_unknown_rule_reference_count", "<="),
         ("legacy_compatibility_passed_min", "legacy_compatibility_passed", ">="),
         ("rule_pack_reasoning_regression_pass_rate_min", "rule_pack_reasoning_regression_pass_rate", ">="),
+        ("capability_manifest_valid_min", "capability_manifest_valid", ">="),
+        ("capability_duplicate_id_count_max", "capability_duplicate_id_count", "<="),
+        ("capability_unknown_reference_count_max", "capability_unknown_reference_count", "<="),
+        ("capability_supported_missing_implementation_count_max", "capability_supported_missing_implementation_count", "<="),
+        ("capability_supported_missing_verification_count_max", "capability_supported_missing_verification_count", "<="),
+        ("capability_partial_missing_limitation_count_max", "capability_partial_missing_limitation_count", "<="),
+        ("capability_unsupported_missing_boundary_count_max", "capability_unsupported_missing_boundary_count", "<="),
+        ("capability_orphan_rule_count_max", "capability_orphan_rule_count", "<="),
+        ("capability_nondeterministic_report_count_max", "capability_nondeterministic_report_count", "<="),
     )
     for gate_name, metric_name, operator in gate_specs:
         expected = gates[gate_name]
@@ -647,6 +725,17 @@ def _build_summary(report: dict[str, Any]) -> str:
         f"  - rule_pack_unknown_rule_reference_count: {int(metrics.get('rule_pack_unknown_rule_reference_count', 0))}",
         f"  - legacy_compatibility_passed: {int(metrics.get('legacy_compatibility_passed', 0))}",
         f"  - rule_pack_reasoning_regression_pass_rate: {float(metrics.get('rule_pack_reasoning_regression_pass_rate', 0.0)):.4f}",
+        f"  - capability_manifest_valid: {int(metrics.get('capability_manifest_valid', 0))}",
+        f"  - capability_count: {int(metrics.get('capability_count', 0))}",
+        f"  - supported_capability_count: {int(metrics.get('supported_capability_count', 0))}",
+        f"  - partial_capability_count: {int(metrics.get('partial_capability_count', 0))}",
+        f"  - unsupported_capability_count: {int(metrics.get('unsupported_capability_count', 0))}",
+        f"  - capability_mapped_rule_count: {int(metrics.get('capability_mapped_rule_count', 0))}",
+        f"  - capability_orphan_rule_count: {int(metrics.get('capability_orphan_rule_count', 0))}",
+        f"  - capability_unknown_reference_count: {int(metrics.get('capability_unknown_reference_count', 0))}",
+        f"  - capability_implementation_evidence_completeness: {float(metrics.get('capability_implementation_evidence_completeness', 0.0)):.4f}",
+        f"  - capability_verification_evidence_completeness: {float(metrics.get('capability_verification_evidence_completeness', 0.0)):.4f}",
+        f"  - capability_nondeterministic_report_count: {int(metrics.get('capability_nondeterministic_report_count', 0))}",
         f"  - unexpected_failure_count: {metrics['unexpected_failure_count']}",
         f"  - unsafe_acceptance_count: {metrics['unsafe_acceptance_count']}",
         f"  - unexpected_exception_count: {metrics['unexpected_exception_count']}",
@@ -739,6 +828,10 @@ def run_technical_harness(
         "rule_packs": _run_section(
             "rule_packs",
             lambda: _rule_pack_section(run_context.run_dir),
+        ),
+        "capability_coverage": _run_section(
+            "capability_coverage",
+            lambda: _capability_coverage_section(run_context.run_dir),
         ),
     }
     if include_demo:

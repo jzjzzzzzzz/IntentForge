@@ -4,6 +4,8 @@ Phase 20.6 adds a deterministic engineering reasoning layer on top of the engine
 
 The reasoning engine connects evaluated knowledge findings into traceable explanations. It does not generate CAD, edit geometry, run FEA, call an LLM, or claim safety certification.
 
+Capability coverage is a separate QA layer. It verifies that declared reasoning capabilities point to golden reasoning cases and stable implementation evidence, while preserving the reasoning engine's deterministic behavior.
+
 ## Purpose
 
 The knowledge layer can report that a rule passed or failed. The reasoning layer explains how findings relate:

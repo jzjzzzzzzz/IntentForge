@@ -19,6 +19,8 @@ rule pack YAML
 
 Downstream evaluation and reasoning still consume `DesignKnowledgeRule` objects. The pack layer is a management layer above the existing flattened rule interface.
 
+Phase 21 adds a separate capability manifest. That manifest describes product support claims and points to rule packs, rule IDs, implementation evidence, and verification evidence. It does not become a second engineering rule database.
+
 ## Structure
 
 Each pack includes:
@@ -97,6 +99,8 @@ IntentForge separates several version concepts:
 - reasoning engine version: version of deterministic reasoning behavior
 
 This separation supports reproducibility. The same input, same rule IDs, same rule versions, same pack versions, and same reasoning engine version should produce the same knowledge and reasoning results.
+
+Capability manifest version is another separate concept. It versions support declarations, not engineering formulas.
 
 ## Packaging
 
