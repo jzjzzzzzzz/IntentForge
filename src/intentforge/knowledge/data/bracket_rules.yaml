@@ -1,5 +1,9 @@
 rules:
   - id: hole_edge_margin_001
+    rule_version: "1.0"
+    status: active
+    created_by: intentforge-team
+    last_updated: "2026-07-10"
     name: Hole Edge Margin
     category: mechanical
     description: Hole edge distance is below the recommended margin for local material strength.
@@ -15,6 +19,10 @@ rules:
     confidence: 0.9
 
   - id: hole_spacing_001
+    rule_version: "1.0"
+    status: active
+    created_by: intentforge-team
+    last_updated: "2026-07-10"
     name: Hole Spacing
     category: mechanical
     description: Hole spacing is below the recommended spacing between fasteners.
@@ -30,6 +38,10 @@ rules:
     confidence: 0.86
 
   - id: gusset_recommendation_001
+    rule_version: "1.0"
+    status: active
+    created_by: intentforge-team
+    last_updated: "2026-07-10"
     name: L-Bracket Gusset Recommendation
     category: mechanical
     description: Tall vertical L-bracket legs with low thickness may benefit from a triangular gusset.
@@ -43,6 +55,10 @@ rules:
     confidence: 0.72
 
   - id: corner_radius_001
+    rule_version: "1.0"
+    status: active
+    created_by: intentforge-team
+    last_updated: "2026-07-10"
     name: Corner Radius
     category: mechanical
     description: Requested corner radius is small relative to material thickness.
@@ -58,6 +74,10 @@ rules:
     confidence: 0.7
 
   - id: tool_clearance_001
+    rule_version: "1.0"
+    status: active
+    created_by: intentforge-team
+    last_updated: "2026-07-10"
     name: Tool Clearance
     category: manufacturing
     description: Small features may limit machining or cutting-tool accessibility.
@@ -71,6 +91,10 @@ rules:
     confidence: 0.62
 
   - id: manufacturing_simplicity_001
+    rule_version: "1.0"
+    status: active
+    created_by: intentforge-team
+    last_updated: "2026-07-10"
     name: Manufacturing Simplicity
     category: manufacturing
     description: The design includes several optional features that may add manufacturing complexity.
@@ -84,6 +108,10 @@ rules:
     confidence: 0.6
 
   - id: fastener_accessibility_001
+    rule_version: "1.0"
+    status: active
+    created_by: intentforge-team
+    last_updated: "2026-07-10"
     name: Fastener Accessibility
     category: assembly
     description: Fastener clearance near the edge may make installation or tool access difficult.
@@ -99,6 +127,10 @@ rules:
     confidence: 0.64
 
   - id: installation_difficulty_001
+    rule_version: "1.0"
+    status: active
+    created_by: intentforge-team
+    last_updated: "2026-07-10"
     name: Installation Difficulty
     category: assembly
     description: Bracket width is low relative to fastener diameter, which can make handling and installation harder.
@@ -114,6 +146,10 @@ rules:
     confidence: 0.58
 
   - id: cutout_stiffness_tradeoff_001
+    rule_version: "1.0"
+    status: active
+    created_by: intentforge-team
+    last_updated: "2026-07-10"
     name: Cutout Stiffness Tradeoff
     category: structural
     description: Center cutout area is large enough to meaningfully reduce plate stiffness.
@@ -129,6 +165,10 @@ rules:
     confidence: 0.68
 
   - id: thin_section_warning_001
+    rule_version: "1.0"
+    status: active
+    created_by: intentforge-team
+    last_updated: "2026-07-10"
     name: Thin Section Warning
     category: structural
     description: Remaining material section is thin relative to plate thickness.

@@ -21,19 +21,22 @@ def generate_design_rationale(findings: list[KnowledgeFinding]) -> str:
 
     for finding in findings:
         status = "PASS" if finding.passed else finding.severity.upper()
+        version = finding.metadata.get("rule_version", "unknown")
         lines.extend(
             [
                 f"## {status}: {finding.rule_name}",
                 "",
-                finding.message,
+                f"Rule: {finding.rule_id}",
                 "",
-                "Engineering reason:",
-                finding.metadata.get("expression", "No machine-readable expression was recorded."),
+                f"Version: {version}",
+                "",
+                f"Confidence: {finding.confidence:.2f}",
+                "",
+                "Reason:",
+                finding.message,
                 "",
                 "Recommendation:",
                 finding.recommendation,
-                "",
-                f"Confidence: {finding.confidence:.2f}",
                 "",
             ]
         )

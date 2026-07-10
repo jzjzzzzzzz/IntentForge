@@ -15,6 +15,11 @@ def compile_rule(rule: DesignKnowledgeRule) -> CompiledConstraint:
         expression=rule.condition["expression"].strip(),
         source="engineering_rule",
         confidence=rule.confidence,
+        metadata={
+            "rule_version": rule.rule_version,
+            "status": rule.status,
+            "source_reference": rule.source_reference,
+        },
     )
 
 

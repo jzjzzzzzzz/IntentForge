@@ -25,6 +25,8 @@ This helps IntentForge explain why a generated design may be acceptable, risky, 
 The implementation lives under `src/intentforge/knowledge/`:
 
 - `schema.py`: Pydantic models for rules, findings, and compiled constraints
+- `provenance.py`: provenance records for source, confidence, and verification level
+- `report.py`: stable JSON report schema and export helpers
 - `rules.py`: YAML loader and in-memory rule registry
 - `compiler.py`: transforms rules into machine-readable constraints
 - `evaluator.py`: evaluates declarative rule expressions against deterministic metrics
@@ -38,6 +40,10 @@ Rules are data, not Python logic:
 ```yaml
 rules:
   - id: hole_edge_margin_001
+    rule_version: "1.0"
+    status: active
+    created_by: intentforge-team
+    last_updated: "2026-07-10"
     name: Hole Edge Margin
     category: mechanical
     description: Hole edge distance is below the recommended margin.
@@ -54,6 +60,46 @@ rules:
 ```
 
 The evaluator supports a restricted expression language for arithmetic, boolean, and comparison operations. It does not use `eval()` and does not allow function calls, attribute access, imports, or arbitrary Python execution.
+
+Older rule YAML files without lifecycle metadata still load. IntentForge applies safe defaults:
+
+- `rule_version: "1.0"`
+- `status: active`
+- `created_by: intentforge-team`
+- `last_updated: "2026-07-10"`
+
+## Rule Lifecycle
+
+The intended rule lifecycle is:
+
+```text
+Draft
+-> Validated
+-> Active
+-> Deprecated
+```
+
+Only `active` and `deprecated` are currently encoded in the stable schema. Draft and validated states are workflow concepts used before a rule enters the packaged rule database.
+
+Active rules are evaluated. Deprecated rules may remain in the database for traceability but are not applied by the evaluator.
+
+## Confidence Model
+
+Confidence does not mean mathematical proof.
+
+It represents the reliability of the engineering knowledge source and the fit of the heuristic to IntentForge's supported model families. A confidence value near `1.0` means the rule is considered a stronger design heuristic. It still does not imply simulation accuracy, certification, or guaranteed safety.
+
+## Reproducibility
+
+Engineering reports must be reproducible.
+
+The same intent, same parameter table, same feature flags, same rule IDs, and same rule versions should produce the same knowledge findings. Rule IDs are stable human-readable identifiers such as:
+
+```text
+hole_edge_margin_001
+```
+
+IntentForge does not generate random rule IDs. JSON knowledge report IDs are derived deterministically from checked rule IDs, rule versions, pass/fail states, and severities.
 
 ## Initial Rule Categories
 
@@ -75,11 +121,23 @@ List loaded engineering rules:
 python -m intentforge.cli knowledge list
 ```
 
+Validate packaged rules:
+
+```bash
+python -m intentforge.cli knowledge validate
+```
+
 Generate a design review with knowledge findings:
 
 ```bash
 python -m intentforge.cli design-review wall_mounted_bracket --knowledge
 python -m intentforge.cli design-review l_bracket --knowledge
+```
+
+Write both Markdown rationale and standalone JSON knowledge report:
+
+```bash
+python -m intentforge.cli design-review wall_mounted_bracket --knowledge --json
 ```
 
 Knowledge-enhanced design review writes:
@@ -88,6 +146,7 @@ Knowledge-enhanced design review writes:
 output/design_review_report.json
 output/design_review_summary.md
 output/design_knowledge_rationale.md
+output/knowledge_report.json
 output/design_review_runs/<run_id>/
 ```
 

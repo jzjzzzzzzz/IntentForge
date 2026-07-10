@@ -26,5 +26,6 @@ def test_knowledge_list_cli(capsys) -> None:
 
     output = capsys.readouterr().out
     assert result == 0
-    assert "Loaded engineering rules:" in output
-    assert "mechanical" in output
+    assert "Engineering Knowledge Rules" in output
+    assert "Total:" in output
+    assert "Mechanical:" in output

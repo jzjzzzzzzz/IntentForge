@@ -267,8 +267,15 @@ def evaluate_design(
     for rule in rules if rules is not None else load_rules():
         if family not in rule.applies_to:
             continue
+        if rule.status != "active":
+            continue
         metadata: dict[str, Any] = {
             "expression": rule.condition["expression"],
+            "rule_version": rule.rule_version,
+            "rule_status": rule.status,
+            "source_reference": rule.source_reference,
+            "created_by": rule.created_by,
+            "last_updated": rule.last_updated,
             "metrics": {key: metrics.get(key) for key in rule.condition.get("required_metrics", [])},
         }
         try:
