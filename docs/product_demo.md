@@ -267,3 +267,15 @@ Key fields:
 | `error` | object | ToolError on failure (error_type, message, recoverable) |
 | `warnings` | list | Non-fatal warnings |
 | `metadata` | object | Run summary and extra metadata |
+
+## Review-policy CLI
+
+Phase 24 review policies are currently exposed through the Python library and CLI rather than new HTTP endpoints. This keeps the HTTP contract unchanged while review decisions stabilize.
+
+```bash
+intentforge assurance build --profile standard --dry-run
+intentforge review evaluate output/assurance/assurance_case.json \
+  --policy intentforge_standard_design_review_v1
+```
+
+The decision is scoped to the recorded assurance observations. It is not regulatory approval or production authorization.

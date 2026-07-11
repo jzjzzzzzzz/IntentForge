@@ -1,6 +1,7 @@
 """Deterministic per-design assurance cases and audit packages."""
 
 from intentforge.assurance.audit_package import (
+    attach_review_decision_to_audit_package,
     build_audit_package,
     compute_audit_package_id,
     inspect_audit_package,
@@ -29,6 +30,7 @@ __all__ = [
     "AssuranceClaim",
     "LimitationRecord",
     "ValidationObservation",
+    "attach_review_decision_to_audit_package",
     "build_assurance_case",
     "build_assurance_from_prompt",
     "build_audit_package",

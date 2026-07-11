@@ -1,5 +1,7 @@
 # Engineering Evidence Trust Report
 
+The project-level trust report and the run-level review decision answer different questions. Trust reports summarize evidence completeness for declared capabilities; review decisions determine whether one assurance case satisfies one explicit policy. Neither is an opaque aggregate trust score or engineering certification.
+
 Phase 22 adds a deterministic trust report for declared IntentForge capability evidence.
 
 Project-level trust reports describe evidence for declared framework capabilities. Phase 23 assurance cases separately record whether a capability was exercised and observed in one design run. A complete project evidence bundle does not automatically prove a run-level geometry claim.

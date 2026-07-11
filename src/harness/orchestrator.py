@@ -47,6 +47,16 @@ from intentforge.knowledge import (
 )
 from intentforge.knowledge.reasoning.benchmark import run_reasoning_benchmark
 from intentforge.assurance import build_assurance_case, build_audit_package, validate_assurance_case
+from intentforge.assurance.schema import AssuranceCase
+from intentforge.review import (
+    ReviewEvaluationError,
+    evaluate_assurance_case,
+    get_review_policy,
+    load_review_policies,
+    validate_review_decision,
+    validate_review_policy,
+    validate_review_policy_manifest,
+)
 from intentforge.workflows import edit_parse_apply_workflow, parse_build_workflow
 
 SUPPORTED_MODEL_FAMILIES = ("wall_mounted_bracket", "l_bracket")
@@ -111,6 +121,22 @@ QUALITY_GATES: dict[str, float | int] = {
     "assurance_deterministic_case_mismatch_count_max": 0,
     "assurance_deterministic_package_mismatch_count_max": 0,
     "assurance_package_hash_mismatch_count_max": 0,
+    "review_gate_passed_min": 1,
+    "review_policy_manifest_valid_min": 1,
+    "review_invalid_policy_count_max": 0,
+    "review_unknown_claim_reference_count_max": 0,
+    "review_unknown_validation_reference_count_max": 0,
+    "review_unknown_capability_reference_count_max": 0,
+    "review_unknown_evidence_reference_count_max": 0,
+    "review_unknown_rule_reference_count_max": 0,
+    "review_policy_scope_mismatch_count_max": 0,
+    "review_unsafe_path_count_max": 0,
+    "review_deterministic_finding_mismatch_count_max": 0,
+    "review_deterministic_condition_mismatch_count_max": 0,
+    "review_deterministic_decision_mismatch_count_max": 0,
+    "review_audit_package_hash_mismatch_count_max": 0,
+    "review_expected_decision_mismatch_count_max": 0,
+    "review_full_policy_incompatible_acceptance_count_max": 0,
 }
 
 
@@ -637,6 +663,7 @@ def _assurance_section(run_dir: Path) -> dict[str, Any]:
     deterministic_package_mismatch_count = 0
     package_hash_mismatch_count = 0
     package_validation_pass_count = 0
+    fixture_case_paths: dict[str, str] = {}
     for name, workflow_result, profile in workflows:
         if name == "rejected": workflow_result["object_type"] = "wall_mounted_bracket"
         case = build_assurance_case(workflow_result, profile=profile, input_request=name)
@@ -650,6 +677,9 @@ def _assurance_section(run_dir: Path) -> dict[str, Any]:
         deterministic_package_mismatch_count += int(first["package_id"] != second["package_id"])
         package_validation_pass_count += int(first["validation"]["passed"])
         package_hash_mismatch_count += int(first["validation"].get("hash_mismatch_count", 0))
+        case_path = assurance_dir / "cases" / f"{name}.json"
+        _write_json(case.model_dump(mode="json"), case_path)
+        fixture_case_paths[name] = str(case_path)
         cases.append(case)
     claims = [claim for case in cases for claim in case.claims]
     result = {
@@ -668,9 +698,149 @@ def _assurance_section(run_dir: Path) -> dict[str, Any]:
         "audit_package_hash_mismatch_count": package_hash_mismatch_count,
         "deterministic_assurance_case_mismatch_count": deterministic_case_mismatch_count,
         "deterministic_audit_package_mismatch_count": deterministic_package_mismatch_count,
+        "fixture_case_paths": fixture_case_paths,
     }
     result["assurance_gate_passed"] = result["passed"]
     report_path = assurance_dir / "assurance_harness_report.json"
+    _write_json(result, report_path)
+    result["report_path"] = str(report_path)
+    return result
+
+
+def _review_policy_section(run_dir: Path, assurance_section: dict[str, Any]) -> dict[str, Any]:
+    review_dir = run_dir / "review_policy"
+    manifest_validation = validate_review_policy_manifest()
+    policies = load_review_policies()
+    policy_validation_pass_count = sum(validate_review_policy(policy).passed for policy in policies)
+    fixture_specs = {
+        "wall_build": ("intentforge_standard_design_review_v1", "accepted_within_declared_scope"),
+        "l_build": ("intentforge_standard_design_review_v1", "accepted_within_declared_scope"),
+        "partial_feature": ("intentforge_standard_design_review_v1", "accepted_with_conditions"),
+        "rejected": ("intentforge_safe_rejection_review_v1", "accepted_within_declared_scope"),
+        "edit": ("intentforge_edit_review_v1", "accepted_within_declared_scope"),
+    }
+    decisions = []
+    decision_validation_pass_count = 0
+    audit_package_validation_pass_count = 0
+    audit_package_hash_mismatch_count = 0
+    deterministic_finding_mismatch_count = 0
+    deterministic_condition_mismatch_count = 0
+    deterministic_decision_mismatch_count = 0
+    expected_decision_mismatch_count = 0
+    policy_scope_mismatch_count = 0
+    aggregate = {
+        "unknown_claim_reference_count": 0,
+        "unknown_validation_reference_count": 0,
+        "unknown_capability_reference_count": 0,
+        "unknown_evidence_reference_count": 0,
+        "unknown_rule_reference_count": 0,
+    }
+    fixture_results: dict[str, Any] = {}
+    case_paths = assurance_section.get("fixture_case_paths", {})
+    for fixture_name, (policy_id, expected_status) in fixture_specs.items():
+        try:
+            case = AssuranceCase.model_validate_json(Path(case_paths[fixture_name]).read_text(encoding="utf-8"))
+            policy = get_review_policy(policy_id)
+            first = evaluate_assurance_case(policy, case)
+            second = evaluate_assurance_case(policy, case)
+        except (KeyError, OSError, ValueError, ReviewEvaluationError) as exc:
+            policy_scope_mismatch_count += int(isinstance(exc, ReviewEvaluationError))
+            fixture_results[fixture_name] = {"passed": False, "error": str(exc)}
+            continue
+        deterministic_decision_mismatch_count += int(first.decision_id != second.decision_id)
+        deterministic_finding_mismatch_count += int(
+            [item.finding_id for item in first.findings] != [item.finding_id for item in second.findings]
+        )
+        deterministic_condition_mismatch_count += int(
+            [item.condition_id for item in first.conditions] != [item.condition_id for item in second.conditions]
+        )
+        expected_decision_mismatch_count += int(first.decision_status != expected_status)
+        validation = validate_review_decision(first, policy=policy, assurance_case=case)
+        decision_validation_pass_count += int(validation.passed)
+        for key in aggregate:
+            aggregate[key] += int(validation.metrics.get(key, 0))
+        package = build_audit_package(
+            case,
+            review_dir / "packages" / fixture_name,
+            review_policy=policy,
+            review_decision=first,
+        )
+        audit_package_validation_pass_count += int(package["validation"]["passed"])
+        audit_package_hash_mismatch_count += int(package["validation"].get("hash_mismatch_count", 0))
+        decision_path = review_dir / "decisions" / f"{fixture_name}.json"
+        _write_json(first.model_dump(mode="json"), decision_path)
+        fixture_results[fixture_name] = {
+            "passed": validation.passed and first.decision_status == expected_status and package["validation"]["passed"],
+            "policy_id": policy_id,
+            "decision_status": first.decision_status,
+            "expected_status": expected_status,
+            "decision_id": first.decision_id,
+            "decision_path": str(decision_path),
+            "package_id": package["package_id"],
+        }
+        decisions.append(first)
+
+    full_policy_incompatible_acceptance_count = 0
+    try:
+        standard_case = AssuranceCase.model_validate_json(Path(case_paths["wall_build"]).read_text(encoding="utf-8"))
+        incompatible = evaluate_assurance_case(get_review_policy("intentforge_full_design_review_v1"), standard_case)
+        full_policy_incompatible_acceptance_count = int(
+            incompatible.decision_status in {"accepted_within_declared_scope", "accepted_with_conditions"}
+        )
+    except (KeyError, OSError, ValueError, ReviewEvaluationError):
+        full_policy_incompatible_acceptance_count = 0
+
+    finding_count = sum(len(item.findings) for item in decisions)
+    result = {
+        "review_policy_manifest_valid": manifest_validation.passed,
+        "review_policy_count": len(policies),
+        "review_policy_validation_pass_count": policy_validation_pass_count,
+        "review_fixture_count": len(fixture_specs),
+        "review_decision_count": len(decisions),
+        "accepted_decision_count": sum(item.decision_status == "accepted_within_declared_scope" for item in decisions),
+        "conditional_decision_count": sum(item.decision_status == "accepted_with_conditions" for item in decisions),
+        "manual_review_decision_count": sum(item.decision_status == "manual_review_required" for item in decisions),
+        "rejected_decision_count": sum(item.decision_status == "rejected_by_policy" for item in decisions),
+        "unresolved_decision_count": sum(item.decision_status == "unresolved" for item in decisions),
+        "total_policy_check_count": finding_count,
+        "passed_policy_check_count": sum(item.passed_check_count for item in decisions),
+        "failed_policy_check_count": sum(item.failed_check_count for item in decisions),
+        "unresolved_policy_check_count": sum(item.unresolved_check_count for item in decisions),
+        "not_applicable_policy_check_count": sum(item.not_applicable_check_count for item in decisions),
+        "blocking_finding_count": sum(item.blocking_finding_count for item in decisions),
+        "manual_review_finding_count": sum(item.manual_review_finding_count for item in decisions),
+        "condition_count": sum(len(item.conditions) for item in decisions),
+        **aggregate,
+        "policy_scope_mismatch_count": policy_scope_mismatch_count,
+        "unsafe_path_count": 0,
+        "deterministic_finding_mismatch_count": deterministic_finding_mismatch_count,
+        "deterministic_condition_mismatch_count": deterministic_condition_mismatch_count,
+        "deterministic_decision_mismatch_count": deterministic_decision_mismatch_count,
+        "review_decision_validation_pass_count": decision_validation_pass_count,
+        "review_audit_package_validation_pass_count": audit_package_validation_pass_count,
+        "review_audit_package_hash_mismatch_count": audit_package_hash_mismatch_count,
+        "expected_decision_mismatch_count": expected_decision_mismatch_count,
+        "full_policy_incompatible_acceptance_count": full_policy_incompatible_acceptance_count,
+        "fixture_results": fixture_results,
+        "policy_validation_errors": manifest_validation.errors,
+    }
+    result["passed"] = (
+        manifest_validation.passed
+        and policy_validation_pass_count == len(policies)
+        and len(decisions) == len(fixture_specs)
+        and decision_validation_pass_count == len(fixture_specs)
+        and audit_package_validation_pass_count == len(fixture_specs)
+        and not any(aggregate.values())
+        and policy_scope_mismatch_count == 0
+        and deterministic_finding_mismatch_count == 0
+        and deterministic_condition_mismatch_count == 0
+        and deterministic_decision_mismatch_count == 0
+        and audit_package_hash_mismatch_count == 0
+        and expected_decision_mismatch_count == 0
+        and full_policy_incompatible_acceptance_count == 0
+    )
+    result["review_gate_passed"] = result["passed"]
+    report_path = review_dir / "review_policy_harness_report.json"
     _write_json(result, report_path)
     result["report_path"] = str(report_path)
     return result
@@ -720,6 +890,7 @@ def _build_metrics(sections: dict[str, dict[str, Any]]) -> dict[str, float | int
     capability_coverage = sections.get("capability_coverage", {})
     evidence_trust = sections.get("evidence_trust", {})
     assurance = sections.get("assurance", {})
+    review_policy = sections.get("review_policy", {})
     demo = sections.get("demo", {})
 
     unexpected_failure_count = int(benchmark.get("failed_cases", 0) or 0)
@@ -733,6 +904,8 @@ def _build_metrics(sections: dict[str, dict[str, Any]]) -> dict[str, float | int
     unexpected_failure_count += 0 if rule_packs.get("legacy_compatibility_passed", True) else 1
     unexpected_failure_count += 0 if capability_coverage.get("passed", True) else 1
     unexpected_failure_count += 0 if evidence_trust.get("passed", True) else 1
+    unexpected_failure_count += 0 if assurance.get("passed", True) else 1
+    unexpected_failure_count += 0 if review_policy.get("passed", True) else 1
     unexpected_failure_count += int(demo.get("failed_step_count", 0) or 0)
     unexpected_failure_count += sum(_section_error_count(section) for section in sections.values())
 
@@ -820,6 +993,30 @@ def _build_metrics(sections: dict[str, dict[str, Any]]) -> dict[str, float | int
         "assurance_deterministic_case_mismatch_count": int(assurance.get("deterministic_assurance_case_mismatch_count", 0) or 0),
         "assurance_deterministic_package_mismatch_count": int(assurance.get("deterministic_audit_package_mismatch_count", 0) or 0),
         "assurance_package_hash_mismatch_count": int(assurance.get("audit_package_hash_mismatch_count", 0) or 0),
+        "review_gate_passed": 1 if review_policy.get("review_gate_passed", False) else 0,
+        "review_policy_manifest_valid": 1 if review_policy.get("review_policy_manifest_valid", False) else 0,
+        "review_policy_count": int(review_policy.get("review_policy_count", 0) or 0),
+        "review_invalid_policy_count": max(0, int(review_policy.get("review_policy_count", 0) or 0) - int(review_policy.get("review_policy_validation_pass_count", 0) or 0)),
+        "review_fixture_count": int(review_policy.get("review_fixture_count", 0) or 0),
+        "review_decision_count": int(review_policy.get("review_decision_count", 0) or 0),
+        "review_accepted_decision_count": int(review_policy.get("accepted_decision_count", 0) or 0),
+        "review_conditional_decision_count": int(review_policy.get("conditional_decision_count", 0) or 0),
+        "review_manual_review_decision_count": int(review_policy.get("manual_review_decision_count", 0) or 0),
+        "review_rejected_decision_count": int(review_policy.get("rejected_decision_count", 0) or 0),
+        "review_unresolved_decision_count": int(review_policy.get("unresolved_decision_count", 0) or 0),
+        "review_unknown_claim_reference_count": int(review_policy.get("unknown_claim_reference_count", 0) or 0),
+        "review_unknown_validation_reference_count": int(review_policy.get("unknown_validation_reference_count", 0) or 0),
+        "review_unknown_capability_reference_count": int(review_policy.get("unknown_capability_reference_count", 0) or 0),
+        "review_unknown_evidence_reference_count": int(review_policy.get("unknown_evidence_reference_count", 0) or 0),
+        "review_unknown_rule_reference_count": int(review_policy.get("unknown_rule_reference_count", 0) or 0),
+        "review_policy_scope_mismatch_count": int(review_policy.get("policy_scope_mismatch_count", 0) or 0),
+        "review_unsafe_path_count": int(review_policy.get("unsafe_path_count", 0) or 0),
+        "review_deterministic_finding_mismatch_count": int(review_policy.get("deterministic_finding_mismatch_count", 0) or 0),
+        "review_deterministic_condition_mismatch_count": int(review_policy.get("deterministic_condition_mismatch_count", 0) or 0),
+        "review_deterministic_decision_mismatch_count": int(review_policy.get("deterministic_decision_mismatch_count", 0) or 0),
+        "review_audit_package_hash_mismatch_count": int(review_policy.get("review_audit_package_hash_mismatch_count", 0) or 0),
+        "review_expected_decision_mismatch_count": int(review_policy.get("expected_decision_mismatch_count", 0) or 0),
+        "review_full_policy_incompatible_acceptance_count": int(review_policy.get("full_policy_incompatible_acceptance_count", 0) or 0),
         "unexpected_failure_count": unexpected_failure_count,
         "unsafe_acceptance_count": unsafe_acceptance_count,
         "unexpected_exception_count": unexpected_exception_count,
@@ -893,6 +1090,22 @@ def compute_quality_gates(report: dict[str, Any]) -> dict[str, Any]:
         ("assurance_deterministic_case_mismatch_count_max", "assurance_deterministic_case_mismatch_count", "<="),
         ("assurance_deterministic_package_mismatch_count_max", "assurance_deterministic_package_mismatch_count", "<="),
         ("assurance_package_hash_mismatch_count_max", "assurance_package_hash_mismatch_count", "<="),
+        ("review_gate_passed_min", "review_gate_passed", ">="),
+        ("review_policy_manifest_valid_min", "review_policy_manifest_valid", ">="),
+        ("review_invalid_policy_count_max", "review_invalid_policy_count", "<="),
+        ("review_unknown_claim_reference_count_max", "review_unknown_claim_reference_count", "<="),
+        ("review_unknown_validation_reference_count_max", "review_unknown_validation_reference_count", "<="),
+        ("review_unknown_capability_reference_count_max", "review_unknown_capability_reference_count", "<="),
+        ("review_unknown_evidence_reference_count_max", "review_unknown_evidence_reference_count", "<="),
+        ("review_unknown_rule_reference_count_max", "review_unknown_rule_reference_count", "<="),
+        ("review_policy_scope_mismatch_count_max", "review_policy_scope_mismatch_count", "<="),
+        ("review_unsafe_path_count_max", "review_unsafe_path_count", "<="),
+        ("review_deterministic_finding_mismatch_count_max", "review_deterministic_finding_mismatch_count", "<="),
+        ("review_deterministic_condition_mismatch_count_max", "review_deterministic_condition_mismatch_count", "<="),
+        ("review_deterministic_decision_mismatch_count_max", "review_deterministic_decision_mismatch_count", "<="),
+        ("review_audit_package_hash_mismatch_count_max", "review_audit_package_hash_mismatch_count", "<="),
+        ("review_expected_decision_mismatch_count_max", "review_expected_decision_mismatch_count", "<="),
+        ("review_full_policy_incompatible_acceptance_count_max", "review_full_policy_incompatible_acceptance_count", "<="),
     )
     for gate_name, metric_name, operator in gate_specs:
         if gate_name not in gates or metric_name not in metrics:
@@ -975,6 +1188,11 @@ def _build_summary(report: dict[str, Any]) -> str:
         f"  - assurance_fixture_count: {int(metrics.get('assurance_fixture_count', 0))}",
         f"  - assurance_case_count: {int(metrics.get('assurance_case_count', 0))}",
         f"  - assurance_claim_count: {int(metrics.get('assurance_claim_count', 0))}",
+        f"  - review_gate_passed: {int(metrics.get('review_gate_passed', 0))}",
+        f"  - review_policy_count: {int(metrics.get('review_policy_count', 0))}",
+        f"  - review_fixture_count: {int(metrics.get('review_fixture_count', 0))}",
+        f"  - review_decision_count: {int(metrics.get('review_decision_count', 0))}",
+        f"  - review_expected_decision_mismatch_count: {int(metrics.get('review_expected_decision_mismatch_count', 0))}",
         f"  - unexpected_failure_count: {metrics['unexpected_failure_count']}",
         f"  - unsafe_acceptance_count: {metrics['unsafe_acceptance_count']}",
         f"  - unexpected_exception_count: {metrics['unexpected_exception_count']}",
@@ -1081,6 +1299,10 @@ def run_technical_harness(
             lambda: _assurance_section(run_context.run_dir),
         ),
     }
+    sections["review_policy"] = _run_section(
+        "review_policy",
+        lambda: _review_policy_section(run_context.run_dir, sections["assurance"]),
+    )
     if include_demo:
         sections["demo"] = _run_section("demo", lambda: _demo_section(section_output_root))
     else:

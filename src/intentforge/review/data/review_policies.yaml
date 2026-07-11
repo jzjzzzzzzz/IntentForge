@@ -1,0 +1,670 @@
+manifest_version: "1.0"
+generated_by: intentforge
+policies:
+  - policy_id: intentforge_static_review_v1
+    title: IntentForge static assurance review
+    description: Reviews intent, scope, evidence references, and limitation disclosure without claiming CAD execution.
+    policy_version: "1.0"
+    policy_scope: assurance_case
+    applicable_families: [wall_mounted_bracket, l_bracket]
+    applicable_operations: [parse]
+    required_assurance_profiles: [static]
+    subject_type: design_result
+    decision_strategy: deterministic_precedence_v1
+    provenance: IntentForge Phase 24 packaged baseline policy
+    limitations:
+      - Static review does not establish that CAD generation or runtime geometry validation occurred.
+    review_notice: Acceptance is limited to static intent and evidence checks within the declared IntentForge scope.
+    checks:
+      - check_id: static_schema_supported
+        check_type: schema_version_supported
+        title: Assurance schema is supported
+        description: Requires a supported assurance-case schema version.
+        severity: blocking
+        required: true
+        parameters: {supported_versions: ["1.0"]}
+        on_pass: Assurance schema version is supported.
+        on_failure: Assurance schema version is unsupported.
+        on_unresolved: Assurance schema version could not be evaluated.
+      - check_id: static_profile_allowed
+        check_type: assurance_profile_allowed
+        title: Static profile is used
+        description: Prevents a static policy from being applied to an incompatible profile.
+        severity: blocking
+        required: true
+        parameters: {allowed_profiles: [static]}
+        on_pass: Static assurance profile is present.
+        on_failure: Assurance profile is outside static policy scope.
+        on_unresolved: Assurance profile is unavailable.
+      - check_id: static_status_allowed
+        check_type: overall_assurance_status_allowed
+        title: Assurance status is eligible
+        description: Requires a complete static assurance status, with disclosed limitations permitted.
+        severity: blocking
+        required: true
+        parameters: {allowed_statuses: [assurance_complete, assurance_complete_with_limitations]}
+        on_pass: Static assurance status is eligible.
+        on_failure: Static assurance status is not eligible.
+        on_unresolved: Static assurance status is unavailable.
+      - check_id: static_required_claims
+        check_type: required_claim_status
+        title: Required static claims are supported
+        description: Requires run-level interpretation, schema, family, and capability-evidence claims.
+        severity: blocking
+        required: true
+        parameters:
+          claim_types: [request_interpreted, intent_schema_valid, family_supported, capability_evidence_available]
+          allowed_statuses: [supported]
+        related_claim_types: [request_interpreted, intent_schema_valid, family_supported, capability_evidence_available]
+        on_pass: Required static claims are supported.
+        on_failure: One or more required static claims are not supported.
+        on_unresolved: One or more required static claims are missing.
+      - check_id: static_evidence_resolved
+        check_type: required_evidence_status
+        title: Referenced framework evidence resolves
+        description: Statically resolves evidence referenced by this assurance case.
+        severity: blocking
+        required: true
+        parameters: {allowed_statuses: [verified]}
+        on_pass: Referenced framework evidence is statically resolved.
+        on_failure: Referenced framework evidence has a disallowed status.
+        on_unresolved: Referenced framework evidence could not be resolved.
+      - check_id: static_zero_failed_claims
+        check_type: zero_failed_claims
+        title: No failed claims
+        description: Requires no failed run-level assurance claims.
+        severity: blocking
+        required: true
+        parameters: {}
+        on_pass: No assurance claims failed.
+        on_failure: At least one assurance claim failed.
+        on_unresolved: Failed-claim state could not be evaluated.
+      - check_id: static_zero_unresolved_claims
+        check_type: zero_unresolved_claims
+        title: No unresolved claims
+        description: Requires no unresolved run-level assurance claims.
+        severity: blocking
+        required: true
+        parameters: {}
+        on_pass: No assurance claims are unresolved.
+        on_failure: At least one assurance claim is unresolved.
+        on_unresolved: Unresolved-claim state could not be evaluated.
+      - check_id: static_review_notice
+        check_type: required_review_disclosed
+        title: External review boundary is disclosed
+        description: Requires the assurance case to retain its external-review notice.
+        severity: informational
+        required: true
+        parameters: {minimum_count: 1}
+        on_pass: External review requirements are disclosed.
+        on_failure: External review requirements are not disclosed.
+        on_unresolved: Review requirements could not be evaluated.
+
+  - policy_id: intentforge_standard_design_review_v1
+    title: IntentForge standard design review
+    description: Reviews a CAD-backed design result with geometry, topology, feature, knowledge, and reasoning observations.
+    policy_version: "1.0"
+    policy_scope: assurance_case
+    applicable_families: [wall_mounted_bracket, l_bracket]
+    applicable_operations: [parse_build]
+    required_assurance_profiles: [standard, full]
+    subject_type: design_result
+    decision_strategy: deterministic_precedence_v1
+    provenance: IntentForge Phase 24 packaged baseline policy
+    limitations:
+      - Acceptance does not establish load-specific safety, certification, or guaranteed manufacturability.
+    review_notice: Acceptance is limited to configured IntentForge validation and evidence within the declared model-family scope.
+    checks:
+      - check_id: standard_schema_supported
+        check_type: schema_version_supported
+        title: Assurance schema is supported
+        description: Requires a supported assurance-case schema version.
+        severity: blocking
+        required: true
+        parameters: {supported_versions: ["1.0"]}
+        on_pass: Assurance schema version is supported.
+        on_failure: Assurance schema version is unsupported.
+        on_unresolved: Assurance schema version could not be evaluated.
+      - check_id: standard_profile_allowed
+        check_type: assurance_profile_allowed
+        title: Standard or full profile is used
+        description: Requires a CAD-backed assurance profile.
+        severity: blocking
+        required: true
+        parameters: {allowed_profiles: [standard, full]}
+        on_pass: Assurance profile is eligible for standard review.
+        on_failure: Assurance profile is outside standard review scope.
+        on_unresolved: Assurance profile is unavailable.
+      - check_id: standard_status_allowed
+        check_type: overall_assurance_status_allowed
+        title: Assurance status is eligible
+        description: Permits a complete case with explicitly disclosed limitations.
+        severity: blocking
+        required: true
+        parameters: {allowed_statuses: [assurance_complete, assurance_complete_with_limitations]}
+        on_pass: Assurance status is eligible.
+        on_failure: Assurance status is not eligible.
+        on_unresolved: Assurance status is unavailable.
+      - check_id: standard_required_claims
+        check_type: required_claim_status
+        title: Required design claims are supported
+        description: Requires actual run-level validation and engineering review claims.
+        severity: blocking
+        required: true
+        parameters:
+          claim_types: [request_interpreted, intent_schema_valid, family_supported, engineering_rules_evaluated, geometry_valid, topology_inspected, features_recognized, engineering_reasoning_completed, capability_evidence_available]
+          allowed_statuses: [supported]
+        related_claim_types: [request_interpreted, intent_schema_valid, family_supported, engineering_rules_evaluated, geometry_valid, topology_inspected, features_recognized, engineering_reasoning_completed, capability_evidence_available]
+        on_pass: Required design claims are supported by this run.
+        on_failure: One or more required design claims are not supported.
+        on_unresolved: One or more required design claims are missing.
+      - check_id: standard_validation_passed
+        check_type: required_validation_status
+        title: Geometry and topology observations pass
+        description: Requires actual geometry, topology, and feature-recognition observations.
+        severity: blocking
+        required: true
+        parameters:
+          validation_types: [geometry_validation, topology_inspection, feature_recognition]
+          allowed_statuses: [passed]
+        related_validation_types: [geometry_validation, topology_inspection, feature_recognition]
+        on_pass: Required validation observations passed.
+        on_failure: One or more required validation observations did not pass.
+        on_unresolved: One or more required validation observations are missing.
+      - check_id: standard_evidence_resolved
+        check_type: required_evidence_status
+        title: Referenced framework evidence resolves
+        description: Statically resolves framework evidence without substituting it for run validation.
+        severity: blocking
+        required: true
+        parameters: {allowed_statuses: [verified]}
+        on_pass: Referenced framework evidence is statically resolved.
+        on_failure: Referenced framework evidence has a disallowed status.
+        on_unresolved: Referenced framework evidence could not be resolved.
+      - check_id: standard_zero_failed_claims
+        check_type: zero_failed_claims
+        title: No failed claims
+        description: Requires no failed run-level assurance claims.
+        severity: blocking
+        required: true
+        parameters: {}
+        on_pass: No assurance claims failed.
+        on_failure: At least one assurance claim failed.
+        on_unresolved: Failed-claim state could not be evaluated.
+      - check_id: standard_zero_unresolved_claims
+        check_type: zero_unresolved_claims
+        title: No unresolved claims
+        description: Requires no unresolved run-level assurance claims.
+        severity: blocking
+        required: true
+        parameters: {}
+        on_pass: No assurance claims are unresolved.
+        on_failure: At least one assurance claim is unresolved.
+        on_unresolved: Unresolved-claim state could not be evaluated.
+      - check_id: standard_requested_partial_features
+        check_type: limitation_requires_manual_review
+        title: Requested rounded corners require acknowledgement
+        description: Adds a condition when topology-conservative rounded corners are explicitly requested.
+        severity: conditional
+        required: false
+        parameters:
+          categories: [partial_support]
+          capability_ids: [wall_rounded_corners]
+          only_when_exercised: true
+        related_capability_ids: [wall_rounded_corners]
+        related_limitation_categories: [partial_support]
+        on_pass: No explicitly requested rounded-corner limitation requires acknowledgement.
+        on_failure: The explicitly requested rounded-corner limitation requires acknowledgement.
+        on_unresolved: Partial-feature applicability could not be determined.
+      - check_id: standard_requested_partial_features_manual
+        check_type: limitation_requires_manual_review
+        title: Requested fillet limitations require manual review
+        description: Escalates explicitly requested edge-fillet or inside-fillet limitations.
+        severity: manual_review
+        required: false
+        parameters:
+          categories: [partial_support]
+          capability_ids: [wall_edge_fillets, l_inside_fillet_intent]
+          only_when_exercised: true
+        related_capability_ids: [wall_edge_fillets, l_inside_fillet_intent]
+        related_limitation_categories: [partial_support]
+        on_pass: No explicitly requested fillet limitation requires manual review.
+        on_failure: An explicitly requested fillet limitation requires manual review.
+        on_unresolved: Fillet-limitation applicability could not be determined.
+      - check_id: standard_boundaries_disclosed
+        check_type: unsupported_boundary_disclosed
+        title: Unsupported boundaries are disclosed
+        description: Requires family-specific unsupported boundaries to remain visible.
+        severity: informational
+        required: true
+        parameters: {minimum_count: 1}
+        related_limitation_categories: [unsupported_boundary]
+        on_pass: Unsupported family boundaries are disclosed.
+        on_failure: Unsupported family boundaries are not disclosed.
+        on_unresolved: Unsupported-boundary disclosure could not be evaluated.
+      - check_id: standard_review_notice
+        check_type: required_review_disclosed
+        title: External review boundary is disclosed
+        description: Requires external-review requirements to remain explicit.
+        severity: informational
+        required: true
+        parameters: {minimum_count: 1}
+        on_pass: External review requirements are disclosed.
+        on_failure: External review requirements are not disclosed.
+        on_unresolved: Review requirements could not be evaluated.
+
+  - policy_id: intentforge_full_design_review_v1
+    title: IntentForge full design review
+    description: Extends standard review with artifact integrity, audit-package validation, and reproducibility checks.
+    policy_version: "1.0"
+    policy_scope: assurance_case_and_audit_package
+    applicable_families: [wall_mounted_bracket, l_bracket]
+    applicable_operations: [parse_build]
+    required_assurance_profiles: [full]
+    subject_type: design_result
+    decision_strategy: deterministic_precedence_v1
+    provenance: IntentForge Phase 24 packaged baseline policy
+    limitations:
+      - Full policy acceptance remains an internal IntentForge decision and is not engineering certification.
+    review_notice: Full review requires validated artifacts and package evidence, but external engineering review may still be required.
+    checks:
+      - check_id: full_schema_supported
+        check_type: schema_version_supported
+        title: Assurance schema is supported
+        description: Requires a supported assurance-case schema version.
+        severity: blocking
+        required: true
+        parameters: {supported_versions: ["1.0"]}
+        on_pass: Assurance schema version is supported.
+        on_failure: Assurance schema version is unsupported.
+        on_unresolved: Assurance schema version could not be evaluated.
+      - check_id: full_profile_required
+        check_type: minimum_assurance_profile
+        title: Full assurance profile is required
+        description: Prevents a standard-only record from silently passing full review.
+        severity: blocking
+        required: true
+        parameters: {minimum_profile: full}
+        on_pass: Full assurance profile is present.
+        on_failure: Full assurance profile is not present.
+        on_unresolved: Assurance profile is unavailable.
+      - check_id: full_status_allowed
+        check_type: overall_assurance_status_allowed
+        title: Assurance status is eligible
+        description: Requires a complete assurance status with explicit limitations permitted.
+        severity: blocking
+        required: true
+        parameters: {allowed_statuses: [assurance_complete, assurance_complete_with_limitations]}
+        on_pass: Assurance status is eligible.
+        on_failure: Assurance status is not eligible.
+        on_unresolved: Assurance status is unavailable.
+      - check_id: full_required_claims
+        check_type: required_claim_status
+        title: Full review claims are supported
+        description: Requires standard runtime claims plus artifact-integrity verification.
+        severity: blocking
+        required: true
+        parameters:
+          claim_types: [request_interpreted, intent_schema_valid, family_supported, engineering_rules_evaluated, geometry_valid, topology_inspected, features_recognized, engineering_reasoning_completed, capability_evidence_available, artifact_integrity_verified]
+          allowed_statuses: [supported]
+        related_claim_types: [request_interpreted, intent_schema_valid, family_supported, engineering_rules_evaluated, geometry_valid, topology_inspected, features_recognized, engineering_reasoning_completed, capability_evidence_available, artifact_integrity_verified]
+        on_pass: Full review claims are supported by this run.
+        on_failure: One or more full review claims are not supported.
+        on_unresolved: One or more full review claims are missing.
+      - check_id: full_validation_passed
+        check_type: required_validation_status
+        title: Runtime validation observations pass
+        description: Requires geometry, topology, and feature-recognition observations to pass.
+        severity: blocking
+        required: true
+        parameters:
+          validation_types: [geometry_validation, topology_inspection, feature_recognition]
+          allowed_statuses: [passed]
+        related_validation_types: [geometry_validation, topology_inspection, feature_recognition]
+        on_pass: Required runtime validation observations passed.
+        on_failure: One or more runtime validation observations did not pass.
+        on_unresolved: One or more runtime validation observations are missing.
+      - check_id: full_evidence_resolved
+        check_type: required_evidence_status
+        title: Referenced framework evidence resolves
+        description: Requires statically resolved framework evidence in addition to run observations.
+        severity: blocking
+        required: true
+        parameters: {allowed_statuses: [verified]}
+        on_pass: Referenced framework evidence is statically resolved.
+        on_failure: Referenced framework evidence has a disallowed status.
+        on_unresolved: Referenced framework evidence could not be resolved.
+      - check_id: full_zero_failed_claims
+        check_type: zero_failed_claims
+        title: No failed claims
+        description: Requires no failed run-level assurance claims.
+        severity: blocking
+        required: true
+        parameters: {}
+        on_pass: No assurance claims failed.
+        on_failure: At least one assurance claim failed.
+        on_unresolved: Failed-claim state could not be evaluated.
+      - check_id: full_zero_unresolved_claims
+        check_type: zero_unresolved_claims
+        title: No unresolved claims
+        description: Requires no unresolved run-level assurance claims.
+        severity: blocking
+        required: true
+        parameters: {}
+        on_pass: No assurance claims are unresolved.
+        on_failure: At least one assurance claim is unresolved.
+        on_unresolved: Unresolved-claim state could not be evaluated.
+      - check_id: full_artifact_integrity
+        check_type: artifact_integrity_required
+        title: Artifact integrity is verified
+        description: Requires produced artifacts, content hashes, and the run-level integrity claim.
+        severity: blocking
+        required: true
+        parameters: {require_artifacts: true, require_all_hashed: true, require_integrity_claim: true}
+        related_claim_types: [artifact_integrity_verified]
+        on_pass: Artifact integrity records are complete.
+        on_failure: Artifact integrity records are incomplete or failed.
+        on_unresolved: Artifact integrity could not be evaluated.
+      - check_id: full_audit_package
+        check_type: audit_package_valid
+        title: Audit package is valid
+        description: Requires an actual Phase 23 audit-package validation result.
+        severity: blocking
+        required: true
+        parameters: {require_package: true}
+        on_pass: Audit package validation passed.
+        on_failure: Audit package validation failed.
+        on_unresolved: Audit package validation was not supplied.
+      - check_id: full_reproducibility
+        check_type: reproducibility_required
+        title: Reproducibility evidence is present
+        description: Requires deterministic assurance metadata and a valid audit package.
+        severity: blocking
+        required: true
+        parameters: {require_deterministic_metadata: true, require_valid_audit_package: true}
+        on_pass: Reproducibility requirements are present.
+        on_failure: Reproducibility requirements failed.
+        on_unresolved: Reproducibility requirements were not fully checked.
+      - check_id: full_requested_partial_features
+        check_type: limitation_requires_manual_review
+        title: Requested rounded corners require acknowledgement
+        description: Adds a condition for explicitly requested rounded-corner limitations under the full profile.
+        severity: conditional
+        required: false
+        parameters:
+          categories: [partial_support]
+          capability_ids: [wall_rounded_corners]
+          only_when_exercised: true
+        related_capability_ids: [wall_rounded_corners]
+        related_limitation_categories: [partial_support]
+        on_pass: No explicitly requested rounded-corner limitation requires acknowledgement.
+        on_failure: The explicitly requested rounded-corner limitation requires acknowledgement.
+        on_unresolved: Partial-feature applicability could not be determined.
+      - check_id: full_requested_partial_features_manual
+        check_type: limitation_requires_manual_review
+        title: Requested fillet limitations require manual review
+        description: Escalates explicitly requested edge-fillet or inside-fillet limitations under the full profile.
+        severity: manual_review
+        required: false
+        parameters:
+          categories: [partial_support]
+          capability_ids: [wall_edge_fillets, l_inside_fillet_intent]
+          only_when_exercised: true
+        related_capability_ids: [wall_edge_fillets, l_inside_fillet_intent]
+        related_limitation_categories: [partial_support]
+        on_pass: No explicitly requested fillet limitation requires manual review.
+        on_failure: An explicitly requested fillet limitation requires manual review.
+        on_unresolved: Fillet-limitation applicability could not be determined.
+      - check_id: full_review_notice
+        check_type: required_review_disclosed
+        title: External review boundary is disclosed
+        description: Requires external-review requirements to remain explicit.
+        severity: informational
+        required: true
+        parameters: {minimum_count: 1}
+        on_pass: External review requirements are disclosed.
+        on_failure: External review requirements are not disclosed.
+        on_unresolved: Review requirements could not be evaluated.
+
+  - policy_id: intentforge_edit_review_v1
+    title: IntentForge intent-preserving edit review
+    description: Reviews an edit result for traceability, preservation, regenerated geometry, and validation.
+    policy_version: "1.0"
+    policy_scope: assurance_case
+    applicable_families: [wall_mounted_bracket, l_bracket]
+    applicable_operations: [edit_parse_apply]
+    required_assurance_profiles: [standard, full]
+    subject_type: edit_result
+    decision_strategy: deterministic_precedence_v1
+    provenance: IntentForge Phase 24 packaged baseline policy
+    limitations:
+      - Parent run identity is required when supplied by the underlying edit workflow; current bundled fixtures rely on explicit change and preservation traces.
+    review_notice: Edit acceptance covers recorded intent preservation and configured validation, not external engineering approval.
+    checks:
+      - check_id: edit_schema_supported
+        check_type: schema_version_supported
+        title: Assurance schema is supported
+        description: Requires a supported assurance-case schema version.
+        severity: blocking
+        required: true
+        parameters: {supported_versions: ["1.0"]}
+        on_pass: Assurance schema version is supported.
+        on_failure: Assurance schema version is unsupported.
+        on_unresolved: Assurance schema version could not be evaluated.
+      - check_id: edit_profile_allowed
+        check_type: assurance_profile_allowed
+        title: CAD-backed edit profile is used
+        description: Requires standard or full assurance for applied edits.
+        severity: blocking
+        required: true
+        parameters: {allowed_profiles: [standard, full]}
+        on_pass: Assurance profile is eligible for edit review.
+        on_failure: Assurance profile is outside edit review scope.
+        on_unresolved: Assurance profile is unavailable.
+      - check_id: edit_status_allowed
+        check_type: overall_assurance_status_allowed
+        title: Edit assurance status is eligible
+        description: Requires a complete edit assurance status with explicit limitations permitted.
+        severity: blocking
+        required: true
+        parameters: {allowed_statuses: [assurance_complete, assurance_complete_with_limitations]}
+        on_pass: Edit assurance status is eligible.
+        on_failure: Edit assurance status is not eligible.
+        on_unresolved: Edit assurance status is unavailable.
+      - check_id: edit_required_claims
+        check_type: required_claim_status
+        title: Required edit claims are supported
+        description: Requires interpretation, preservation, geometry, knowledge, reasoning, and evidence claims.
+        severity: blocking
+        required: true
+        parameters:
+          claim_types: [request_interpreted, intent_schema_valid, family_supported, requested_edit_preserved_intent, geometry_valid, engineering_rules_evaluated, engineering_reasoning_completed, capability_evidence_available]
+          allowed_statuses: [supported]
+        related_claim_types: [request_interpreted, intent_schema_valid, family_supported, requested_edit_preserved_intent, geometry_valid, engineering_rules_evaluated, engineering_reasoning_completed, capability_evidence_available]
+        on_pass: Required edit claims are supported by this run.
+        on_failure: One or more required edit claims are not supported.
+        on_unresolved: One or more required edit claims are missing.
+      - check_id: edit_validation_passed
+        check_type: required_validation_status
+        title: Regenerated geometry validation passes
+        description: Requires the edit result geometry validation observation to pass.
+        severity: blocking
+        required: true
+        parameters: {validation_types: [geometry_validation], allowed_statuses: [passed]}
+        related_validation_types: [geometry_validation]
+        on_pass: Regenerated geometry validation passed.
+        on_failure: Regenerated geometry validation did not pass.
+        on_unresolved: Regenerated geometry validation is missing.
+      - check_id: edit_preservation_trace
+        check_type: edit_intent_preservation_required
+        title: Intent-preservation trace is present
+        description: Requires the preservation claim plus changed and preserved parameter traces.
+        severity: blocking
+        required: true
+        parameters: {require_parent_run_id: false, require_change_trace: true, require_preservation_trace: true}
+        related_claim_types: [requested_edit_preserved_intent]
+        on_pass: Edit intent preservation is traceable.
+        on_failure: Edit intent preservation failed.
+        on_unresolved: Edit intent preservation trace is incomplete.
+      - check_id: edit_evidence_resolved
+        check_type: required_evidence_status
+        title: Referenced framework evidence resolves
+        description: Statically resolves evidence referenced by the edit assurance case.
+        severity: blocking
+        required: true
+        parameters: {allowed_statuses: [verified]}
+        on_pass: Referenced framework evidence is statically resolved.
+        on_failure: Referenced framework evidence has a disallowed status.
+        on_unresolved: Referenced framework evidence could not be resolved.
+      - check_id: edit_zero_failed_claims
+        check_type: zero_failed_claims
+        title: No failed claims
+        description: Requires no failed edit assurance claims.
+        severity: blocking
+        required: true
+        parameters: {}
+        on_pass: No edit assurance claims failed.
+        on_failure: At least one edit assurance claim failed.
+        on_unresolved: Failed-claim state could not be evaluated.
+      - check_id: edit_zero_unresolved_claims
+        check_type: zero_unresolved_claims
+        title: No unresolved claims
+        description: Requires no unresolved edit assurance claims.
+        severity: blocking
+        required: true
+        parameters: {}
+        on_pass: No edit assurance claims are unresolved.
+        on_failure: At least one edit assurance claim is unresolved.
+        on_unresolved: Unresolved-claim state could not be evaluated.
+      - check_id: edit_review_notice
+        check_type: required_review_disclosed
+        title: External review boundary is disclosed
+        description: Requires external-review requirements to remain explicit.
+        severity: informational
+        required: true
+        parameters: {minimum_count: 1}
+        on_pass: External review requirements are disclosed.
+        on_failure: External review requirements are not disclosed.
+        on_unresolved: Review requirements could not be evaluated.
+
+  - policy_id: intentforge_safe_rejection_review_v1
+    title: IntentForge safe rejection review
+    description: Reviews whether an unsupported or invalid request was rejected clearly without CAD export.
+    policy_version: "1.0"
+    policy_scope: assurance_case
+    applicable_families: [wall_mounted_bracket, l_bracket]
+    applicable_operations: [parse, parse_build, edit_parse, edit_parse_apply]
+    required_assurance_profiles: [static, standard, full]
+    subject_type: safe_rejection
+    decision_strategy: deterministic_precedence_v1
+    provenance: IntentForge Phase 24 packaged baseline policy
+    limitations:
+      - A passing decision confirms rejection handling, not acceptance of the requested unsupported design.
+    review_notice: The unsupported request remains rejected; only the deterministic rejection behavior is accepted within scope.
+    checks:
+      - check_id: rejection_schema_supported
+        check_type: schema_version_supported
+        title: Assurance schema is supported
+        description: Requires a supported assurance-case schema version.
+        severity: blocking
+        required: true
+        parameters: {supported_versions: ["1.0"]}
+        on_pass: Assurance schema version is supported.
+        on_failure: Assurance schema version is unsupported.
+        on_unresolved: Assurance schema version could not be evaluated.
+      - check_id: rejection_profile_allowed
+        check_type: assurance_profile_allowed
+        title: Rejection profile is eligible
+        description: Safe rejection may be recorded under any assurance profile without claiming CAD success.
+        severity: blocking
+        required: true
+        parameters: {allowed_profiles: [static, standard, full]}
+        on_pass: Assurance profile is eligible for rejection review.
+        on_failure: Assurance profile is outside rejection review scope.
+        on_unresolved: Assurance profile is unavailable.
+      - check_id: rejection_status_allowed
+        check_type: overall_assurance_status_allowed
+        title: Rejection assurance status is eligible
+        description: Requires a complete scoped rejection record with limitations.
+        severity: blocking
+        required: true
+        parameters: {allowed_statuses: [assurance_complete_with_limitations]}
+        on_pass: Rejection assurance status is eligible.
+        on_failure: Rejection assurance status is not eligible.
+        on_unresolved: Rejection assurance status is unavailable.
+      - check_id: rejection_claim_supported
+        check_type: required_claim_status
+        title: Unsupported behavior rejection claim is supported
+        description: Requires the run-level safe-rejection claim and limitation disclosure.
+        severity: blocking
+        required: true
+        parameters:
+          claim_types: [unsupported_behavior_rejected, limitation_disclosed]
+          allowed_statuses: [supported, partially_supported]
+        related_claim_types: [unsupported_behavior_rejected, limitation_disclosed]
+        on_pass: Safe rejection claims are present and scoped.
+        on_failure: Safe rejection claims are not in an acceptable state.
+        on_unresolved: Safe rejection claims are missing.
+      - check_id: rejection_behavior_verified
+        check_type: safe_rejection_verified
+        title: Safe rejection behavior is verified
+        description: Requires structured error data, an unsupported boundary, and rejection evidence.
+        severity: blocking
+        required: true
+        parameters: {require_structured_error: true, require_boundary: true, require_rejection_evidence: true}
+        related_claim_types: [unsupported_behavior_rejected]
+        related_limitation_categories: [unsupported_boundary]
+        on_pass: Safe rejection behavior is supported by the record.
+        on_failure: Safe rejection behavior is contradicted by the record.
+        on_unresolved: Safe rejection evidence is incomplete.
+      - check_id: rejection_no_cad
+        check_type: no_cad_artifact_on_rejection
+        title: No CAD artifact was exported
+        description: Prevents rejected requests from producing misleading CAD artifacts or success claims.
+        severity: blocking
+        required: true
+        parameters: {forbid_geometry_claims: true}
+        on_pass: No CAD artifact or successful geometry claim was produced.
+        on_failure: Rejected request produced CAD artifacts or misleading geometry claims.
+        on_unresolved: CAD-export state could not be evaluated.
+      - check_id: rejection_evidence_resolved
+        check_type: required_evidence_status
+        title: Rejection evidence resolves
+        description: Statically resolves the framework evidence referenced by the rejection record.
+        severity: blocking
+        required: true
+        parameters: {allowed_statuses: [verified]}
+        on_pass: Rejection evidence is statically resolved.
+        on_failure: Rejection evidence has a disallowed status.
+        on_unresolved: Rejection evidence could not be resolved.
+      - check_id: rejection_boundaries_disclosed
+        check_type: unsupported_boundary_disclosed
+        title: Unsupported boundary is disclosed
+        description: Requires at least one explicit unsupported boundary.
+        severity: blocking
+        required: true
+        parameters: {minimum_count: 1}
+        related_limitation_categories: [unsupported_boundary]
+        on_pass: Unsupported boundary is disclosed.
+        on_failure: Unsupported boundary is not disclosed.
+        on_unresolved: Unsupported-boundary disclosure could not be evaluated.
+      - check_id: rejection_zero_failed_claims
+        check_type: zero_failed_claims
+        title: Rejection record has no failed claims
+        description: Requires the intentional rejection record itself to remain internally valid.
+        severity: blocking
+        required: true
+        parameters: {}
+        on_pass: Rejection assurance claims did not fail.
+        on_failure: Rejection assurance contains a failed claim.
+        on_unresolved: Failed-claim state could not be evaluated.
+      - check_id: rejection_zero_unresolved_claims
+        check_type: zero_unresolved_claims
+        title: Rejection record has no unresolved claims
+        description: Requires all required rejection observations to be explicit.
+        severity: blocking
+        required: true
+        parameters: {}
+        on_pass: Rejection assurance claims are resolved.
+        on_failure: Rejection assurance contains an unresolved claim.
+        on_unresolved: Unresolved-claim state could not be evaluated.

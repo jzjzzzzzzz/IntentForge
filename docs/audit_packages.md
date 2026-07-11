@@ -8,6 +8,8 @@ Package validation checks required files, schema compatibility, assurance identi
 
 The logical package ID is deterministic for identical logical content. Physical archive byte identity is not claimed because this phase exports directories rather than a canonical archive format.
 
+Phase 24 review files are optional. A package may additionally contain `review_policy_snapshot.json`, `review_decision.json`, and `review_decision.md`. All three files are checksummed and cross-validated against the assurance case. Adding a review decision intentionally creates a new logical package identity. Existing Phase 23 packages without review files remain valid.
+
 ```bash
 intentforge assurance package output/assurance/assurance_case.json
 intentforge assurance package-validate output/assurance/audit_package_<case-id>

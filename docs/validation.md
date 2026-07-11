@@ -4,6 +4,8 @@ IntentForge validates both geometry and design intent.
 
 Assurance validation is additive to geometry validation. It checks record integrity, reference validity, profile-required observations, safe artifact paths, and deterministic content IDs; it does not rerun or weaken existing CAD validators.
 
+Review-policy validation is additive to assurance validation. It checks policy IDs and versions, scope, registered check types, type-specific parameters, referenced claim/validation/capability/evidence/rule identifiers, deterministic policy and decision IDs, and decision precedence. Policy evaluation reads existing assurance observations and does not rerun CAD generation.
+
 Phase 21 adds capability coverage validation. This is not geometry validation. It validates product support declarations: known families, valid stages, rule-to-capability mapping, evidence references, unsupported boundaries, and orphan active rules.
 
 ## Geometry Validation

@@ -21,6 +21,18 @@ from intentforge.assurance import (
     validate_audit_package,
 )
 from intentforge.assurance.schema import AssuranceCase
+from intentforge.review import (
+    ReviewEvaluationError,
+    ReviewPolicyError,
+    compare_review_decisions,
+    evaluate_assurance_case,
+    get_review_policy,
+    load_review_decision,
+    load_review_policies,
+    render_review_decision_markdown,
+    validate_review_decision,
+    validate_review_policy_manifest,
+)
 
 from harness.topology import (
     build_volume_delta_report,
@@ -1962,6 +1974,141 @@ def _load_assurance_case(path: str | Path) -> AssuranceCase:
     return AssuranceCase.model_validate_json(Path(path).read_text(encoding="utf-8"))
 
 
+REVIEW_EXIT_CODES = {
+    "accepted_within_declared_scope": 0,
+    "accepted_with_conditions": 2,
+    "manual_review_required": 3,
+    "rejected_by_policy": 4,
+    "unresolved": 5,
+}
+
+
+def _write_review_decision(decision, output: str | Path) -> tuple[Path, Path]:
+    json_path = Path(output)
+    json_path.parent.mkdir(parents=True, exist_ok=True)
+    json_path.write_text(decision.to_json(), encoding="utf-8")
+    markdown_path = json_path.with_suffix(".md")
+    markdown_path.write_text(render_review_decision_markdown(decision), encoding="utf-8")
+    return json_path, markdown_path
+
+
+def _print_review_decision(decision, *, as_json: bool, json_path: Path | None = None, markdown_path: Path | None = None) -> None:
+    if as_json:
+        print(decision.to_json(), end="")
+        return
+    print("IntentForge Engineering Review Decision")
+    print(f"Decision ID: {decision.decision_id}")
+    print(f"Policy: {decision.policy_id} v{decision.policy_version}")
+    print(f"Subject: {decision.subject_type}")
+    print(f"Decision: {decision.decision_status}")
+    print(f"Checks: {decision.passed_check_count} passed, {decision.failed_check_count} failed, {decision.unresolved_check_count} unresolved")
+    print(f"Conditions: {len(decision.conditions)}")
+    if decision.subject_type == "safe_rejection" and decision.decision_status == "accepted_within_declared_scope":
+        print("Safe rejection handling passed policy; the unsupported design remains rejected.")
+    if json_path is not None: print(f"Decision path: {json_path}")
+    if markdown_path is not None: print(f"Markdown path: {markdown_path}")
+
+
+def _review_command(args) -> int:
+    action = args.review_command
+    if action == "policies":
+        policies = load_review_policies()
+        if args.json:
+            print(json.dumps([item.model_dump(mode="json", serialize_as_any=True) for item in policies], indent=2, sort_keys=True))
+        else:
+            print("IntentForge Engineering Review Policies")
+            print(f"Policies: {len(policies)}")
+            for policy in policies:
+                print(f"- {policy.policy_id} v{policy.policy_version}: {policy.subject_type}, {len(policy.checks)} checks")
+        return 0
+    if action == "policy-show":
+        policy = get_review_policy(args.policy_id)
+        print(policy.to_json() if args.json else (
+            f"IntentForge Engineering Review Policy\n"
+            f"Policy: {policy.policy_id}\nVersion: {policy.policy_version}\n"
+            f"Subject: {policy.subject_type}\nScope: {policy.policy_scope}\n"
+            f"Profiles: {', '.join(policy.required_assurance_profiles)}\nChecks: {len(policy.checks)}\n"
+            f"Content ID: {policy.content_id}\n"
+        ), end="")
+        return 0
+    if action == "policy-validate":
+        result = validate_review_policy_manifest()
+        print("Engineering review policy validation")
+        print("PASS" if result.passed else "FAIL")
+        print(f"Policies checked: {result.policies_checked}")
+        print(f"Checks checked: {result.checks_checked}")
+        print(f"Errors: {len(result.errors)}")
+        for error in result.errors: print(f"- {error}")
+        return 0 if result.passed else 1
+    if action == "evaluate":
+        case = _load_assurance_case(args.case_path)
+        policy = get_review_policy(args.policy)
+        package_result = validate_audit_package(args.package_path) if args.package_path else None
+        decision = evaluate_assurance_case(policy, case, package_result)
+        output = Path(args.output) if args.output else Path(args.case_path).parent / "review_decision.json"
+        json_path, markdown_path = _write_review_decision(decision, output)
+        _print_review_decision(decision, as_json=args.json, json_path=json_path, markdown_path=markdown_path)
+        return REVIEW_EXIT_CODES[decision.decision_status]
+    if action in {"validate", "show", "render"}:
+        decision = load_review_decision(args.decision_path)
+        if action == "validate":
+            result = validate_review_decision(decision)
+            print("Review decision validation")
+            print("PASS" if result.passed else "FAIL")
+            print(f"Decision ID: {decision.decision_id}")
+            for error in result.errors: print(f"- {error}")
+            return 0 if result.passed else 1
+        if action == "show":
+            print(decision.to_json() if args.json else render_review_decision_markdown(decision), end="")
+            return 0
+        output = Path(args.output) if args.output else Path(args.decision_path).with_suffix(".md")
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(render_review_decision_markdown(decision), encoding="utf-8")
+        print(f"Rendered review decision: {output}")
+        return 0
+    if action == "compare":
+        result = compare_review_decisions(load_review_decision(args.decision_a), load_review_decision(args.decision_b))
+        if args.json:
+            print(json.dumps(result, indent=2, sort_keys=True))
+        else:
+            print("Review decision comparison")
+            print(f"Comparison ID: {result['comparison_id']}")
+            print(f"Identical: {str(result['identical']).lower()}")
+            print(f"Changed fields: {', '.join(result['changed_fields']) if result['changed_fields'] else 'none'}")
+        return 0
+    if action == "build-evaluate":
+        policy_id = args.policy or {
+            "static": "intentforge_static_review_v1",
+            "standard": "intentforge_standard_design_review_v1",
+            "full": "intentforge_full_design_review_v1",
+        }[args.profile]
+        policy = get_review_policy(policy_id)
+        output_root = Path(args.output_root or (_project_root() / "output"))
+        case = build_assurance_from_prompt(
+            args.prompt, family=args.family, profile=args.profile, dry_run=args.dry_run,
+            output_root=output_root,
+        )
+        review_root = output_root / "review"
+        review_root.mkdir(parents=True, exist_ok=True)
+        case_path = review_root / "assurance_case.json"
+        case_path.write_text(case.to_json(), encoding="utf-8")
+        package_result = None
+        package_path = None
+        if policy.policy_scope == "assurance_case_and_audit_package":
+            package_path = review_root / "audit_package"
+            base_package = build_audit_package(case, package_path)
+            package_result = base_package["validation"]
+        decision = evaluate_assurance_case(policy, case, package_result)
+        output = Path(args.output) if args.output else review_root / "review_decision.json"
+        json_path, markdown_path = _write_review_decision(decision, output)
+        if package_path is not None:
+            build_audit_package(case, package_path, review_policy=policy, review_decision=decision)
+        _print_review_decision(decision, as_json=args.json, json_path=json_path, markdown_path=markdown_path)
+        if package_path is not None and not args.json: print(f"Audit package: {package_path}")
+        return REVIEW_EXIT_CODES[decision.decision_status]
+    raise ValueError(f"unsupported review action: {action}")
+
+
 def _assurance_command(args) -> int:
     action = args.assurance_command
     if action == "build":
@@ -2018,7 +2165,12 @@ def _assurance_command(args) -> int:
     if action == "package":
         case = _load_assurance_case(args.case_path)
         output = Path(args.output) if args.output else Path(args.case_path).parent / f"audit_package_{case.assurance_case_id}"
-        result = build_audit_package(case, output)
+        if args.review_decision:
+            review_decision = load_review_decision(args.review_decision)
+            review_policy = get_review_policy(review_decision.policy_id)
+            result = build_audit_package(case, output, review_policy=review_policy, review_decision=review_decision)
+        else:
+            result = build_audit_package(case, output)
         print("IntentForge Audit Package")
         print(f"Package ID: {result['package_id']}")
         print(f"Package path: {result['package_path']}")
@@ -2042,6 +2194,42 @@ def _assurance_command(args) -> int:
 def _build_parser() -> ArgumentParser:
     parser = ArgumentParser(prog="intentforge")
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    review = subparsers.add_parser("review", help="Evaluate assurance cases with deterministic engineering review policies.")
+    review_subparsers = review.add_subparsers(dest="review_command", required=True)
+    review_policies = review_subparsers.add_parser("policies", help="List packaged engineering review policies.")
+    review_policies.add_argument("--json", action="store_true")
+    review_policy_show = review_subparsers.add_parser("policy-show", help="Show one packaged review policy.")
+    review_policy_show.add_argument("policy_id")
+    review_policy_show.add_argument("--json", action="store_true")
+    review_subparsers.add_parser("policy-validate", help="Validate the packaged review policy manifest.")
+    review_evaluate = review_subparsers.add_parser("evaluate", help="Evaluate an existing assurance case.")
+    review_evaluate.add_argument("case_path")
+    review_evaluate.add_argument("--policy", required=True)
+    review_evaluate.add_argument("--package", dest="package_path", default=None, help="Optional validated audit-package directory.")
+    review_evaluate.add_argument("--json", action="store_true")
+    review_evaluate.add_argument("--output", default=None)
+    review_validate = review_subparsers.add_parser("validate", help="Validate a review decision JSON file.")
+    review_validate.add_argument("decision_path")
+    review_show = review_subparsers.add_parser("show", help="Show a review decision.")
+    review_show.add_argument("decision_path")
+    review_show.add_argument("--json", action="store_true")
+    review_render = review_subparsers.add_parser("render", help="Render a review decision to Markdown.")
+    review_render.add_argument("decision_path")
+    review_render.add_argument("--output", default=None)
+    review_compare = review_subparsers.add_parser("compare", help="Compare two review decisions.")
+    review_compare.add_argument("decision_a")
+    review_compare.add_argument("decision_b")
+    review_compare.add_argument("--json", action="store_true")
+    review_build = review_subparsers.add_parser("build-evaluate", help="Build assurance through the existing workflow and evaluate it.")
+    review_build.add_argument("--profile", choices=["static", "standard", "full"], default="standard")
+    review_build.add_argument("--family", choices=SUPPORTED_MODEL_FAMILIES, default="wall_mounted_bracket")
+    review_build.add_argument("--prompt", default=None)
+    review_build.add_argument("--policy", default=None)
+    review_build.add_argument("--dry-run", action="store_true")
+    review_build.add_argument("--json", action="store_true")
+    review_build.add_argument("--output-root", default=None)
+    review_build.add_argument("--output", default=None)
 
     assurance = subparsers.add_parser("assurance", help="Build and inspect scoped engineering assurance records.")
     assurance_subparsers = assurance.add_subparsers(dest="assurance_command", required=True)
@@ -2067,6 +2255,7 @@ def _build_parser() -> ArgumentParser:
     assurance_package = assurance_subparsers.add_parser("package", help="Create a portable audit package directory.")
     assurance_package.add_argument("case_path")
     assurance_package.add_argument("--output", default=None)
+    assurance_package.add_argument("--review-decision", default=None)
     assurance_package_validate = assurance_subparsers.add_parser("package-validate", help="Validate an audit package.")
     assurance_package_validate.add_argument("package_path")
     assurance_package_inspect = assurance_subparsers.add_parser("package-inspect", help="Inspect an audit package.")
@@ -2491,6 +2680,8 @@ def main(argv: list[str] | None = None) -> int:
             return _build_example_model(args.example)
         if args.command == "assurance":
             return _assurance_command(args)
+        if args.command == "review":
+            return _review_command(args)
         if args.command == "validate-example":
             return _validate_example_model(args.example)
         if args.command == "edit-example" and args.example == "bracket":
@@ -2554,10 +2745,18 @@ def main(argv: list[str] | None = None) -> int:
         parser.exit(1, f"{exc}\n")
     except UnsupportedObjectError as exc:
         parser.exit(1, f"{exc}\n")
+    except (ReviewEvaluationError, ReviewPolicyError) as exc:
+        print(f"Review error: {exc}")
+        return 5
     except OSError as exc:
         parser.exit(1, f"Could not read required file: {exc}\n")
     except json.JSONDecodeError as exc:
         parser.exit(1, f"Could not parse JSON file: {exc}\n")
+    except ValueError as exc:
+        if args.command == "review":
+            print(f"Review error: {exc}")
+            return 5
+        raise
 
     parser.error("unsupported command")
     return 2

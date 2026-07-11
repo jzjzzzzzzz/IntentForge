@@ -1,0 +1,18 @@
+from pathlib import Path
+
+import pytest
+
+from harness.orchestrator import _assurance_section, _review_policy_section
+
+
+def test_review_harness_uses_five_assurance_fixtures(tmp_path: Path) -> None:
+    pytest.importorskip("cadquery")
+    assurance = _assurance_section(tmp_path)
+    review = _review_policy_section(tmp_path, assurance)
+    assert review["passed"]
+    assert review["review_fixture_count"] == 5
+    assert review["accepted_decision_count"] == 4
+    assert review["conditional_decision_count"] == 1
+    assert review["manual_review_decision_count"] == 0
+    assert review["expected_decision_mismatch_count"] == 0
+    assert review["review_audit_package_validation_pass_count"] == 5

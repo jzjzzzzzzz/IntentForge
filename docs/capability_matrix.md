@@ -1,5 +1,7 @@
 # Capability Matrix
 
+The capability matrix defines product scope. Phase 24 policies consume capability references already embedded in assurance cases and cannot override a partially supported or unsupported capability status.
+
 The capability matrix is a deterministic, filterable view of IntentForge's declared engineering capabilities.
 
 Assurance records reference stable capability IDs from this matrix and combine them with run-level observations. A matrix row alone is not proof that a particular run passed.

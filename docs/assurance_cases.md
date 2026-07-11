@@ -14,6 +14,12 @@ A project-level capability or evidence bundle describes what the framework suppo
 
 Intentional rejection is a valid scoped outcome. It records the rejection boundary, evidence references, and no-CAD-export behavior rather than representing the unsupported design as generated geometry.
 
+## Review policy integration
+
+An assurance case records what happened. A Phase 24 review policy states what a workflow requires. A `ReviewDecision` evaluates the assurance record without changing it. Framework evidence does not replace missing run-level observations, and policy acceptance does not expand declared capability scope.
+
+Edit assurance now carries changed and preserved parameter trace summaries when the existing edit workflow provides them. Parent run IDs remain optional when the underlying edit source has no stable parent identifier.
+
 ## Determinism and limits
 
 Content IDs use canonical JSON hashing. Runtime timestamps, run IDs, and request IDs do not change logical content identity. Assurance remains limited to the two supported bracket families and the checks actually executed. External engineering review remains required for load-specific, manufacturing, regulatory, or safety decisions.

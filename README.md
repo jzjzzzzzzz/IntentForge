@@ -4,16 +4,18 @@
 
 IntentForge is a deterministic CAD intent pipeline for turning simple engineering language into editable, explainable, validated parametric CAD models.
 
-Phase 23 adds deterministic per-design engineering assurance cases and portable audit packages. These records connect a request to structured intent, existing validations, engineering rules, capability/evidence references, artifacts, limitations, and review requirements. They provide assurance within the declared IntentForge scope and are not regulatory certification.
+Phase 24 adds deterministic engineering review policies and acceptance decisions on top of Phase 23 assurance cases. Policies use a closed registry of typed checks to produce explicit findings, conditions, and one of five scoped outcomes. They do not execute policy code, alter CAD, or provide regulatory certification.
 
 ```bash
 intentforge assurance build --profile static
 intentforge assurance build --profile standard --dry-run
 intentforge assurance validate output/assurance/assurance_case.json
 intentforge assurance package output/assurance/assurance_case.json
+intentforge review policies
+intentforge review evaluate output/assurance/assurance_case.json --policy intentforge_standard_design_review_v1
 ```
 
-See [Engineering assurance cases](docs/assurance_cases.md), [Audit packages](docs/audit_packages.md), and [Design traceability](docs/design_traceability.md).
+See [Engineering assurance cases](docs/assurance_cases.md), [Audit packages](docs/audit_packages.md), [Review policies](docs/review_policies.md), [Acceptance decisions](docs/acceptance_decisions.md), and [Policy checks](docs/policy_checks.md).
 
 It is not a general text-to-CAD generator. The goal is not to produce geometry that merely looks right once. The goal is to preserve the design intent behind the model so later edits can update named parameters and active features without losing the original assumptions, constraints, and feature history.
 
@@ -85,6 +87,8 @@ Supported features:
 - modular engineering knowledge rule packs
 - engineering capability coverage and capability matrix
 - engineering evidence bundles and deterministic trust reports
+- deterministic run-level assurance cases and portable audit packages
+- declarative engineering review policies, findings, conditions, and acceptance decisions
 - deterministic engineering reasoning over knowledge findings
 - golden-case reasoning verification and recommendation consistency checks
 - topology-informed feature recognition for supported generated models
@@ -471,6 +475,10 @@ Default quality gates require:
 - duplicate pack and rule IDs == 0
 - unsafe acceptances == 0
 - unexpected failures and exceptions == 0
+- review policy manifest validation == pass
+- deterministic review fixture decisions match expected categories
+- review decision and decision-bearing audit-package validation == pass
+- review policy reference and deterministic ID mismatches == 0
 
 Reports are written to:
 
@@ -614,7 +622,7 @@ examples/       Bundled wall-bracket and L-bracket prompt, intent, parameters, c
 output/         Generated artifacts
 src/benchmark/  Deterministic benchmark package and bundled prompt data
 src/harness/    Topology, volume delta, sweep, edit-preservation, adversarial, and orchestrator harnesses
-src/intentforge/ Core schemas, parser, planner, generator, validator, editor, workflows, API, reports, and CLI
+src/intentforge/ Core schemas, parser, planner, generator, validator, editor, knowledge, assurance, review, workflows, API, reports, and CLI
 src/mcp_server/ Optional MCP wrapper around core workflows
 tests/          Pytest coverage
 ```

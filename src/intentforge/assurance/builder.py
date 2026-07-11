@@ -55,6 +55,8 @@ def _artifacts(result: dict[str, Any], family: str) -> list[ArtifactRecord]:
         if not isinstance(artifact, dict) or not artifact.get("path"):
             continue
         safe_path = _safe_artifact_path(str(artifact["path"]))
+        if safe_path is None and artifact.get("persistent") is False:
+            safe_path = (PurePosixPath("output") / Path(str(artifact["path"])).name).as_posix()
         if safe_path is None:
             continue
         path_parts = PurePosixPath(safe_path).parts
@@ -242,10 +244,32 @@ def build_assurance_case(result: dict[str, Any], *, profile: str = "standard", i
     unresolved = any(c.status == "unresolved" for c in claims)
     overall = "assurance_failed" if failed else "assurance_unresolved" if unresolved else "assurance_complete_with_limitations" if limitations or rejected else "assurance_complete"
     request_id = str(result.get("request_id") or canonical_digest("request", {"input": input_request or ""}))
+    request_summary: dict[str, Any] = {
+        "summary": input_request or (result.get("intent") or {}).get("user_prompt"),
+        "rejected": rejected,
+        "error": result.get("error"),
+    }
+    edit_report = result.get("edit_report") if isinstance(result.get("edit_report"), dict) else {}
+    if result.get("operation") in {"edit_parse", "edit_parse_apply"}:
+        request_summary["edit_request"] = result.get("edit_request")
+        request_summary["edit_trace"] = {
+            "changed_parameters": sorted(
+                str(item.get("parameter"))
+                for item in edit_report.get("changed_parameters", [])
+                if isinstance(item, dict) and item.get("parameter")
+            ),
+            "preserved_parameters": sorted(
+                str(item.get("parameter"))
+                for item in edit_report.get("preserved_parameters", [])
+                if isinstance(item, dict) and item.get("parameter")
+            ),
+            "changes_applied": sorted(str(item) for item in edit_report.get("changes_applied", [])),
+        }
     case_data = dict(
         assurance_case_id="pending", profile=profile, operation=str(result.get("operation", "parse_build")),
-        request_id=request_id, run_id=result.get("run_id"), input_request={"summary": input_request or (result.get("intent") or {}).get("user_prompt"), "rejected": rejected,
-        "error": result.get("error")}, structured_intent=result.get("intent"), cad_family=family,
+        request_id=request_id, run_id=result.get("run_id"),
+        parent_run_id=result.get("parent_run_id") or edit_report.get("target_model_id"),
+        input_request=request_summary, structured_intent=result.get("intent"), cad_family=family,
         feature_plan_summary=result.get("feature_plan") or {}, compiled_constraint_summary=sorted(constraints, key=lambda x: str(x.get("constraint_id"))),
         rule_references=sorted(rule_refs, key=lambda x: x["rule_id"]), capability_references=capability_ids,
         evidence_references=evidence_ids, claims=sorted(claims, key=lambda x: x.claim_id), arguments=sorted(arguments, key=lambda x: x.argument_id),

@@ -1,5 +1,7 @@
 # Engineering Knowledge Coverage
 
+Coverage declarations remain framework-level scope statements. Review policies may require references to those capabilities, but a capability declaration never substitutes for a run-level assurance observation.
+
 IntentForge uses a deterministic capability coverage layer to describe what the project actually supports, partially supports, and rejects by design.
 
 Per-design assurance cases use these declarations to identify exercised capabilities and relevant boundaries; they do not alter capability status based on one successful run.

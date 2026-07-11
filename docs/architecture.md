@@ -4,6 +4,8 @@ IntentForge is organized as a deterministic CAD intent pipeline. Each module own
 
 The per-design assurance layer adapts existing workflow responses into structured claims, arguments, validation observations, capability/evidence references, limitations, and safe artifact records. It does not execute a second CAD pipeline. Deterministic renderers and audit-package validation operate on the authoritative structured assurance case.
 
+The review-policy layer consumes a validated assurance case. Packaged declarative policies select checks from a closed evaluator registry, producing structured findings, conditions, and a deterministic review decision. It does not rerun CAD generation, mutate assurance records, or execute policy-provided code.
+
 Importable Python packages use a `src/` layout:
 
 - `src/intentforge`
@@ -38,6 +40,10 @@ Project assets such as `tests/`, `docs/`, `examples/`, and `demo/` remain at the
 `intentforge.knowledge.reasoning` connects evaluated knowledge findings into interactions, trade-offs, conflicts, priorities, and advisory recommendations. The reasoning package has no CadQuery or LLM dependency.
 
 `intentforge.knowledge.reasoning.verification` runs packaged golden engineering cases to check deterministic report IDs, expected reasoning behavior, recommendation contradictions, and recommendation applicability. It is a verification layer only; it does not modify CAD or rules.
+
+`intentforge.assurance` builds run-level Claims-Arguments-Evidence records and safe directory audit packages from existing workflow outputs.
+
+`intentforge.review` loads versioned review policies, validates typed checks and references, evaluates assurance observations, renders acceptance decisions, compares decisions, and optionally attaches policy and decision snapshots to audit packages.
 
 `intentforge.editor` applies structured edits to an existing parameter table and feature state. It preserves unchanged parameters and rejects unsupported or invalid edits before CAD export.
 

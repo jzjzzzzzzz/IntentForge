@@ -1,5 +1,7 @@
 # Engineering Evidence Traceability
 
+Review-policy evidence checks resolve the stable evidence IDs recorded by an assurance case. Static framework evidence supports a capability declaration; it does not prove that a specific run passed geometry validation.
+
 Phase 22 adds a deterministic evidence layer for IntentForge capability claims.
 
 Phase 23 keeps project-level evidence observations distinct from run-level validation observations, then links both through deterministic assurance arguments.

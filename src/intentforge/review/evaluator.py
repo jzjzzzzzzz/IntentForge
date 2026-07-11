@@ -1,0 +1,217 @@
+"""Deterministic review-policy evaluation over existing assurance records."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from intentforge.assurance.schema import AssuranceCase, canonical_digest
+from intentforge.assurance.validator import validate_assurance_case
+from intentforge.review.checks import CheckEvaluation, evaluate_policy_check
+from intentforge.review.schema import (
+    AcceptanceCondition,
+    PolicyCheck,
+    PolicyFinding,
+    ReviewDecision,
+    ReviewDecisionStatus,
+    ReviewPolicy,
+)
+
+
+class ReviewEvaluationError(ValueError):
+    """Structured input or policy-scope error raised before check evaluation."""
+
+    def __init__(self, message: str, *, error_code: str = "invalid_review_input"):
+        super().__init__(message)
+        self.error_code = error_code
+
+
+def determine_subject_type(case: AssuranceCase) -> str:
+    if any(claim.claim_type == "unsupported_behavior_rejected" for claim in case.claims):
+        return "safe_rejection"
+    if case.operation.startswith("edit_"):
+        return "edit_result"
+    return "design_result"
+
+
+def _finding(check: PolicyCheck, evaluation: CheckEvaluation) -> PolicyFinding:
+    summary = (
+        check.on_pass if evaluation.status == "passed"
+        else check.on_failure if evaluation.status == "failed"
+        else check.on_unresolved if evaluation.status in {"unresolved", "not_checked"}
+        else "This check does not apply to the reviewed assurance case."
+    )
+    payload = {
+        "check_id": check.check_id,
+        "status": evaluation.status,
+        "severity": check.severity,
+        "title": check.title,
+        "summary": summary,
+        "observed_value": evaluation.observed_value,
+        "expected_value": evaluation.expected_value,
+        "claim_ids": sorted(set(evaluation.claim_ids)),
+        "argument_ids": sorted(set(evaluation.argument_ids)),
+        "validation_ids": sorted(set(evaluation.validation_ids)),
+        "capability_ids": sorted(set(evaluation.capability_ids)),
+        "evidence_ids": sorted(set(evaluation.evidence_ids)),
+        "rule_ids": sorted(set(evaluation.rule_ids)),
+        "limitation_ids": sorted(set(evaluation.limitation_ids)),
+        "artifact_ids": sorted(set(evaluation.artifact_ids)),
+        "diagnostics": sorted(set(evaluation.diagnostics)),
+    }
+    content_id = canonical_digest("policy_finding_content", payload)
+    return PolicyFinding(
+        finding_id=canonical_digest("policy_finding", {"content_id": content_id}),
+        content_id=content_id,
+        **payload,
+    )
+
+
+def _condition_type(check: PolicyCheck, finding: PolicyFinding) -> str:
+    if check.check_type == "artifact_integrity_required":
+        return "artifact_integrity_required"
+    if check.check_type in {"reproducibility_required", "audit_package_valid"}:
+        return "reproducibility_check_required"
+    if check.check_type.startswith("limitation_"):
+        return "external_review_required" if check.severity == "manual_review" else "limitation_acknowledgement_required"
+    if check.check_type in {"safe_rejection_verified", "no_cad_artifact_on_rejection", "unsupported_boundary_disclosed"}:
+        return "unsupported_scope_correction_required"
+    if check.check_type in {"required_claim_present", "required_claim_status", "edit_intent_preservation_required"}:
+        return "intent_clarification_required"
+    return "additional_validation_required"
+
+
+def _condition(check: PolicyCheck, finding: PolicyFinding) -> AcceptanceCondition | None:
+    if finding.status not in {"failed", "unresolved", "not_checked"}:
+        return None
+    if check.severity not in {"conditional", "manual_review", "blocking"}:
+        return None
+    payload = {
+        "source_check_id": check.check_id,
+        "title": check.title,
+        "description": finding.summary,
+        "condition_type": _condition_type(check, finding),
+        "blocking": check.severity == "blocking",
+        "required_action": check.on_unresolved if finding.status in {"unresolved", "not_checked"} else check.on_failure,
+        "related_claim_ids": finding.claim_ids,
+        "related_validation_ids": finding.validation_ids,
+        "related_limitation_ids": finding.limitation_ids,
+    }
+    content_id = canonical_digest("acceptance_condition_content", payload)
+    return AcceptanceCondition(
+        condition_id=canonical_digest("acceptance_condition", {"content_id": content_id}),
+        content_id=content_id,
+        **payload,
+    )
+
+
+def _decision_status(policy: ReviewPolicy, findings: list[PolicyFinding]) -> ReviewDecisionStatus:
+    checks = {check.check_id: check for check in policy.checks}
+    required_blocking_unresolved = any(
+        finding.status in {"unresolved", "not_checked"}
+        and finding.severity == "blocking"
+        and checks[finding.check_id].required
+        for finding in findings
+    )
+    if required_blocking_unresolved:
+        return "unresolved"
+    if any(finding.status == "failed" and finding.severity == "blocking" for finding in findings):
+        return "rejected_by_policy"
+    if any(
+        finding.status in {"failed", "unresolved", "not_checked"}
+        and finding.severity == "manual_review"
+        for finding in findings
+    ):
+        return "manual_review_required"
+    if any(
+        finding.status in {"failed", "unresolved", "not_checked"}
+        and finding.severity == "conditional"
+        for finding in findings
+    ):
+        return "accepted_with_conditions"
+    return "accepted_within_declared_scope"
+
+
+def evaluate_assurance_case(
+    policy: ReviewPolicy | dict[str, Any],
+    assurance_case: AssuranceCase | dict[str, Any],
+    package_result: dict[str, Any] | None = None,
+    *,
+    runtime_metadata: dict[str, Any] | None = None,
+) -> ReviewDecision:
+    """Evaluate a validated assurance case using only registered deterministic checks."""
+
+    record = assurance_case if isinstance(assurance_case, AssuranceCase) else AssuranceCase.model_validate(assurance_case)
+    selected_policy = policy if isinstance(policy, ReviewPolicy) else ReviewPolicy.model_validate(policy)
+    assurance_validation = validate_assurance_case(record)
+    if not assurance_validation.passed:
+        raise ReviewEvaluationError(
+            "assurance case is invalid: " + "; ".join(assurance_validation.errors),
+            error_code="invalid_assurance_case",
+        )
+    subject_type = determine_subject_type(record)
+    if record.cad_family not in selected_policy.applicable_families:
+        raise ReviewEvaluationError(
+            f"policy {selected_policy.policy_id} does not apply to family {record.cad_family}",
+            error_code="policy_family_mismatch",
+        )
+    if record.operation not in selected_policy.applicable_operations:
+        raise ReviewEvaluationError(
+            f"policy {selected_policy.policy_id} does not apply to operation {record.operation}",
+            error_code="policy_operation_mismatch",
+        )
+    if subject_type != selected_policy.subject_type:
+        raise ReviewEvaluationError(
+            f"policy {selected_policy.policy_id} expects {selected_policy.subject_type}, not {subject_type}",
+            error_code="policy_subject_mismatch",
+        )
+
+    findings: list[PolicyFinding] = []
+    conditions: list[AcceptanceCondition] = []
+    for check in sorted(selected_policy.checks, key=lambda item: item.check_id):
+        finding = _finding(check, evaluate_policy_check(check, record, package_result))
+        findings.append(finding)
+        condition = _condition(check, finding)
+        if condition is not None:
+            conditions.append(condition)
+    findings.sort(key=lambda item: item.finding_id)
+    conditions.sort(key=lambda item: item.condition_id)
+    status = _decision_status(selected_policy, findings)
+    relevant_capabilities = sorted({*record.capability_references, *(item for finding in findings for item in finding.capability_ids)})
+    relevant_evidence = sorted({*record.evidence_references, *(item for finding in findings for item in finding.evidence_ids)})
+    relevant_rules = sorted({*(str(item.get("rule_id")) for item in record.rule_references), *(item for finding in findings for item in finding.rule_ids)})
+    decision_data = {
+        "decision_id": "pending",
+        "policy_id": selected_policy.policy_id,
+        "policy_version": selected_policy.policy_version,
+        "policy_content_id": selected_policy.content_id,
+        "assurance_case_id": record.assurance_case_id,
+        "assurance_case_content_id": record.content_id,
+        "subject_type": subject_type,
+        "cad_family": record.cad_family,
+        "operation": record.operation,
+        "assurance_profile": record.profile,
+        "decision_status": status,
+        "findings": findings,
+        "conditions": conditions,
+        "passed_check_count": sum(item.status == "passed" for item in findings),
+        "failed_check_count": sum(item.status == "failed" for item in findings),
+        "unresolved_check_count": sum(item.status in {"unresolved", "not_checked"} for item in findings),
+        "not_applicable_check_count": sum(item.status == "not_applicable" for item in findings),
+        "blocking_finding_count": sum(item.status in {"failed", "unresolved", "not_checked"} and item.severity == "blocking" for item in findings),
+        "manual_review_finding_count": sum(item.status in {"failed", "unresolved", "not_checked"} and item.severity == "manual_review" for item in findings),
+        "conditional_finding_count": sum(item.status in {"failed", "unresolved", "not_checked"} and item.severity == "conditional" for item in findings),
+        "relevant_capability_ids": relevant_capabilities,
+        "relevant_evidence_ids": relevant_evidence,
+        "relevant_rule_ids": relevant_rules,
+        "limitations": sorted({*selected_policy.limitations, *(item.description for item in record.limitations)}),
+        "review_notice": selected_policy.review_notice,
+        "provenance": f"policy:{selected_policy.policy_id}@{selected_policy.policy_version}",
+        "content_id": "pending",
+        "runtime_metadata": runtime_metadata or {},
+    }
+    provisional = ReviewDecision.model_validate(decision_data)
+    content_id = canonical_digest("review_decision_content", provisional.deterministic_payload())
+    return provisional.model_copy(update={
+        "decision_id": canonical_digest("review_decision", {"content_id": content_id}),
+        "content_id": content_id,
+    })

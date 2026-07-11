@@ -1,8 +1,8 @@
 # Project Status
 
-Current development target: Phase 23 engineering assurance cases and audit packages on `main`
+Current development target: Phase 24 engineering review policies and acceptance decisions on `main`
 
-Phase 23 adds deterministic Claims-Arguments-Evidence assurance cases, static/standard/full profiles, run-level validation observations, safe artifact records, deterministic Markdown and comparisons, portable directory audit packages, and technical-harness assurance gates. No CAD family or CAD generation behavior changed.
+Phase 24 adds five packaged, versioned review policies; a closed typed check registry; deterministic findings and conditions; explicit acceptance, conditional, manual-review, rejection, and unresolved decisions; decision comparison; optional audit-package decision snapshots; CLI commands; and technical-harness review gates. No CAD family or CAD generation behavior changed.
 
 Current supported model families:
 
@@ -47,6 +47,8 @@ Current supported model families:
 - Phase 20.8.1: modular engineering knowledge rule pack foundation
 - Phase 21: engineering knowledge coverage and capability matrix
 - Phase 22: engineering evidence bundles and deterministic trust reports
+- Phase 23: engineering assurance cases and portable audit packages
+- Phase 24: engineering review policies and acceptance decisions
 
 ## Current Capabilities
 
@@ -97,6 +99,10 @@ Current supported model families:
 - structured engineering evidence definitions, evidence bundles, and deterministic trust reports
 - deterministic engineering reasoning over knowledge findings, rule interactions, trade-offs, conflicts, priorities, and recommendations
 - golden-case reasoning verification with contradiction and applicability checks
+- deterministic assurance cases with static, standard, and full profiles
+- portable audit packages with safe paths and deterministic logical identities
+- packaged engineering review policies and a closed deterministic check registry
+- explicit review findings, conditions, decisions, and decision comparison
 
 ## Current Limitations
 
@@ -246,6 +252,6 @@ Phase 17 adds an optional terminal client for user-facing workflows:
 
 The deterministic parser, build, edit, benchmark, demo, and API workflows do not require LLM configuration.
 
-## Next Planned Phase
+## Release Status
 
-PyPI publish: tag v0.10.2, configure OIDC Trusted Publisher on PyPI, push tag to trigger GitHub Actions publish workflow.
+Phase 24 does not create a tag, GitHub release, or PyPI publication. The package version remains unchanged.

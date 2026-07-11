@@ -1,5 +1,7 @@
 # Design Traceability
 
+Phase 24 extends run traceability with a separate review decision. The assurance case remains the authoritative record of observations; the selected policy records which observations were required and why the resulting acceptance, condition, manual-review, rejection, or unresolved status occurred.
+
 Phase 23 connects one design request to its structured outcome:
 
 ```text
