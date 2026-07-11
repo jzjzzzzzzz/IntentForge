@@ -2,6 +2,8 @@
 
 IntentForge uses a deterministic capability coverage layer to describe what the project actually supports, partially supports, and rejects by design.
 
+Per-design assurance cases use these declarations to identify exercised capabilities and relevant boundaries; they do not alter capability status based on one successful run.
+
 Coverage is not a marketing support percentage. A capability can be:
 
 - `supported`: implemented and verified for the declared model family and stages.

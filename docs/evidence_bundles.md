@@ -2,6 +2,8 @@
 
 Phase 22 assembles one evidence bundle per declared capability.
 
+Assurance cases reference bundle and evidence IDs for capabilities exercised by one run. They do not copy complete evidence payloads except in a portable audit-package snapshot.
+
 A bundle connects a capability claim to the evidence definitions and observations that support it. This makes it possible to inspect what supports a supported capability, what documents a partial limitation, and what verifies an unsupported boundary rejection.
 
 ## Bundle Contents

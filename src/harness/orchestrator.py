@@ -46,6 +46,8 @@ from intentforge.knowledge import (
     validate_rule_data,
 )
 from intentforge.knowledge.reasoning.benchmark import run_reasoning_benchmark
+from intentforge.assurance import build_assurance_case, build_audit_package, validate_assurance_case
+from intentforge.workflows import edit_parse_apply_workflow, parse_build_workflow
 
 SUPPORTED_MODEL_FAMILIES = ("wall_mounted_bracket", "l_bracket")
 
@@ -100,6 +102,15 @@ QUALITY_GATES: dict[str, float | int] = {
     "evidence_orphan_count_max": 0,
     "evidence_deterministic_bundle_mismatch_count_max": 0,
     "evidence_deterministic_trust_report_mismatch_count_max": 0,
+    "assurance_gate_passed_min": 1,
+    "assurance_invalid_capability_reference_count_max": 0,
+    "assurance_invalid_evidence_reference_count_max": 0,
+    "assurance_invalid_rule_reference_count_max": 0,
+    "assurance_unsafe_artifact_path_count_max": 0,
+    "assurance_missing_required_validation_count_max": 0,
+    "assurance_deterministic_case_mismatch_count_max": 0,
+    "assurance_deterministic_package_mismatch_count_max": 0,
+    "assurance_package_hash_mismatch_count_max": 0,
 }
 
 
@@ -597,6 +608,74 @@ def _evidence_trust_section(run_dir: Path) -> dict[str, Any]:
     return result
 
 
+def _assurance_section(run_dir: Path) -> dict[str, Any]:
+    assurance_dir = run_dir / "assurance"
+    fixture_root = assurance_dir / "fixture_outputs"
+    workflows = [
+        ("wall_build", parse_build_workflow(
+            "Make a wall-mounted bracket 120 mm wide, 60 mm tall, 8 mm thick, with two screw holes.",
+            fixture_root / "wall", dry_run=True, request_id="assurance_fixture_wall"), "standard"),
+        ("l_build", parse_build_workflow(
+            "Make an L-bracket 80 mm wide with 60 mm legs, 8 mm thick, and two holes on each leg.",
+            fixture_root / "l", dry_run=True, request_id="assurance_fixture_l"), "standard"),
+        ("partial_feature", parse_build_workflow(
+            "Make a wall-mounted bracket 120 mm wide, 60 mm tall, with rounded corners and two holes.",
+            fixture_root / "partial", dry_run=True, request_id="assurance_fixture_partial"), "standard"),
+        ("rejected", parse_build_workflow(
+            "Make a gear with 24 teeth.", fixture_root / "rejected", dry_run=True,
+            request_id="assurance_fixture_rejected"), "static"),
+        ("edit", edit_parse_apply_workflow(
+            "bracket", "Make it 150 mm wide but keep the same thickness.", fixture_root / "edit",
+            dry_run=True, request_id="assurance_fixture_edit"), "standard"),
+    ]
+    cases = []
+    validation_pass_count = 0
+    aggregate = {"invalid_capability_reference_count": 0, "invalid_evidence_reference_count": 0,
+                 "invalid_rule_reference_count": 0, "unsafe_artifact_path_count": 0,
+                 "missing_required_validation_count": 0}
+    deterministic_case_mismatch_count = 0
+    deterministic_package_mismatch_count = 0
+    package_hash_mismatch_count = 0
+    package_validation_pass_count = 0
+    for name, workflow_result, profile in workflows:
+        if name == "rejected": workflow_result["object_type"] = "wall_mounted_bracket"
+        case = build_assurance_case(workflow_result, profile=profile, input_request=name)
+        duplicate = build_assurance_case(workflow_result, profile=profile, input_request=name)
+        deterministic_case_mismatch_count += int(case.assurance_case_id != duplicate.assurance_case_id)
+        validation = validate_assurance_case(case)
+        validation_pass_count += int(validation.passed)
+        for key in aggregate: aggregate[key] += int(validation.metrics.get(key, 0))
+        first = build_audit_package(case, assurance_dir / "packages" / f"{name}_a")
+        second = build_audit_package(case, assurance_dir / "packages" / f"{name}_b")
+        deterministic_package_mismatch_count += int(first["package_id"] != second["package_id"])
+        package_validation_pass_count += int(first["validation"]["passed"])
+        package_hash_mismatch_count += int(first["validation"].get("hash_mismatch_count", 0))
+        cases.append(case)
+    claims = [claim for case in cases for claim in case.claims]
+    result = {
+        "passed": validation_pass_count == len(cases) and not any(aggregate.values())
+                  and deterministic_case_mismatch_count == 0 and deterministic_package_mismatch_count == 0
+                  and package_hash_mismatch_count == 0,
+        "assurance_schema_valid": validation_pass_count == len(cases), "assurance_fixture_count": len(workflows),
+        "assurance_case_count": len(cases), "assurance_case_validation_pass_count": validation_pass_count,
+        "assurance_claim_count": len(claims), "supported_claim_count": sum(c.status == "supported" for c in claims),
+        "partial_claim_count": sum(c.status == "partially_supported" for c in claims),
+        "failed_claim_count": sum(c.status == "failed" for c in claims),
+        "unresolved_claim_count": sum(c.status == "unresolved" for c in claims),
+        **aggregate, "unsupported_boundary_disclosure_count": sum(bool(c.limitations) for c in cases),
+        "limitation_disclosure_count": sum(len(c.limitations) for c in cases),
+        "audit_package_validation_pass_count": package_validation_pass_count,
+        "audit_package_hash_mismatch_count": package_hash_mismatch_count,
+        "deterministic_assurance_case_mismatch_count": deterministic_case_mismatch_count,
+        "deterministic_audit_package_mismatch_count": deterministic_package_mismatch_count,
+    }
+    result["assurance_gate_passed"] = result["passed"]
+    report_path = assurance_dir / "assurance_harness_report.json"
+    _write_json(result, report_path)
+    result["report_path"] = str(report_path)
+    return result
+
+
 def _demo_section(output_root: Path) -> dict[str, Any]:
     from intentforge.demo_runner import run_demo
 
@@ -640,6 +719,7 @@ def _build_metrics(sections: dict[str, dict[str, Any]]) -> dict[str, float | int
     rule_packs = sections.get("rule_packs", {})
     capability_coverage = sections.get("capability_coverage", {})
     evidence_trust = sections.get("evidence_trust", {})
+    assurance = sections.get("assurance", {})
     demo = sections.get("demo", {})
 
     unexpected_failure_count = int(benchmark.get("failed_cases", 0) or 0)
@@ -728,6 +808,18 @@ def _build_metrics(sections: dict[str, dict[str, Any]]) -> dict[str, float | int
         "evidence_unsupported_missing_boundary_count": int(evidence_trust.get("unsupported_missing_boundary_count", 0) or 0),
         "evidence_deterministic_bundle_mismatch_count": int(evidence_trust.get("deterministic_bundle_mismatch_count", 0) or 0),
         "evidence_deterministic_trust_report_mismatch_count": int(evidence_trust.get("deterministic_report_mismatch_count", 0) or 0),
+        "assurance_gate_passed": 1 if assurance.get("assurance_gate_passed", False) else 0,
+        "assurance_fixture_count": int(assurance.get("assurance_fixture_count", 0) or 0),
+        "assurance_case_count": int(assurance.get("assurance_case_count", 0) or 0),
+        "assurance_claim_count": int(assurance.get("assurance_claim_count", 0) or 0),
+        "assurance_invalid_capability_reference_count": int(assurance.get("invalid_capability_reference_count", 0) or 0),
+        "assurance_invalid_evidence_reference_count": int(assurance.get("invalid_evidence_reference_count", 0) or 0),
+        "assurance_invalid_rule_reference_count": int(assurance.get("invalid_rule_reference_count", 0) or 0),
+        "assurance_unsafe_artifact_path_count": int(assurance.get("unsafe_artifact_path_count", 0) or 0),
+        "assurance_missing_required_validation_count": int(assurance.get("missing_required_validation_count", 0) or 0),
+        "assurance_deterministic_case_mismatch_count": int(assurance.get("deterministic_assurance_case_mismatch_count", 0) or 0),
+        "assurance_deterministic_package_mismatch_count": int(assurance.get("deterministic_audit_package_mismatch_count", 0) or 0),
+        "assurance_package_hash_mismatch_count": int(assurance.get("audit_package_hash_mismatch_count", 0) or 0),
         "unexpected_failure_count": unexpected_failure_count,
         "unsafe_acceptance_count": unsafe_acceptance_count,
         "unexpected_exception_count": unexpected_exception_count,
@@ -792,9 +884,18 @@ def compute_quality_gates(report: dict[str, Any]) -> dict[str, Any]:
         ("evidence_orphan_count_max", "evidence_orphan_count", "<="),
         ("evidence_deterministic_bundle_mismatch_count_max", "evidence_deterministic_bundle_mismatch_count", "<="),
         ("evidence_deterministic_trust_report_mismatch_count_max", "evidence_deterministic_trust_report_mismatch_count", "<="),
+        ("assurance_gate_passed_min", "assurance_gate_passed", ">="),
+        ("assurance_invalid_capability_reference_count_max", "assurance_invalid_capability_reference_count", "<="),
+        ("assurance_invalid_evidence_reference_count_max", "assurance_invalid_evidence_reference_count", "<="),
+        ("assurance_invalid_rule_reference_count_max", "assurance_invalid_rule_reference_count", "<="),
+        ("assurance_unsafe_artifact_path_count_max", "assurance_unsafe_artifact_path_count", "<="),
+        ("assurance_missing_required_validation_count_max", "assurance_missing_required_validation_count", "<="),
+        ("assurance_deterministic_case_mismatch_count_max", "assurance_deterministic_case_mismatch_count", "<="),
+        ("assurance_deterministic_package_mismatch_count_max", "assurance_deterministic_package_mismatch_count", "<="),
+        ("assurance_package_hash_mismatch_count_max", "assurance_package_hash_mismatch_count", "<="),
     )
     for gate_name, metric_name, operator in gate_specs:
-        if gate_name not in gates:
+        if gate_name not in gates or metric_name not in metrics:
             continue
         expected = gates[gate_name]
         actual = metrics.get(metric_name, 0)
@@ -870,6 +971,10 @@ def _build_summary(report: dict[str, Any]) -> str:
         f"  - evidence_unknown_pack_reference_count: {int(metrics.get('evidence_unknown_pack_reference_count', 0))}",
         f"  - evidence_deterministic_bundle_mismatch_count: {int(metrics.get('evidence_deterministic_bundle_mismatch_count', 0))}",
         f"  - evidence_deterministic_trust_report_mismatch_count: {int(metrics.get('evidence_deterministic_trust_report_mismatch_count', 0))}",
+        f"  - assurance_gate_passed: {int(metrics.get('assurance_gate_passed', 0))}",
+        f"  - assurance_fixture_count: {int(metrics.get('assurance_fixture_count', 0))}",
+        f"  - assurance_case_count: {int(metrics.get('assurance_case_count', 0))}",
+        f"  - assurance_claim_count: {int(metrics.get('assurance_claim_count', 0))}",
         f"  - unexpected_failure_count: {metrics['unexpected_failure_count']}",
         f"  - unsafe_acceptance_count: {metrics['unsafe_acceptance_count']}",
         f"  - unexpected_exception_count: {metrics['unexpected_exception_count']}",
@@ -970,6 +1075,10 @@ def run_technical_harness(
         "evidence_trust": _run_section(
             "evidence_trust",
             lambda: _evidence_trust_section(run_context.run_dir),
+        ),
+        "assurance": _run_section(
+            "assurance",
+            lambda: _assurance_section(run_context.run_dir),
         ),
     }
     if include_demo:

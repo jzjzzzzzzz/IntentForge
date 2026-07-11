@@ -2,6 +2,8 @@
 
 The capability matrix is a deterministic, filterable view of IntentForge's declared engineering capabilities.
 
+Assurance records reference stable capability IDs from this matrix and combine them with run-level observations. A matrix row alone is not proof that a particular run passed.
+
 Each row includes:
 
 - capability ID

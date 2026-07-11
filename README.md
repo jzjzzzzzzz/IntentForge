@@ -4,6 +4,17 @@
 
 IntentForge is a deterministic CAD intent pipeline for turning simple engineering language into editable, explainable, validated parametric CAD models.
 
+Phase 23 adds deterministic per-design engineering assurance cases and portable audit packages. These records connect a request to structured intent, existing validations, engineering rules, capability/evidence references, artifacts, limitations, and review requirements. They provide assurance within the declared IntentForge scope and are not regulatory certification.
+
+```bash
+intentforge assurance build --profile static
+intentforge assurance build --profile standard --dry-run
+intentforge assurance validate output/assurance/assurance_case.json
+intentforge assurance package output/assurance/assurance_case.json
+```
+
+See [Engineering assurance cases](docs/assurance_cases.md), [Audit packages](docs/audit_packages.md), and [Design traceability](docs/design_traceability.md).
+
 It is not a general text-to-CAD generator. The goal is not to produce geometry that merely looks right once. The goal is to preserve the design intent behind the model so later edits can update named parameters and active features without losing the original assumptions, constraints, and feature history.
 
 The current implementation is intentionally narrow:

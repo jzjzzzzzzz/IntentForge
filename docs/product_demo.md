@@ -1,5 +1,7 @@
 # Product Demo Workflow
 
+The CLI can produce a scoped assurance case after the existing deterministic workflow and package it for downstream review. This adds traceability; it does not expand the two supported CAD families or claim engineering certification.
+
 IntentForge's HTTP API server turns the deterministic CAD pipeline into a
 callable backend that external agents, SaaS integrations, or local tools can
 use directly.  This document explains the commercial-style demo workflow and

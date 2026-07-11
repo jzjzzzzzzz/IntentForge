@@ -2,6 +2,8 @@
 
 Phase 20.6 adds a deterministic engineering reasoning layer on top of the engineering knowledge system.
 
+When reasoning is actually produced for a design run, Phase 23 records its structured summary and adds a scoped reasoning-completed claim. Static profiles do not claim reasoning execution.
+
 The reasoning engine connects evaluated knowledge findings into traceable explanations. It does not generate CAD, edit geometry, run FEA, call an LLM, or claim safety certification.
 
 Capability coverage is a separate QA layer. It verifies that declared reasoning capabilities point to golden reasoning cases and stable implementation evidence, while preserving the reasoning engine's deterministic behavior.

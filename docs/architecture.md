@@ -2,6 +2,8 @@
 
 IntentForge is organized as a deterministic CAD intent pipeline. Each module owns one part of the path from prompt to validated CAD.
 
+The per-design assurance layer adapts existing workflow responses into structured claims, arguments, validation observations, capability/evidence references, limitations, and safe artifact records. It does not execute a second CAD pipeline. Deterministic renderers and audit-package validation operate on the authoritative structured assurance case.
+
 Importable Python packages use a `src/` layout:
 
 - `src/intentforge`

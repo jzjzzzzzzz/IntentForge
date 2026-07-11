@@ -11,6 +11,17 @@ import sys
 
 import yaml
 
+from intentforge.assurance import (
+    build_assurance_from_prompt,
+    build_audit_package,
+    compare_assurance_cases,
+    inspect_audit_package,
+    render_assurance_markdown,
+    validate_assurance_case,
+    validate_audit_package,
+)
+from intentforge.assurance.schema import AssuranceCase
+
 from harness.topology import (
     build_volume_delta_report,
     inspect_shape,
@@ -1947,9 +1958,120 @@ def _serve_command(host: str, port: int, token: str | None) -> int:
     return serve(host=host, port=port, token=token)
 
 
+def _load_assurance_case(path: str | Path) -> AssuranceCase:
+    return AssuranceCase.model_validate_json(Path(path).read_text(encoding="utf-8"))
+
+
+def _assurance_command(args) -> int:
+    action = args.assurance_command
+    if action == "build":
+        output_root = Path(args.output_root or (_project_root() / "output"))
+        case = build_assurance_from_prompt(
+            args.prompt, family=args.family, profile=args.profile, dry_run=args.dry_run,
+            output_root=output_root,
+        )
+        assurance_root = output_root / "assurance"
+        assurance_root.mkdir(parents=True, exist_ok=True)
+        json_path = assurance_root / "assurance_case.json"
+        markdown_path = assurance_root / "assurance_case.md"
+        json_path.write_text(case.to_json(), encoding="utf-8")
+        markdown_path.write_text(render_assurance_markdown(case), encoding="utf-8")
+        if args.json:
+            print(case.to_json(), end="")
+        else:
+            print("IntentForge Engineering Assurance Case")
+            print(f"Case ID: {case.assurance_case_id}")
+            print(f"Profile: {case.profile}")
+            print(f"Family: {case.cad_family}")
+            print(f"Status: {case.overall_assurance_status}")
+            print(f"Claims: {len(case.claims)}")
+            print(f"Case path: {json_path}")
+            print(f"Markdown path: {markdown_path}")
+        return 0 if validate_assurance_case(case).passed else 1
+    if action in {"validate", "show", "render"}:
+        case = _load_assurance_case(args.case_path)
+        if action == "validate":
+            result = validate_assurance_case(case)
+            print("Assurance case validation")
+            print("PASS" if result.passed else "FAIL")
+            print(f"Case ID: {case.assurance_case_id}")
+            for error in result.errors: print(f"- {error}")
+            return 0 if result.passed else 1
+        if action == "show":
+            print(case.to_json() if args.json else render_assurance_markdown(case), end="")
+            return 0
+        markdown = render_assurance_markdown(case)
+        output = Path(args.output) if args.output else Path(args.case_path).with_suffix(".md")
+        output.write_text(markdown, encoding="utf-8")
+        print(f"Rendered assurance report: {output}")
+        return 0
+    if action == "compare":
+        result = compare_assurance_cases(_load_assurance_case(args.case_a), _load_assurance_case(args.case_b))
+        if args.json:
+            print(json.dumps(result, indent=2, sort_keys=True))
+        else:
+            print("Assurance case comparison")
+            print(f"Comparison ID: {result['comparison_id']}")
+            print(f"Identical: {str(result['identical']).lower()}")
+            print(f"Changed fields: {', '.join(result['changed_fields']) if result['changed_fields'] else 'none'}")
+        return 0
+    if action == "package":
+        case = _load_assurance_case(args.case_path)
+        output = Path(args.output) if args.output else Path(args.case_path).parent / f"audit_package_{case.assurance_case_id}"
+        result = build_audit_package(case, output)
+        print("IntentForge Audit Package")
+        print(f"Package ID: {result['package_id']}")
+        print(f"Package path: {result['package_path']}")
+        print(f"Files: {result['file_count']}")
+        return 0 if result["validation"]["passed"] else 1
+    if action in {"package-validate", "package-inspect"}:
+        result = validate_audit_package(args.package_path) if action == "package-validate" else inspect_audit_package(args.package_path)
+        passed = result.get("passed", result.get("validation", {}).get("passed", False))
+        if getattr(args, "json", False):
+            print(json.dumps(result, indent=2, sort_keys=True))
+        else:
+            print("Audit package validation" if action == "package-validate" else "Audit package inspection")
+            print("PASS" if passed else "FAIL")
+            validation = result if action == "package-validate" else result.get("validation", {})
+            print(f"Package ID: {validation.get('package_id')}")
+            for error in validation.get("errors", []): print(f"- {error}")
+        return 0 if passed else 1
+    raise ValueError(f"unsupported assurance action: {action}")
+
+
 def _build_parser() -> ArgumentParser:
     parser = ArgumentParser(prog="intentforge")
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    assurance = subparsers.add_parser("assurance", help="Build and inspect scoped engineering assurance records.")
+    assurance_subparsers = assurance.add_subparsers(dest="assurance_command", required=True)
+    assurance_build = assurance_subparsers.add_parser("build", help="Build an assurance case using the existing workflow.")
+    assurance_build.add_argument("--profile", choices=["static", "standard", "full"], default="standard")
+    assurance_build.add_argument("--family", choices=SUPPORTED_MODEL_FAMILIES, default="wall_mounted_bracket")
+    assurance_build.add_argument("--prompt", default=None)
+    assurance_build.add_argument("--dry-run", action="store_true")
+    assurance_build.add_argument("--json", action="store_true")
+    assurance_build.add_argument("--output-root", default=None)
+    assurance_validate = assurance_subparsers.add_parser("validate", help="Validate an assurance case JSON file.")
+    assurance_validate.add_argument("case_path")
+    assurance_show = assurance_subparsers.add_parser("show", help="Show an assurance case.")
+    assurance_show.add_argument("case_path")
+    assurance_show.add_argument("--json", action="store_true")
+    assurance_render = assurance_subparsers.add_parser("render", help="Render assurance Markdown.")
+    assurance_render.add_argument("case_path")
+    assurance_render.add_argument("--output", default=None)
+    assurance_compare = assurance_subparsers.add_parser("compare", help="Compare two assurance cases.")
+    assurance_compare.add_argument("case_a")
+    assurance_compare.add_argument("case_b")
+    assurance_compare.add_argument("--json", action="store_true")
+    assurance_package = assurance_subparsers.add_parser("package", help="Create a portable audit package directory.")
+    assurance_package.add_argument("case_path")
+    assurance_package.add_argument("--output", default=None)
+    assurance_package_validate = assurance_subparsers.add_parser("package-validate", help="Validate an audit package.")
+    assurance_package_validate.add_argument("package_path")
+    assurance_package_inspect = assurance_subparsers.add_parser("package-inspect", help="Inspect an audit package.")
+    assurance_package_inspect.add_argument("package_path")
+    assurance_package_inspect.add_argument("--json", action="store_true")
 
     build_example = subparsers.add_parser(
         "build-example",
@@ -2367,6 +2489,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "build-example":
             return _build_example_model(args.example)
+        if args.command == "assurance":
+            return _assurance_command(args)
         if args.command == "validate-example":
             return _validate_example_model(args.example)
         if args.command == "edit-example" and args.example == "bracket":

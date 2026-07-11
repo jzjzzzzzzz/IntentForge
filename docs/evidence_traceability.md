@@ -2,6 +2,8 @@
 
 Phase 22 adds a deterministic evidence layer for IntentForge capability claims.
 
+Phase 23 keeps project-level evidence observations distinct from run-level validation observations, then links both through deterministic assurance arguments.
+
 The capability manifest says what the project claims to support, partially support, or reject. The evidence manifest says what records support those claims and whether those records resolve against known project registries.
 
 ## Evidence Concepts

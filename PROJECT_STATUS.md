@@ -1,6 +1,8 @@
 # Project Status
 
-Current development target: Phase 22 engineering evidence bundles and trust reporting on `main`
+Current development target: Phase 23 engineering assurance cases and audit packages on `main`
+
+Phase 23 adds deterministic Claims-Arguments-Evidence assurance cases, static/standard/full profiles, run-level validation observations, safe artifact records, deterministic Markdown and comparisons, portable directory audit packages, and technical-harness assurance gates. No CAD family or CAD generation behavior changed.
 
 Current supported model families:
 

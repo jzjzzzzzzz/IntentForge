@@ -2,6 +2,8 @@
 
 Phase 22 adds a deterministic trust report for declared IntentForge capability evidence.
 
+Project-level trust reports describe evidence for declared framework capabilities. Phase 23 assurance cases separately record whether a capability was exercised and observed in one design run. A complete project evidence bundle does not automatically prove a run-level geometry claim.
+
 The trust report is not a vague AI trust score. It is a structured evidence-quality report for the declared scope.
 
 ## What It Reports
