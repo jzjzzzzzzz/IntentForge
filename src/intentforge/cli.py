@@ -25,13 +25,20 @@ from intentforge.review import (
     ReviewEvaluationError,
     ReviewPolicyError,
     compare_review_decisions,
+    diff_review_decisions,
+    diff_review_variants,
     evaluate_assurance_case,
     get_review_policy,
     load_review_decision,
+    load_review_decision_source,
     load_review_policies,
+    render_decision_provenance_markdown,
+    render_multi_variant_diff_markdown,
     render_review_decision_markdown,
+    render_review_diff_markdown,
     validate_review_decision,
     validate_review_policy_manifest,
+    verify_decision_provenance,
 )
 
 from harness.topology import (
@@ -2066,6 +2073,41 @@ def _review_command(args) -> int:
         output.write_text(render_review_decision_markdown(decision), encoding="utf-8")
         print(f"Rendered review decision: {output}")
         return 0
+    if action == "provenance":
+        decision = load_review_decision_source(args.decision_source)
+        verification = verify_decision_provenance(decision, perform_replay=args.verify)
+        if args.json:
+            payload = {
+                "decision_id": decision.decision_id,
+                "provenance": None if decision.decision_provenance is None else decision.decision_provenance.model_dump(mode="json"),
+                "verification": verification.model_dump(mode="json"),
+            }
+            print(json.dumps(payload, indent=2, sort_keys=True))
+        else:
+            print(render_decision_provenance_markdown(decision, verify=args.verify), end="")
+        return 0 if verification.passed else 1
+    if action == "diff":
+        baseline = load_review_decision_source(args.baseline)
+        variants = [load_review_decision_source(item) for item in args.variants]
+        if len(variants) == 1:
+            result = diff_review_decisions(baseline, variants[0])
+            serialized = result.to_json()
+            markdown = render_review_diff_markdown(result)
+        else:
+            result = diff_review_variants(baseline, variants)
+            serialized = result.to_json()
+            markdown = render_multi_variant_diff_markdown(result)
+        if args.output:
+            output = Path(args.output)
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(serialized if args.json else markdown, encoding="utf-8")
+        if args.json:
+            print(serialized, end="")
+        else:
+            print(markdown, end="")
+            if args.output:
+                print(f"Differential audit path: {args.output}")
+        return 0
     if action == "compare":
         result = compare_review_decisions(load_review_decision(args.decision_a), load_review_decision(args.decision_b))
         if args.json:
@@ -2217,6 +2259,19 @@ def _build_parser() -> ArgumentParser:
     review_render = review_subparsers.add_parser("render", help="Render a review decision to Markdown.")
     review_render.add_argument("decision_path")
     review_render.add_argument("--output", default=None)
+    review_provenance = review_subparsers.add_parser(
+        "provenance", help="Inspect or replay deterministic review-decision provenance."
+    )
+    review_provenance.add_argument("decision_source", help="Review decision JSON or audit-package directory.")
+    review_provenance.add_argument("--verify", action="store_true", help="Replay using only frozen provenance snapshots.")
+    review_provenance.add_argument("--json", action="store_true")
+    review_diff = review_subparsers.add_parser(
+        "diff", help="Compare one baseline with one or more review decision variants."
+    )
+    review_diff.add_argument("baseline", help="Baseline decision JSON or audit-package directory.")
+    review_diff.add_argument("variants", nargs="+", help="One or more decision JSON files or audit-package directories.")
+    review_diff.add_argument("--json", action="store_true")
+    review_diff.add_argument("--output", default=None)
     review_compare = review_subparsers.add_parser("compare", help="Compare two review decisions.")
     review_compare.add_argument("decision_a")
     review_compare.add_argument("decision_b")

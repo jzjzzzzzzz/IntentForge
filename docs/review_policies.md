@@ -25,6 +25,8 @@ The initial policy manifest contains five conservative policies:
 
 Each policy has a stable policy ID, policy version, deterministic content ID, family and operation scope, subject type, accepted assurance profiles, checks, limitations, and a review notice.
 
+Phase 25 does not change these five policies or their 54 checks. It records the selected policy and closed check-registry contract inside decision provenance so a later runtime can verify the exact Phase 24 semantics instead of silently applying a changed live policy.
+
 ## Scope and subjects
 
 Policy subjects are `design_result`, `edit_result`, `safe_rejection`, or `audit_package`. Applying a policy to the wrong family, operation, or subject fails clearly. A standard-only assurance case cannot silently satisfy the full policy.

@@ -50,12 +50,16 @@ from intentforge.assurance import build_assurance_case, build_audit_package, val
 from intentforge.assurance.schema import AssuranceCase
 from intentforge.review import (
     ReviewEvaluationError,
+    collect_review_evaluation_resources,
+    diff_review_decisions,
+    diff_review_variants,
     evaluate_assurance_case,
     get_review_policy,
     load_review_policies,
     validate_review_decision,
     validate_review_policy,
     validate_review_policy_manifest,
+    verify_decision_provenance,
 )
 from intentforge.workflows import edit_parse_apply_workflow, parse_build_workflow
 
@@ -137,6 +141,15 @@ QUALITY_GATES: dict[str, float | int] = {
     "review_audit_package_hash_mismatch_count_max": 0,
     "review_expected_decision_mismatch_count_max": 0,
     "review_full_policy_incompatible_acceptance_count_max": 0,
+    "review_provenance_missing_count_max": 0,
+    "review_provenance_snapshot_mismatch_count_max": 0,
+    "review_provenance_execution_node_mismatch_count_max": 0,
+    "review_provenance_replay_mismatch_count_max": 0,
+    "review_provenance_evidence_matrix_mismatch_count_max": 0,
+    "review_deterministic_provenance_mismatch_count_max": 0,
+    "review_semantic_diff_generation_failure_count_max": 0,
+    "review_semantic_diff_deterministic_mismatch_count_max": 0,
+    "review_multi_variant_diff_deterministic_mismatch_count_max": 0,
 }
 
 
@@ -712,6 +725,7 @@ def _review_policy_section(run_dir: Path, assurance_section: dict[str, Any]) -> 
     manifest_validation = validate_review_policy_manifest()
     policies = load_review_policies()
     policy_validation_pass_count = sum(validate_review_policy(policy).passed for policy in policies)
+    shared_resources = collect_review_evaluation_resources()
     fixture_specs = {
         "wall_build": ("intentforge_standard_design_review_v1", "accepted_within_declared_scope"),
         "l_build": ("intentforge_standard_design_review_v1", "accepted_within_declared_scope"),
@@ -728,6 +742,13 @@ def _review_policy_section(run_dir: Path, assurance_section: dict[str, Any]) -> 
     deterministic_decision_mismatch_count = 0
     expected_decision_mismatch_count = 0
     policy_scope_mismatch_count = 0
+    provenance_validation_pass_count = 0
+    provenance_missing_count = 0
+    provenance_snapshot_mismatch_count = 0
+    provenance_execution_node_mismatch_count = 0
+    provenance_replay_mismatch_count = 0
+    provenance_evidence_matrix_mismatch_count = 0
+    deterministic_provenance_mismatch_count = 0
     aggregate = {
         "unknown_claim_reference_count": 0,
         "unknown_validation_reference_count": 0,
@@ -741,13 +762,18 @@ def _review_policy_section(run_dir: Path, assurance_section: dict[str, Any]) -> 
         try:
             case = AssuranceCase.model_validate_json(Path(case_paths[fixture_name]).read_text(encoding="utf-8"))
             policy = get_review_policy(policy_id)
-            first = evaluate_assurance_case(policy, case)
-            second = evaluate_assurance_case(policy, case)
+            first = evaluate_assurance_case(policy, case, resources=shared_resources)
+            second = evaluate_assurance_case(policy, case, resources=shared_resources)
         except (KeyError, OSError, ValueError, ReviewEvaluationError) as exc:
             policy_scope_mismatch_count += int(isinstance(exc, ReviewEvaluationError))
             fixture_results[fixture_name] = {"passed": False, "error": str(exc)}
             continue
         deterministic_decision_mismatch_count += int(first.decision_id != second.decision_id)
+        deterministic_provenance_mismatch_count += int(
+            first.decision_provenance is None
+            or second.decision_provenance is None
+            or first.decision_provenance.provenance_id != second.decision_provenance.provenance_id
+        )
         deterministic_finding_mismatch_count += int(
             [item.finding_id for item in first.findings] != [item.finding_id for item in second.findings]
         )
@@ -756,6 +782,16 @@ def _review_policy_section(run_dir: Path, assurance_section: dict[str, Any]) -> 
         )
         expected_decision_mismatch_count += int(first.decision_status != expected_status)
         validation = validate_review_decision(first, policy=policy, assurance_case=case)
+        provenance_validation = verify_decision_provenance(first, perform_replay=True)
+        provenance_validation_pass_count += int(provenance_validation.passed)
+        provenance_missing_count += int(first.decision_provenance is None)
+        provenance_snapshot_mismatch_count += provenance_validation.snapshot_mismatch_count
+        provenance_execution_node_mismatch_count += provenance_validation.execution_node_mismatch_count
+        provenance_replay_mismatch_count += provenance_validation.replay_mismatch_count
+        provenance_evidence_matrix_mismatch_count += int(
+            provenance_validation.evidence_definition_count != 65
+            or provenance_validation.evidence_observation_count != 65
+        )
         decision_validation_pass_count += int(validation.passed)
         for key in aggregate:
             aggregate[key] += int(validation.metrics.get(key, 0))
@@ -770,25 +806,57 @@ def _review_policy_section(run_dir: Path, assurance_section: dict[str, Any]) -> 
         decision_path = review_dir / "decisions" / f"{fixture_name}.json"
         _write_json(first.model_dump(mode="json"), decision_path)
         fixture_results[fixture_name] = {
-            "passed": validation.passed and first.decision_status == expected_status and package["validation"]["passed"],
+            "passed": validation.passed and provenance_validation.passed
+                      and first.decision_status == expected_status and package["validation"]["passed"],
             "policy_id": policy_id,
             "decision_status": first.decision_status,
             "expected_status": expected_status,
             "decision_id": first.decision_id,
             "decision_path": str(decision_path),
             "package_id": package["package_id"],
+            "provenance_id": None if first.decision_provenance is None else first.decision_provenance.provenance_id,
+            "provenance_verified": provenance_validation.passed,
         }
         decisions.append(first)
 
     full_policy_incompatible_acceptance_count = 0
     try:
         standard_case = AssuranceCase.model_validate_json(Path(case_paths["wall_build"]).read_text(encoding="utf-8"))
-        incompatible = evaluate_assurance_case(get_review_policy("intentforge_full_design_review_v1"), standard_case)
+        incompatible = evaluate_assurance_case(
+            get_review_policy("intentforge_full_design_review_v1"),
+            standard_case,
+            resources=shared_resources,
+        )
         full_policy_incompatible_acceptance_count = int(
             incompatible.decision_status in {"accepted_within_declared_scope", "accepted_with_conditions"}
         )
     except (KeyError, OSError, ValueError, ReviewEvaluationError):
         full_policy_incompatible_acceptance_count = 0
+
+    semantic_diff_generation_failure_count = 0
+    semantic_diff_deterministic_mismatch_count = 0
+    multi_variant_diff_deterministic_mismatch_count = 0
+    semantic_diff_count = 0
+    try:
+        baseline = next(item for item in decisions if item.cad_family == "wall_mounted_bracket" and item.decision_status == "accepted_within_declared_scope")
+        partial = next(item for item in decisions if item.decision_status == "accepted_with_conditions")
+        first_diff = diff_review_decisions(baseline, partial)
+        second_diff = diff_review_decisions(baseline, partial)
+        semantic_diff_count = 1
+        semantic_diff_deterministic_mismatch_count = int(
+            first_diff.diff_id != second_diff.diff_id or first_diff.content_id != second_diff.content_id
+        )
+        variants = [item for item in decisions if item.decision_id != baseline.decision_id][:3]
+        first_multi = diff_review_variants(baseline, variants)
+        second_multi = diff_review_variants(baseline, variants)
+        multi_variant_diff_deterministic_mismatch_count = int(
+            first_multi.audit_id != second_multi.audit_id or first_multi.content_id != second_multi.content_id
+        )
+        _write_json(first_diff.model_dump(mode="json"), review_dir / "review_semantic_diff.json")
+        _write_json(first_multi.model_dump(mode="json"), review_dir / "review_multi_variant_diff.json")
+    except (StopIteration, ValueError) as exc:
+        semantic_diff_generation_failure_count = 1
+        fixture_results["semantic_diff"] = {"passed": False, "error": str(exc)}
 
     finding_count = sum(len(item.findings) for item in decisions)
     result = {
@@ -817,6 +885,17 @@ def _review_policy_section(run_dir: Path, assurance_section: dict[str, Any]) -> 
         "deterministic_condition_mismatch_count": deterministic_condition_mismatch_count,
         "deterministic_decision_mismatch_count": deterministic_decision_mismatch_count,
         "review_decision_validation_pass_count": decision_validation_pass_count,
+        "review_provenance_validation_pass_count": provenance_validation_pass_count,
+        "review_provenance_missing_count": provenance_missing_count,
+        "review_provenance_snapshot_mismatch_count": provenance_snapshot_mismatch_count,
+        "review_provenance_execution_node_mismatch_count": provenance_execution_node_mismatch_count,
+        "review_provenance_replay_mismatch_count": provenance_replay_mismatch_count,
+        "review_provenance_evidence_matrix_mismatch_count": provenance_evidence_matrix_mismatch_count,
+        "review_deterministic_provenance_mismatch_count": deterministic_provenance_mismatch_count,
+        "review_semantic_diff_count": semantic_diff_count,
+        "review_semantic_diff_generation_failure_count": semantic_diff_generation_failure_count,
+        "review_semantic_diff_deterministic_mismatch_count": semantic_diff_deterministic_mismatch_count,
+        "review_multi_variant_diff_deterministic_mismatch_count": multi_variant_diff_deterministic_mismatch_count,
         "review_audit_package_validation_pass_count": audit_package_validation_pass_count,
         "review_audit_package_hash_mismatch_count": audit_package_hash_mismatch_count,
         "expected_decision_mismatch_count": expected_decision_mismatch_count,
@@ -829,6 +908,7 @@ def _review_policy_section(run_dir: Path, assurance_section: dict[str, Any]) -> 
         and policy_validation_pass_count == len(policies)
         and len(decisions) == len(fixture_specs)
         and decision_validation_pass_count == len(fixture_specs)
+        and provenance_validation_pass_count == len(fixture_specs)
         and audit_package_validation_pass_count == len(fixture_specs)
         and not any(aggregate.values())
         and policy_scope_mismatch_count == 0
@@ -838,6 +918,15 @@ def _review_policy_section(run_dir: Path, assurance_section: dict[str, Any]) -> 
         and audit_package_hash_mismatch_count == 0
         and expected_decision_mismatch_count == 0
         and full_policy_incompatible_acceptance_count == 0
+        and provenance_missing_count == 0
+        and provenance_snapshot_mismatch_count == 0
+        and provenance_execution_node_mismatch_count == 0
+        and provenance_replay_mismatch_count == 0
+        and provenance_evidence_matrix_mismatch_count == 0
+        and deterministic_provenance_mismatch_count == 0
+        and semantic_diff_generation_failure_count == 0
+        and semantic_diff_deterministic_mismatch_count == 0
+        and multi_variant_diff_deterministic_mismatch_count == 0
     )
     result["review_gate_passed"] = result["passed"]
     report_path = review_dir / "review_policy_harness_report.json"
@@ -1017,6 +1106,17 @@ def _build_metrics(sections: dict[str, dict[str, Any]]) -> dict[str, float | int
         "review_audit_package_hash_mismatch_count": int(review_policy.get("review_audit_package_hash_mismatch_count", 0) or 0),
         "review_expected_decision_mismatch_count": int(review_policy.get("expected_decision_mismatch_count", 0) or 0),
         "review_full_policy_incompatible_acceptance_count": int(review_policy.get("full_policy_incompatible_acceptance_count", 0) or 0),
+        "review_provenance_validation_pass_count": int(review_policy.get("review_provenance_validation_pass_count", 0) or 0),
+        "review_provenance_missing_count": int(review_policy.get("review_provenance_missing_count", 0) or 0),
+        "review_provenance_snapshot_mismatch_count": int(review_policy.get("review_provenance_snapshot_mismatch_count", 0) or 0),
+        "review_provenance_execution_node_mismatch_count": int(review_policy.get("review_provenance_execution_node_mismatch_count", 0) or 0),
+        "review_provenance_replay_mismatch_count": int(review_policy.get("review_provenance_replay_mismatch_count", 0) or 0),
+        "review_provenance_evidence_matrix_mismatch_count": int(review_policy.get("review_provenance_evidence_matrix_mismatch_count", 0) or 0),
+        "review_deterministic_provenance_mismatch_count": int(review_policy.get("review_deterministic_provenance_mismatch_count", 0) or 0),
+        "review_semantic_diff_count": int(review_policy.get("review_semantic_diff_count", 0) or 0),
+        "review_semantic_diff_generation_failure_count": int(review_policy.get("review_semantic_diff_generation_failure_count", 0) or 0),
+        "review_semantic_diff_deterministic_mismatch_count": int(review_policy.get("review_semantic_diff_deterministic_mismatch_count", 0) or 0),
+        "review_multi_variant_diff_deterministic_mismatch_count": int(review_policy.get("review_multi_variant_diff_deterministic_mismatch_count", 0) or 0),
         "unexpected_failure_count": unexpected_failure_count,
         "unsafe_acceptance_count": unsafe_acceptance_count,
         "unexpected_exception_count": unexpected_exception_count,
@@ -1106,6 +1206,15 @@ def compute_quality_gates(report: dict[str, Any]) -> dict[str, Any]:
         ("review_audit_package_hash_mismatch_count_max", "review_audit_package_hash_mismatch_count", "<="),
         ("review_expected_decision_mismatch_count_max", "review_expected_decision_mismatch_count", "<="),
         ("review_full_policy_incompatible_acceptance_count_max", "review_full_policy_incompatible_acceptance_count", "<="),
+        ("review_provenance_missing_count_max", "review_provenance_missing_count", "<="),
+        ("review_provenance_snapshot_mismatch_count_max", "review_provenance_snapshot_mismatch_count", "<="),
+        ("review_provenance_execution_node_mismatch_count_max", "review_provenance_execution_node_mismatch_count", "<="),
+        ("review_provenance_replay_mismatch_count_max", "review_provenance_replay_mismatch_count", "<="),
+        ("review_provenance_evidence_matrix_mismatch_count_max", "review_provenance_evidence_matrix_mismatch_count", "<="),
+        ("review_deterministic_provenance_mismatch_count_max", "review_deterministic_provenance_mismatch_count", "<="),
+        ("review_semantic_diff_generation_failure_count_max", "review_semantic_diff_generation_failure_count", "<="),
+        ("review_semantic_diff_deterministic_mismatch_count_max", "review_semantic_diff_deterministic_mismatch_count", "<="),
+        ("review_multi_variant_diff_deterministic_mismatch_count_max", "review_multi_variant_diff_deterministic_mismatch_count", "<="),
     )
     for gate_name, metric_name, operator in gate_specs:
         if gate_name not in gates or metric_name not in metrics:
@@ -1193,6 +1302,9 @@ def _build_summary(report: dict[str, Any]) -> str:
         f"  - review_fixture_count: {int(metrics.get('review_fixture_count', 0))}",
         f"  - review_decision_count: {int(metrics.get('review_decision_count', 0))}",
         f"  - review_expected_decision_mismatch_count: {int(metrics.get('review_expected_decision_mismatch_count', 0))}",
+        f"  - review_provenance_replay_mismatch_count: {int(metrics.get('review_provenance_replay_mismatch_count', 0))}",
+        f"  - review_provenance_evidence_matrix_mismatch_count: {int(metrics.get('review_provenance_evidence_matrix_mismatch_count', 0))}",
+        f"  - review_semantic_diff_deterministic_mismatch_count: {int(metrics.get('review_semantic_diff_deterministic_mismatch_count', 0))}",
         f"  - unexpected_failure_count: {metrics['unexpected_failure_count']}",
         f"  - unsafe_acceptance_count: {metrics['unsafe_acceptance_count']}",
         f"  - unexpected_exception_count: {metrics['unexpected_exception_count']}",

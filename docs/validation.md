@@ -6,6 +6,8 @@ Assurance validation is additive to geometry validation. It checks record integr
 
 Review-policy validation is additive to assurance validation. It checks policy IDs and versions, scope, registered check types, type-specific parameters, referenced claim/validation/capability/evidence/rule identifiers, deterministic policy and decision IDs, and decision precedence. Policy evaluation reads existing assurance observations and does not rerun CAD generation.
 
+Decision-provenance validation checks every frozen snapshot and execution-node content ID, the check-registry and precedence contracts, the 65-definition evidence matrix, policy and assurance links, and optional deterministic replay. Audit-package validation also cross-checks the standalone provenance file and package manifest. Structural decision diffs validate their own delta, pairwise-report, and multi-variant logical identities; they do not use report prose as evidence.
+
 Phase 21 adds capability coverage validation. This is not geometry validation. It validates product support declarations: known families, valid stages, rule-to-capability mapping, evidence references, unsupported boundaries, and orphan active rules.
 
 ## Geometry Validation

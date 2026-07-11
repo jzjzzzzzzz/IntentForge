@@ -60,7 +60,13 @@ def _parameter_references(policy: ReviewPolicy) -> tuple[set[str], set[str], set
     return capabilities, evidence, rules
 
 
-def validate_review_policy(policy: ReviewPolicy | dict[str, Any]) -> ReviewPolicyValidationResult:
+def validate_review_policy(
+    policy: ReviewPolicy | dict[str, Any],
+    *,
+    known_capability_ids: set[str] | None = None,
+    known_evidence_ids: set[str] | None = None,
+    known_rule_ids: set[str] | None = None,
+) -> ReviewPolicyValidationResult:
     try:
         record = policy if isinstance(policy, ReviewPolicy) else ReviewPolicy.model_validate(policy)
     except (ValidationError, ValueError) as exc:
@@ -70,7 +76,14 @@ def validate_review_policy(policy: ReviewPolicy | dict[str, Any]) -> ReviewPolic
         )
     errors: list[str] = []
     warnings: list[str] = []
-    known_capabilities, known_evidence, known_rules = _known_references()
+    live_capabilities: set[str] = set()
+    live_evidence: set[str] = set()
+    live_rules: set[str] = set()
+    if known_capability_ids is None or known_evidence_ids is None or known_rule_ids is None:
+        live_capabilities, live_evidence, live_rules = _known_references()
+    known_capabilities = known_capability_ids if known_capability_ids is not None else live_capabilities
+    known_evidence = known_evidence_ids if known_evidence_ids is not None else live_evidence
+    known_rules = known_rule_ids if known_rule_ids is not None else live_rules
     parameter_capabilities, parameter_evidence, parameter_rules = _parameter_references(record)
     referenced_capabilities = {
         item for check in record.checks for item in check.related_capability_ids
@@ -244,6 +257,9 @@ def validate_review_decision(
     *,
     policy: ReviewPolicy | None = None,
     assurance_case: AssuranceCase | None = None,
+    known_capability_ids: set[str] | None = None,
+    known_evidence_ids: set[str] | None = None,
+    known_rule_ids: set[str] | None = None,
 ) -> ReviewDecisionValidationResult:
     try:
         record = decision if isinstance(decision, ReviewDecision) else ReviewDecision.model_validate(decision)
@@ -267,7 +283,14 @@ def validate_review_decision(
         expected_status = _expected_decision_status(record, policy)
         if record.decision_status != expected_status:
             errors.append("review decision status does not match deterministic precedence")
-    known_capabilities, known_evidence, known_rules = _known_references()
+    live_capabilities: set[str] = set()
+    live_evidence: set[str] = set()
+    live_rules: set[str] = set()
+    if known_capability_ids is None or known_evidence_ids is None or known_rule_ids is None:
+        live_capabilities, live_evidence, live_rules = _known_references()
+    known_capabilities = known_capability_ids if known_capability_ids is not None else live_capabilities
+    known_evidence = known_evidence_ids if known_evidence_ids is not None else live_evidence
+    known_rules = known_rule_ids if known_rule_ids is not None else live_rules
     unknown_capabilities = sorted(set(record.relevant_capability_ids) - known_capabilities)
     unknown_evidence = sorted(set(record.relevant_evidence_ids) - known_evidence)
     unknown_rules = sorted(set(record.relevant_rule_ids) - known_rules)
@@ -328,6 +351,19 @@ def validate_review_decision(
     expected_id = canonical_digest("review_decision", {"content_id": expected_content})
     decision_id_mismatch = int(record.decision_id != expected_id)
     if decision_id_mismatch: errors.append("review decision ID mismatch")
+    provenance_snapshot_mismatches = 0
+    provenance_node_mismatches = 0
+    provenance_contract_mismatches = 0
+    if record.decision_provenance is not None:
+        from intentforge.review.provenance import verify_decision_provenance
+
+        provenance_validation = verify_decision_provenance(record, perform_replay=False)
+        provenance_snapshot_mismatches = provenance_validation.snapshot_mismatch_count
+        provenance_node_mismatches = provenance_validation.execution_node_mismatch_count
+        provenance_contract_mismatches = int(not provenance_validation.replay_supported)
+        if not provenance_validation.passed:
+            errors.extend(f"decision provenance: {item}" for item in provenance_validation.errors)
+            errors.extend(f"decision provenance: {item}" for item in provenance_validation.warnings)
     metrics = {
         "finding_content_id_mismatch_count": finding_mismatches,
         "condition_content_id_mismatch_count": condition_mismatches,
@@ -340,5 +376,8 @@ def validate_review_decision(
         "unknown_rule_reference_count": len(unknown_rules),
         "unknown_artifact_reference_count": len(unknown_artifact_refs),
         "unknown_limitation_reference_count": len(unknown_limitation_refs),
+        "provenance_snapshot_mismatch_count": provenance_snapshot_mismatches,
+        "provenance_execution_node_mismatch_count": provenance_node_mismatches,
+        "provenance_contract_mismatch_count": provenance_contract_mismatches,
     }
     return ReviewDecisionValidationResult(passed=not errors, errors=errors, metrics=metrics)

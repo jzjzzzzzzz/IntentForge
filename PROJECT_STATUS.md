@@ -1,8 +1,8 @@
 # Project Status
 
-Current development target: Phase 24 engineering review policies and acceptance decisions on `main`
+Current development target: Phase 25 deterministic decision provenance and multi-variant differential audit on `main`
 
-Phase 24 adds five packaged, versioned review policies; a closed typed check registry; deterministic findings and conditions; explicit acceptance, conditional, manual-review, rejection, and unresolved decisions; decision comparison; optional audit-package decision snapshots; CLI commands; and technical-harness review gates. No CAD family or CAD generation behavior changed.
+Phase 25 freezes the exact Phase 24 evaluation inputs and ordered execution graph in every new decision, supports replay from frozen snapshots without live knowledge manifests, adds structural pairwise and multi-variant decision diffs, extends audit-package integrity checks, and adds provenance/diff harness gates. No CAD family, CAD generation, policy outcome, capability count, or evidence definition changed.
 
 Current supported model families:
 
@@ -49,6 +49,7 @@ Current supported model families:
 - Phase 22: engineering evidence bundles and deterministic trust reports
 - Phase 23: engineering assurance cases and portable audit packages
 - Phase 24: engineering review policies and acceptance decisions
+- Phase 25: deterministic decision provenance and multi-variant differential audit
 
 ## Current Capabilities
 
@@ -103,6 +104,8 @@ Current supported model families:
 - portable audit packages with safe paths and deterministic logical identities
 - packaged engineering review policies and a closed deterministic check registry
 - explicit review findings, conditions, decisions, and decision comparison
+- frozen review policy, assurance, rule, capability, evidence, boundary, registry, and precedence snapshots
+- deterministic review replay and keyed pairwise/multi-variant semantic diffs
 
 ## Current Limitations
 
@@ -254,4 +257,4 @@ The deterministic parser, build, edit, benchmark, demo, and API workflows do not
 
 ## Release Status
 
-Phase 24 does not create a tag, GitHub release, or PyPI publication. The package version remains unchanged.
+Phase 25 does not create a tag, GitHub release, or PyPI publication. The package version remains unchanged.

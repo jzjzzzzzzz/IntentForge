@@ -6,6 +6,8 @@ The per-design assurance layer adapts existing workflow responses into structure
 
 The review-policy layer consumes a validated assurance case. Packaged declarative policies select checks from a closed evaluator registry, producing structured findings, conditions, and a deterministic review decision. It does not rerun CAD generation, mutate assurance records, or execute policy-provided code.
 
+The Phase 25 provenance layer freezes policy, assurance, rule, capability, evidence, package, boundary, check-registry, and precedence inputs alongside the ordered execution graph. Replay uses these snapshots instead of live manifests. The differential-audit layer compares keyed graph nodes, checks, findings, conditions, references, and outcomes; rendered Markdown is never used as comparison input.
+
 Importable Python packages use a `src/` layout:
 
 - `src/intentforge`
@@ -43,7 +45,7 @@ Project assets such as `tests/`, `docs/`, `examples/`, and `demo/` remain at the
 
 `intentforge.assurance` builds run-level Claims-Arguments-Evidence records and safe directory audit packages from existing workflow outputs.
 
-`intentforge.review` loads versioned review policies, validates typed checks and references, evaluates assurance observations, renders acceptance decisions, compares decisions, and optionally attaches policy and decision snapshots to audit packages.
+`intentforge.review` loads versioned review policies, validates typed checks and references, evaluates assurance observations, freezes and replays decision provenance, renders acceptance decisions, performs structural pairwise or multi-variant diffs, and optionally attaches policy, decision, and provenance snapshots to audit packages.
 
 `intentforge.editor` applies structured edits to an existing parameter table and feature state. It preserves unchanged parameters and rejects unsupported or invalid edits before CAD export.
 

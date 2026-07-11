@@ -276,6 +276,10 @@ Phase 24 review policies are currently exposed through the Python library and CL
 intentforge assurance build --profile standard --dry-run
 intentforge review evaluate output/assurance/assurance_case.json \
   --policy intentforge_standard_design_review_v1
+intentforge review provenance output/assurance/review_decision.json --verify
+intentforge review diff baseline-review-decision.json candidate-review-decision.json
 ```
+
+Phase 25 keeps the same interface boundary: provenance replay and multi-variant differential audit are library and CLI operations. No HTTP or MCP contract is expanded, and neither operation generates CAD.
 
 The decision is scoped to the recorded assurance observations. It is not regulatory approval or production authorization.

@@ -2,6 +2,8 @@
 
 A `ReviewDecision` is the structured result of applying one validated review policy to one validated assurance case. It records one finding per policy check, outstanding conditions, exact reference IDs, decision counts, policy and assurance identities, and a deterministic decision ID.
 
+Phase 25 adds a versioned `DecisionProvenance` record to every new decision. The decision identity binds to the provenance content ID while runtime timestamps and request metadata remain excluded. Legacy Phase 24 decisions without this additive field remain loadable and retain their original deterministic identities.
+
 ## Decision statuses
 
 - `accepted_within_declared_scope`: all required checks passed and no higher-priority finding remains.
@@ -33,7 +35,12 @@ intentforge review validate output/assurance/review_decision.json
 intentforge review show output/assurance/review_decision.json
 intentforge review render output/assurance/review_decision.json
 intentforge review compare decision-a.json decision-b.json
+intentforge review provenance decision-a.json --verify
+intentforge review diff decision-a.json decision-b.json
+intentforge review diff decision-a.json variant-b.json variant-c.json --json
 ```
+
+`review compare` preserves the Phase 24 summary contract. `review diff` is the authoritative Phase 25 structural comparison and includes policy configuration, execution graph, finding, condition, outcome, reference, and provenance deltas.
 
 Evaluation exit codes are:
 

@@ -44,6 +44,27 @@ FEATURE_CAPABILITY_FLAGS = {
 }
 
 
+def _package_observation(context: dict[str, Any] | None) -> dict[str, Any] | None:
+    if isinstance(context, dict) and context.get("__review_context__") is True:
+        value = context.get("package_result")
+        return value if isinstance(value, dict) else None
+    return context
+
+
+def _frozen_evidence_definitions(context: dict[str, Any] | None) -> list[dict[str, Any]] | None:
+    if not isinstance(context, dict) or context.get("__review_context__") is not True:
+        return None
+    value = context.get("evidence_definitions")
+    return list(value) if isinstance(value, list) else None
+
+
+def _frozen_evidence_observations(context: dict[str, Any] | None) -> list[dict[str, Any]] | None:
+    if not isinstance(context, dict) or context.get("__review_context__") is not True:
+        return None
+    value = context.get("evidence_observations")
+    return list(value) if isinstance(value, list) else None
+
+
 @dataclass(frozen=True)
 class CheckEvaluation:
     status: PolicyCheckStatus
@@ -274,8 +295,13 @@ def _required_evidence_status(check: PolicyCheck, case: AssuranceCase, package_r
     if not target_ids:
         return CheckEvaluation("unresolved", {"evidence_ids": []}, {"allowed_statuses": params.allowed_statuses}, diagnostics=["no evidence references supplied"])
     case_missing = sorted(set(params.evidence_ids) - set(case.evidence_references)) if params.evidence_ids else []
-    definitions = [item for item in load_evidence_definitions() if item.evidence_id in target_ids]
-    definition_ids = {item.evidence_id for item in definitions}
+    frozen_definitions = _frozen_evidence_definitions(package_result)
+    if frozen_definitions is None:
+        definitions = [item for item in load_evidence_definitions() if item.evidence_id in target_ids]
+        definition_ids = {item.evidence_id for item in definitions}
+    else:
+        definitions = [item for item in frozen_definitions if item.get("evidence_id") in target_ids]
+        definition_ids = {str(item.get("evidence_id")) for item in definitions}
     unknown = sorted(set(target_ids) - definition_ids)
     if case_missing or unknown:
         return CheckEvaluation(
@@ -286,8 +312,16 @@ def _required_evidence_status(check: PolicyCheck, case: AssuranceCase, package_r
             diagnostics=[f"evidence not referenced by case: {item}" for item in case_missing]
             + [f"unknown evidence: {item}" for item in unknown],
         )
-    report = resolve_evidence(definitions, runtime=False)
-    statuses = {item.evidence_id: item.status for item in report.observations}
+    frozen_observations = _frozen_evidence_observations(package_result)
+    if frozen_observations is None:
+        report = resolve_evidence(definitions, runtime=False)
+        statuses = {item.evidence_id: item.status for item in report.observations}
+    else:
+        statuses = {
+            str(item.get("evidence_id")): item.get("status")
+            for item in frozen_observations
+            if item.get("evidence_id") in target_ids
+        }
     disallowed = sorted(item for item, status in statuses.items() if status not in params.allowed_statuses)
     return CheckEvaluation(
         "failed" if disallowed else "passed",
@@ -362,6 +396,7 @@ def _artifact_integrity_required(check: PolicyCheck, case: AssuranceCase, packag
 def _audit_package_valid(check: PolicyCheck, case: AssuranceCase, package_result) -> CheckEvaluation:
     params = check.parameters
     assert isinstance(params, AuditPackageValidParameters)
+    package_result = _package_observation(package_result)
     if package_result is None:
         return CheckEvaluation("unresolved" if params.require_package else "not_checked", None, {"passed": True}, diagnostics=["audit package result not supplied"])
     passed = bool(package_result.get("passed", package_result.get("validation", {}).get("passed", False)))
@@ -376,6 +411,7 @@ def _audit_package_valid(check: PolicyCheck, case: AssuranceCase, package_result
 def _reproducibility_required(check: PolicyCheck, case: AssuranceCase, package_result) -> CheckEvaluation:
     params = check.parameters
     assert isinstance(params, ReproducibilityRequiredParameters)
+    package_result = _package_observation(package_result)
     deterministic = case.reproducibility_metadata.get("deterministic") is True
     package_supplied = package_result is not None
     package_passed = bool(package_result and package_result.get("passed", package_result.get("validation", {}).get("passed", False)))
@@ -456,10 +492,20 @@ def _safe_rejection_verified(check: PolicyCheck, case: AssuranceCase, package_re
     error = case.input_request.get("error")
     structured_error = isinstance(error, dict) and bool(error.get("error_type")) and bool(error.get("message"))
     boundaries = [item for item in case.limitations if item.significance == "unsupported_boundary"]
-    definitions = {item.evidence_id: item for item in load_evidence_definitions()}
+    frozen_definitions = _frozen_evidence_definitions(package_result)
+    if frozen_definitions is None:
+        definitions = {
+            item.evidence_id: item.model_dump(mode="json")
+            for item in load_evidence_definitions()
+        }
+    else:
+        definitions = {
+            str(item.get("evidence_id")): item
+            for item in frozen_definitions
+        }
     boundary_evidence = [
         evidence_id for evidence_id in case.evidence_references
-        if evidence_id in definitions and definitions[evidence_id].role == "boundary"
+        if evidence_id in definitions and definitions[evidence_id].get("role") == "boundary"
     ]
     missing = []
     if not supported_claim: missing.append("supported rejection claim")
@@ -566,6 +612,12 @@ CHECK_EVALUATORS: dict[str, CheckEvaluator] = {
     "required_review_disclosed": _required_review_disclosed,
     "minimum_assurance_profile": _minimum_assurance_profile,
     "schema_version_supported": _schema_version_supported,
+}
+
+# This declarative map is the replay compatibility contract. It contains no
+# callable references and changes only when a check algorithm's semantics change.
+CHECK_ALGORITHM_VERSIONS: dict[str, str] = {
+    check_type: "1.0" for check_type in sorted(CHECK_EVALUATORS)
 }
 
 

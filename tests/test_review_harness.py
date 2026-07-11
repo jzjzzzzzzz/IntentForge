@@ -16,3 +16,10 @@ def test_review_harness_uses_five_assurance_fixtures(tmp_path: Path) -> None:
     assert review["manual_review_decision_count"] == 0
     assert review["expected_decision_mismatch_count"] == 0
     assert review["review_audit_package_validation_pass_count"] == 5
+    assert review["review_provenance_validation_pass_count"] == 5
+    assert review["review_provenance_missing_count"] == 0
+    assert review["review_provenance_replay_mismatch_count"] == 0
+    assert review["review_provenance_evidence_matrix_mismatch_count"] == 0
+    assert review["review_semantic_diff_generation_failure_count"] == 0
+    assert review["review_semantic_diff_deterministic_mismatch_count"] == 0
+    assert review["review_multi_variant_diff_deterministic_mismatch_count"] == 0

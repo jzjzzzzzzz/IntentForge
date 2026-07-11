@@ -17,6 +17,7 @@ from intentforge.assurance.schema import (
     canonical_digest,
 )
 from intentforge.knowledge.evidence_schema import EvidenceStatus
+from intentforge.review.provenance_schema import DecisionProvenance
 
 
 REVIEW_SCHEMA_VERSION = "1.0"
@@ -541,6 +542,7 @@ class ReviewDecision(BaseModel):
     limitations: list[str] = Field(default_factory=list)
     review_notice: str
     provenance: str
+    decision_provenance: DecisionProvenance | None = None
     content_id: str
     runtime_metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -565,6 +567,17 @@ class ReviewDecision(BaseModel):
         data = self.model_dump(mode="json")
         for field_name in ("decision_id", "content_id", "runtime_metadata"):
             data.pop(field_name, None)
+        # Preserve Phase 24 identities for legacy decisions that predate the
+        # additive provenance field.
+        if data.get("decision_provenance") is None:
+            data.pop("decision_provenance", None)
+        else:
+            provenance = self.decision_provenance
+            assert provenance is not None
+            data["decision_provenance"] = {
+                "provenance_id": provenance.provenance_id,
+                "content_id": provenance.content_id,
+            }
         data["findings"] = sorted(data["findings"], key=lambda item: item["finding_id"])
         data["conditions"] = sorted(data["conditions"], key=lambda item: item["condition_id"])
         return data

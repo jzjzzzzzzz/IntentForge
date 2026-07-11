@@ -18,9 +18,11 @@ REQUIRED_FILES = {
     "assurance_case.json", "assurance_case.md", "intent.json", "capability_snapshot.json",
     "evidence_snapshot.json", "validation_summary.json", "reasoning_summary.json", "artifact_manifest.json",
 }
-OPTIONAL_REVIEW_FILES = {
+REVIEW_CORE_FILES = {
     "review_policy_snapshot.json", "review_decision.json", "review_decision.md",
 }
+REVIEW_PROVENANCE_FILE = "review_decision_provenance.json"
+OPTIONAL_REVIEW_FILES = REVIEW_CORE_FILES.union({REVIEW_PROVENANCE_FILE})
 
 
 def _tool_version() -> str:
@@ -63,11 +65,49 @@ def build_audit_package(
     """Write a safe metadata-focused audit package directory."""
 
     record = _read_case(case)
-    validation = validate_assurance_case(record)
+    if (review_policy is None) != (review_decision is None):
+        raise ValueError("review policy and review decision must be supplied together")
+    decision_record = None
+    policy_record = None
+    frozen_resources = None
+    if review_policy is not None and review_decision is not None:
+        from intentforge.review.provenance import resources_from_provenance
+        from intentforge.review.schema import ReviewDecision, ReviewPolicy
+
+        policy_record = review_policy if isinstance(review_policy, ReviewPolicy) else ReviewPolicy.model_validate(review_policy)
+        decision_record = review_decision if isinstance(review_decision, ReviewDecision) else ReviewDecision.model_validate(review_decision)
+        if decision_record.decision_provenance is not None:
+            frozen_resources = resources_from_provenance(decision_record.decision_provenance)
+    frozen_capability_ids = None if frozen_resources is None else {
+        str(item.get("capability_id"))
+        for item in frozen_resources.capability_manifest.get("capabilities", [])
+    }
+    frozen_evidence_ids = None if frozen_resources is None else {
+        str(item.get("evidence_id")) for item in frozen_resources.evidence_definitions
+    }
+    frozen_rule_ids = None if frozen_resources is None else {
+        str(item.get("id")) for item in frozen_resources.rules
+    }
+    validation = validate_assurance_case(
+        record,
+        capability_ids=frozen_capability_ids,
+        evidence_ids=frozen_evidence_ids,
+        rule_ids=frozen_rule_ids,
+    )
     if not validation.passed:
         raise ValueError("cannot package invalid assurance case: " + "; ".join(validation.errors))
-    capabilities = {item.capability_id: item.model_dump(mode="json") for item in load_capability_manifest().capabilities}
-    evidence = {item.evidence_id: item.model_dump(mode="json") for item in load_evidence_definitions()}
+    if frozen_resources is None:
+        capabilities = {item.capability_id: item.model_dump(mode="json") for item in load_capability_manifest().capabilities}
+        evidence = {item.evidence_id: item.model_dump(mode="json") for item in load_evidence_definitions()}
+    else:
+        capabilities = {
+            str(item["capability_id"]): item
+            for item in frozen_resources.capability_manifest.get("capabilities", [])
+        }
+        evidence = {
+            str(item["evidence_id"]): item
+            for item in frozen_resources.evidence_definitions
+        }
     payloads: dict[str, bytes] = {
         "assurance_case.json": record.to_json().encode("utf-8"),
         "assurance_case.md": render_assurance_markdown(record).encode("utf-8"),
@@ -78,20 +118,23 @@ def build_audit_package(
         "reasoning_summary.json": _json_bytes(record.reasoning_summary or {"available": False}),
         "artifact_manifest.json": _json_bytes([item.model_dump(mode="json") for item in record.artifact_records]),
     }
-    if (review_policy is None) != (review_decision is None):
-        raise ValueError("review policy and review decision must be supplied together")
-    decision_record = None
-    policy_record = None
-    if review_policy is not None and review_decision is not None:
+    if policy_record is not None and decision_record is not None:
         from intentforge.review.renderer import render_review_decision_markdown
-        from intentforge.review.schema import ReviewDecision, ReviewPolicy
         from intentforge.review.validator import validate_review_decision, validate_review_policy
 
-        policy_record = review_policy if isinstance(review_policy, ReviewPolicy) else ReviewPolicy.model_validate(review_policy)
-        decision_record = review_decision if isinstance(review_decision, ReviewDecision) else ReviewDecision.model_validate(review_decision)
-        policy_validation = validate_review_policy(policy_record)
+        policy_validation = validate_review_policy(
+            policy_record,
+            known_capability_ids=frozen_capability_ids,
+            known_evidence_ids=frozen_evidence_ids,
+            known_rule_ids=frozen_rule_ids,
+        )
         decision_validation = validate_review_decision(
-            decision_record, policy=policy_record, assurance_case=record,
+            decision_record,
+            policy=policy_record,
+            assurance_case=record,
+            known_capability_ids=frozen_capability_ids,
+            known_evidence_ids=frozen_evidence_ids,
+            known_rule_ids=frozen_rule_ids,
         )
         if not policy_validation.passed:
             raise ValueError("cannot package invalid review policy: " + "; ".join(policy_validation.errors))
@@ -102,6 +145,10 @@ def build_audit_package(
             "review_decision.json": decision_record.to_json().encode("utf-8"),
             "review_decision.md": render_review_decision_markdown(decision_record).encode("utf-8"),
         })
+        if decision_record.decision_provenance is not None:
+            payloads[REVIEW_PROVENANCE_FILE] = _json_bytes(
+                decision_record.decision_provenance.model_dump(mode="json")
+            )
     inventory = {name: _sha256(data) for name, data in sorted(payloads.items())}
     package_id = _logical_package_id(record, inventory)
     manifest = {
@@ -118,6 +165,9 @@ def build_audit_package(
         manifest["review_decision_id"] = decision_record.decision_id
         manifest["review_decision_content_id"] = decision_record.content_id
         manifest["review_decision_status"] = decision_record.decision_status
+        if decision_record.decision_provenance is not None:
+            manifest["review_provenance_id"] = decision_record.decision_provenance.provenance_id
+            manifest["review_provenance_content_id"] = decision_record.decision_provenance.content_id
     payloads["manifest.json"] = _json_bytes(manifest)
     checksums = {name: _sha256(data) for name, data in sorted(payloads.items())}
     payloads["checksums.json"] = _json_bytes(checksums)
@@ -138,7 +188,10 @@ def validate_audit_package(package_path: str | Path) -> dict[str, Any]:
     missing = sorted(REQUIRED_FILES.union({"manifest.json", "checksums.json"}) - names)
     if missing: errors.append("missing required files: " + ", ".join(missing))
     review_files = names.intersection(OPTIONAL_REVIEW_FILES)
-    if review_files and review_files != OPTIONAL_REVIEW_FILES:
+    review_attachment_complete = frozenset(review_files) in {
+        frozenset(REVIEW_CORE_FILES), frozenset(OPTIONAL_REVIEW_FILES)
+    }
+    if review_files and not review_attachment_complete:
         errors.append("incomplete review decision attachment")
     forbidden = [item.name for item in root.rglob("*") if any(part in {".git", ".claude", "CLAUDE.md"} for part in item.relative_to(root).parts)]
     if forbidden: errors.append("forbidden package paths: " + ", ".join(sorted(forbidden)))
@@ -162,18 +215,64 @@ def validate_audit_package(package_path: str | Path) -> dict[str, Any]:
     expected_package_id = _logical_package_id(case, logical_inventory)
     if manifest.get("package_id") != expected_package_id: errors.append("package content ID mismatch")
     if manifest.get("assurance_case_id") != case.assurance_case_id: errors.append("assurance case ID mismatch")
-    case_validation = validate_assurance_case(case)
+    attached_provenance = None
+    frozen_capability_ids = None
+    frozen_evidence_ids = None
+    frozen_rule_ids = None
+    if REVIEW_PROVENANCE_FILE in review_files:
+        try:
+            from intentforge.review.provenance_schema import DecisionProvenance
+
+            attached_provenance = DecisionProvenance.model_validate_json(
+                (root / REVIEW_PROVENANCE_FILE).read_text(encoding="utf-8")
+            )
+            capability_payload = attached_provenance.snapshot("capability_registry").payload
+            evidence_payload = attached_provenance.snapshot("evidence_registry").payload
+            rule_payload = attached_provenance.snapshot("rule_registry").payload
+            frozen_capability_ids = {
+                str(item.get("capability_id"))
+                for item in capability_payload.get("capabilities", [])
+            }
+            frozen_evidence_ids = {
+                str(item.get("evidence_id"))
+                for item in evidence_payload.get("definitions", [])
+            }
+            frozen_rule_ids = {
+                str(item.get("id"))
+                for item in rule_payload.get("rules", [])
+            }
+        except (OSError, ValueError, json.JSONDecodeError, AttributeError) as exc:
+            errors.append(f"invalid review provenance attachment: {exc}")
+    case_validation = validate_assurance_case(
+        case,
+        capability_ids=frozen_capability_ids,
+        evidence_ids=frozen_evidence_ids,
+        rule_ids=frozen_rule_ids,
+    )
     if not case_validation.passed: errors.extend(case_validation.errors)
     review_validation_passed = None
-    if review_files == OPTIONAL_REVIEW_FILES:
+    provenance_verification_passed = None
+    if review_attachment_complete and review_files:
         try:
             from intentforge.review.schema import ReviewDecision, ReviewPolicy
             from intentforge.review.validator import validate_review_decision, validate_review_policy
 
             policy = ReviewPolicy.model_validate_json((root / "review_policy_snapshot.json").read_text(encoding="utf-8"))
             decision = ReviewDecision.model_validate_json((root / "review_decision.json").read_text(encoding="utf-8"))
-            policy_validation = validate_review_policy(policy)
-            decision_validation = validate_review_decision(decision, policy=policy, assurance_case=case)
+            policy_validation = validate_review_policy(
+                policy,
+                known_capability_ids=frozen_capability_ids,
+                known_evidence_ids=frozen_evidence_ids,
+                known_rule_ids=frozen_rule_ids,
+            )
+            decision_validation = validate_review_decision(
+                decision,
+                policy=policy,
+                assurance_case=case,
+                known_capability_ids=frozen_capability_ids,
+                known_evidence_ids=frozen_evidence_ids,
+                known_rule_ids=frozen_rule_ids,
+            )
             review_validation_passed = policy_validation.passed and decision_validation.passed
             if not policy_validation.passed:
                 errors.extend(f"review policy: {item}" for item in policy_validation.errors)
@@ -185,6 +284,34 @@ def validate_audit_package(package_path: str | Path) -> dict[str, Any]:
             if manifest.get("review_decision_id") != decision.decision_id: errors.append("review decision ID mismatch")
             if manifest.get("review_decision_content_id") != decision.content_id: errors.append("review decision content ID mismatch")
             if manifest.get("review_decision_status") != decision.decision_status: errors.append("review decision status mismatch")
+            if decision.decision_provenance is not None:
+                from intentforge.review.provenance import verify_decision_provenance
+                from intentforge.review.provenance_schema import DecisionProvenance
+
+                if REVIEW_PROVENANCE_FILE not in review_files:
+                    errors.append("review decision provenance attachment missing")
+                    provenance_verification_passed = False
+                else:
+                    if attached_provenance is None:
+                        raise ValueError("review provenance could not be loaded")
+                    if attached_provenance.content_id != decision.decision_provenance.content_id:
+                        errors.append("review decision provenance content mismatch")
+                    if attached_provenance.provenance_id != decision.decision_provenance.provenance_id:
+                        errors.append("review decision provenance ID mismatch")
+                    if manifest.get("review_provenance_id") != attached_provenance.provenance_id:
+                        errors.append("review provenance manifest ID mismatch")
+                    if manifest.get("review_provenance_content_id") != attached_provenance.content_id:
+                        errors.append("review provenance manifest content mismatch")
+                    provenance_verification = verify_decision_provenance(decision, perform_replay=True)
+                    provenance_verification_passed = provenance_verification.passed
+                    if not provenance_verification.passed:
+                        errors.extend(
+                            f"review provenance: {item}"
+                            for item in provenance_verification.errors + provenance_verification.warnings
+                        )
+            elif REVIEW_PROVENANCE_FILE in review_files:
+                provenance_verification_passed = False
+                errors.append("unexpected review provenance attachment for legacy decision")
             from intentforge.review.renderer import render_review_decision_markdown
             if (root / "review_decision.md").read_text(encoding="utf-8") != render_review_decision_markdown(decision):
                 errors.append("review decision Markdown mismatch")
@@ -194,8 +321,9 @@ def validate_audit_package(package_path: str | Path) -> dict[str, Any]:
     return {"passed": not errors, "errors": errors, "package_id": manifest.get("package_id"),
             "assurance_case_id": case.assurance_case_id, "file_count": len(names),
             "hash_mismatch_count": len(hash_mismatches),
-            "review_decision_attached": review_files == OPTIONAL_REVIEW_FILES,
-            "review_decision_validation_passed": review_validation_passed}
+            "review_decision_attached": bool(review_files) and review_attachment_complete,
+            "review_decision_validation_passed": review_validation_passed,
+            "review_provenance_verification_passed": provenance_verification_passed}
 
 
 def inspect_audit_package(package_path: str | Path) -> dict[str, Any]:

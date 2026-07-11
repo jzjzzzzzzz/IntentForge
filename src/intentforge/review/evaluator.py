@@ -7,6 +7,11 @@ from typing import Any
 from intentforge.assurance.schema import AssuranceCase, canonical_digest
 from intentforge.assurance.validator import validate_assurance_case
 from intentforge.review.checks import CheckEvaluation, evaluate_policy_check
+from intentforge.review.provenance import (
+    ReviewEvaluationResources,
+    build_decision_provenance,
+    collect_review_evaluation_resources,
+)
 from intentforge.review.schema import (
     AcceptanceCondition,
     PolicyCheck,
@@ -137,12 +142,30 @@ def evaluate_assurance_case(
     package_result: dict[str, Any] | None = None,
     *,
     runtime_metadata: dict[str, Any] | None = None,
+    resources: ReviewEvaluationResources | None = None,
 ) -> ReviewDecision:
     """Evaluate a validated assurance case using only registered deterministic checks."""
 
     record = assurance_case if isinstance(assurance_case, AssuranceCase) else AssuranceCase.model_validate(assurance_case)
     selected_policy = policy if isinstance(policy, ReviewPolicy) else ReviewPolicy.model_validate(policy)
-    assurance_validation = validate_assurance_case(record)
+    active_evidence_ids = set(record.evidence_references)
+    for policy_check in selected_policy.checks:
+        active_evidence_ids.update(policy_check.related_evidence_ids)
+        parameter_evidence = getattr(policy_check.parameters, "evidence_ids", [])
+        if isinstance(parameter_evidence, list):
+            active_evidence_ids.update(parameter_evidence)
+    evaluation_resources = resources or collect_review_evaluation_resources(
+        active_evidence_ids=active_evidence_ids
+    )
+    assurance_validation = validate_assurance_case(
+        record,
+        capability_ids={
+            str(item.get("capability_id"))
+            for item in evaluation_resources.capability_manifest.get("capabilities", [])
+        },
+        evidence_ids={str(item.get("evidence_id")) for item in evaluation_resources.evidence_definitions},
+        rule_ids={str(item.get("id")) for item in evaluation_resources.rules},
+    )
     if not assurance_validation.passed:
         raise ReviewEvaluationError(
             "assurance case is invalid: " + "; ".join(assurance_validation.errors),
@@ -167,8 +190,9 @@ def evaluate_assurance_case(
 
     findings: list[PolicyFinding] = []
     conditions: list[AcceptanceCondition] = []
+    check_context = evaluation_resources.check_context(package_result)
     for check in sorted(selected_policy.checks, key=lambda item: item.check_id):
-        finding = _finding(check, evaluate_policy_check(check, record, package_result))
+        finding = _finding(check, evaluate_policy_check(check, record, check_context))
         findings.append(finding)
         condition = _condition(check, finding)
         if condition is not None:
@@ -206,10 +230,27 @@ def evaluate_assurance_case(
         "limitations": sorted({*selected_policy.limitations, *(item.description for item in record.limitations)}),
         "review_notice": selected_policy.review_notice,
         "provenance": f"policy:{selected_policy.policy_id}@{selected_policy.policy_version}",
+        "decision_provenance": None,
         "content_id": "pending",
         "runtime_metadata": runtime_metadata or {},
     }
-    provisional = ReviewDecision.model_validate(decision_data)
+    core_decision = ReviewDecision.model_validate(decision_data)
+    decision_core_content_id = canonical_digest(
+        "review_decision_core_content", core_decision.deterministic_payload()
+    )
+    provenance = build_decision_provenance(
+        policy=selected_policy,
+        assurance_case=record,
+        subject_type=subject_type,
+        package_result=package_result,
+        resources=evaluation_resources,
+        findings=findings,
+        conditions=conditions,
+        decision_status=status,
+        decision_core_content_id=decision_core_content_id,
+        runtime_metadata=runtime_metadata,
+    )
+    provisional = core_decision.model_copy(update={"decision_provenance": provenance})
     content_id = canonical_digest("review_decision_content", provisional.deterministic_payload())
     return provisional.model_copy(update={
         "decision_id": canonical_digest("review_decision", {"content_id": content_id}),

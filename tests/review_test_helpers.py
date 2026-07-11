@@ -4,10 +4,16 @@ from functools import lru_cache
 from pathlib import Path
 
 from intentforge.assurance import build_assurance_case, build_assurance_from_prompt
+from intentforge.review import collect_review_evaluation_resources
 from intentforge.workflows import edit_parse_apply_workflow, parse_build_workflow
 
 
 ROOT = Path("/tmp/intentforge-phase24-test-fixtures")
+
+
+@lru_cache(maxsize=1)
+def review_resources():
+    return collect_review_evaluation_resources()
 
 
 @lru_cache(maxsize=None)

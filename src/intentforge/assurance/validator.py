@@ -9,12 +9,21 @@ from intentforge.knowledge.evidence_registry import load_evidence_definitions
 from intentforge.knowledge.rules import RuleRegistry
 
 
-def validate_assurance_case(case: AssuranceCase | dict) -> AssuranceValidationResult:
+def validate_assurance_case(
+    case: AssuranceCase | dict,
+    *,
+    capability_ids: set[str] | None = None,
+    evidence_ids: set[str] | None = None,
+    rule_ids: set[str] | None = None,
+) -> AssuranceValidationResult:
     record = case if isinstance(case, AssuranceCase) else AssuranceCase.model_validate(case)
     errors: list[str] = []
-    capability_ids = {item.capability_id for item in load_capability_manifest().capabilities}
-    evidence_ids = {item.evidence_id for item in load_evidence_definitions()}
-    rule_ids = {item.id for item in RuleRegistry.load().rules}
+    if capability_ids is None:
+        capability_ids = {item.capability_id for item in load_capability_manifest().capabilities}
+    if evidence_ids is None:
+        evidence_ids = {item.evidence_id for item in load_evidence_definitions()}
+    if rule_ids is None:
+        rule_ids = {item.id for item in RuleRegistry.load().rules}
     unknown_caps = sorted(set(record.capability_references) - capability_ids)
     unknown_evidence = sorted(set(record.evidence_references) - evidence_ids)
     unknown_rules = sorted({item["rule_id"] for item in record.rule_references} - rule_ids)
