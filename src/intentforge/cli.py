@@ -12,6 +12,7 @@ import sys
 import yaml
 
 from intentforge.assurance import (
+    attach_assurance_predecessor,
     build_assurance_from_prompt,
     build_audit_package,
     compare_assurance_cases,
@@ -40,6 +41,9 @@ from intentforge.review import (
     validate_review_policy_manifest,
     verify_decision_provenance,
     verify_offline_audit_package,
+    store_audit_package,
+    validate_cas_address,
+    verify_audit_chain,
 )
 
 from harness.topology import (
@@ -133,6 +137,12 @@ from intentforge.workflows import (
 from benchmark.run_benchmark import run_benchmark
 from intentforge.demo_runner import run_demo
 from harness.orchestrator import run_technical_harness
+from intentforge.redaction import (
+    export_redacted_package,
+    load_redaction_config,
+    verify_redacted_audit_package,
+    default_redaction_config,
+)
 
 SUPPORTED_MODEL_FAMILIES = ["wall_mounted_bracket", "l_bracket"]
 
@@ -2000,6 +2010,18 @@ def _write_review_decision(decision, output: str | Path) -> tuple[Path, Path]:
     return json_path, markdown_path
 
 
+def _resolve_predecessor_hash(value: str | None) -> str | None:
+    if value is None:
+        return None
+    candidate = Path(value)
+    if candidate.is_dir():
+        verification = verify_offline_audit_package(candidate)
+        if not verification.passed or verification.package_id is None:
+            raise ValueError("predecessor package failed offline verification")
+        return validate_cas_address(verification.package_id)
+    return validate_cas_address(value)
+
+
 def _print_review_decision(decision, *, as_json: bool, json_path: Path | None = None, markdown_path: Path | None = None) -> None:
     if as_json:
         print(decision.to_json(), end="")
@@ -2108,6 +2130,91 @@ def _review_command(args) -> int:
                 print(f"- {error}")
             print("Static verification does not re-run CAD generation or simulation.")
         return 0 if verification.passed else 1
+    if action == "cas-check":
+        verification = verify_offline_audit_package(args.package_path)
+        passed = verification.passed and bool(verification.metrics.get("cas_content_address_verified"))
+        payload = verification.to_dict()
+        payload["cas_check_passed"] = passed
+        if args.json:
+            print(json.dumps(payload, indent=2, sort_keys=True))
+        else:
+            print("IntentForge Content-Addressed Package Check")
+            print("PASS" if passed else "FAIL")
+            print(f"Content address: {verification.package_id}")
+            print(f"CAS objects: {verification.metrics.get('cas_object_count', 0)}")
+            for error in verification.errors:
+                print(f"- {error}")
+        return 0 if passed else 1
+    if action == "cas-store":
+        result = store_audit_package(args.package_path, args.store_root)
+        if args.json:
+            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        else:
+            print("IntentForge Content-Addressed Package Store")
+            print("PASS" if result.passed else "FAIL")
+            print(f"Content address: {result.content_address}")
+            print(f"Storage path: {result.storage_path}")
+            print(f"Reused existing: {str(result.reused_existing).lower()}")
+            for error in result.errors:
+                print(f"- {error}")
+        return 0 if result.passed else 1
+    if action == "chain-verify":
+        result = verify_audit_chain(
+            args.package_path,
+            store_root=args.store_root,
+            maximum_depth=args.maximum_depth,
+        )
+        if args.json:
+            print(result.to_json(), end="")
+        else:
+            print("IntentForge Audit Package Chain Verification")
+            print("PASS" if result.passed else "FAIL")
+            print(f"Status: {result.status}")
+            print(f"Head: {result.head_content_address}")
+            print(f"Genesis: {result.genesis_content_address}")
+            print(f"Chain length: {result.chain_length}")
+            print(f"Chain content address: {result.chain_content_address}")
+            for error in result.errors:
+                print(f"- {error}")
+        return 0 if result.passed else 1
+    if action == "export-redacted":
+        config = load_redaction_config(args.policy_config) if args.policy_config else default_redaction_config()
+        predecessor = _resolve_predecessor_hash(args.predecessor) if args.predecessor else None
+        result = export_redacted_package(
+            args.package_path,
+            args.output,
+            config=config,
+            predecessor_hash=predecessor,
+        )
+        if args.json:
+            print(json.dumps(result, indent=2, sort_keys=True))
+        else:
+            print("IntentForge Privacy-Preserving Audit Export")
+            print("PASS" if result.get("passed") else "FAIL")
+            print(f"Redacted package: {result.get('package_path')}")
+            print(f"Original package ID: {result.get('original_package_id')}")
+            print(f"Redacted package ID: {result.get('redacted_package_id')}")
+            print(f"Total redactions: {result.get('redaction_count', 0)}")
+            print(f"Files in redacted package: {result.get('file_count', 0)}")
+            for error in result.get("errors", []):
+                print(f"- {error}")
+        return 0 if result.get("passed") else 1
+    if action == "verify-redacted":
+        result = verify_redacted_audit_package(args.package_path)
+        if args.json:
+            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        else:
+            print("IntentForge Privacy-Preserving Audit Verification")
+            print("PASS" if result.passed else "FAIL")
+            print(f"Status: {result.status}")
+            print(f"Original package ID: {result.original_package_id}")
+            print(f"Redacted package ID: {result.redacted_package_id}")
+            print(f"Total redactions: {result.metrics.get('total_redactions', 0)}")
+            print(f"CAS objects: {result.metrics.get('redacted_cas_object_count', 0)}")
+            print(f"Checksums validated: {result.metrics.get('checksum_validation_passed', False)}")
+            for error in result.errors:
+                print(f"- {error}")
+        return 0 if result.passed else 1
     if action == "diff":
         baseline = load_review_decision_source(args.baseline)
         variants = [load_review_decision_source(item) for item in args.variants]
@@ -2148,27 +2255,44 @@ def _review_command(args) -> int:
         }[args.profile]
         policy = get_review_policy(policy_id)
         output_root = Path(args.output_root or (_project_root() / "output"))
-        case = build_assurance_from_prompt(
+        source_case = build_assurance_from_prompt(
             args.prompt, family=args.family, profile=args.profile, dry_run=args.dry_run,
             output_root=output_root,
         )
+        predecessor = _resolve_predecessor_hash(args.predecessor)
+        if (predecessor is not None or args.cas_store_root is not None) and policy.policy_scope != "assurance_case_and_audit_package":
+            raise ValueError("predecessor tracking and CAS storage require an audit-package review policy")
         review_root = output_root / "review"
         review_root.mkdir(parents=True, exist_ok=True)
-        case_path = review_root / "assurance_case.json"
-        case_path.write_text(case.to_json(), encoding="utf-8")
         package_result = None
         package_path = None
         if policy.policy_scope == "assurance_case_and_audit_package":
             package_path = review_root / "audit_package"
-            base_package = build_audit_package(case, package_path)
+            base_package = build_audit_package(source_case, package_path)
             package_result = base_package["validation"]
+        case = attach_assurance_predecessor(source_case, predecessor)
+        case_path = review_root / "assurance_case.json"
+        case_path.write_text(case.to_json(), encoding="utf-8")
         decision = evaluate_assurance_case(policy, case, package_result)
         output = Path(args.output) if args.output else review_root / "review_decision.json"
         json_path, markdown_path = _write_review_decision(decision, output)
         if package_path is not None:
-            build_audit_package(case, package_path, review_policy=policy, review_decision=decision)
+            build_audit_package(
+                case,
+                package_path,
+                review_policy=policy,
+                review_decision=decision,
+                predecessor_hash_pointer=predecessor,
+            )
         _print_review_decision(decision, as_json=args.json, json_path=json_path, markdown_path=markdown_path)
         if package_path is not None and not args.json: print(f"Audit package: {package_path}")
+        if package_path is not None and args.cas_store_root is not None:
+            stored = store_audit_package(package_path, args.cas_store_root)
+            if not stored.passed:
+                raise ValueError("could not store audit package: " + "; ".join(stored.errors))
+            if not args.json:
+                print(f"CAS address: {stored.content_address}")
+                print(f"CAS storage path: {stored.storage_path}")
         return REVIEW_EXIT_CODES[decision.decision_status]
     raise ValueError(f"unsupported review action: {action}")
 
@@ -2293,6 +2417,43 @@ def _build_parser() -> ArgumentParser:
     )
     review_offline.add_argument("package_path")
     review_offline.add_argument("--json", action="store_true")
+    review_cas_check = review_subparsers.add_parser(
+        "cas-check", help="Validate the full SHA-256 CAS envelope for a reviewed package."
+    )
+    review_cas_check.add_argument("package_path")
+    review_cas_check.add_argument("--json", action="store_true")
+    review_cas_store = review_subparsers.add_parser(
+        "cas-store", help="Store a verified package under its immutable content address."
+    )
+    review_cas_store.add_argument("package_path")
+    review_cas_store.add_argument("--store", dest="store_root", required=True)
+    review_cas_store.add_argument("--json", action="store_true")
+    review_chain = review_subparsers.add_parser(
+        "chain-verify", help="Verify a package and its complete predecessor hash chain."
+    )
+    review_chain.add_argument("package_path")
+    review_chain.add_argument("--store", dest="store_root", default=None)
+    review_chain.add_argument("--maximum-depth", type=int, default=1000)
+    review_chain.add_argument("--json", action="store_true")
+    review_export_redacted = review_subparsers.add_parser(
+        "export-redacted", help="Export a privacy-preserving redacted audit package."
+    )
+    review_export_redacted.add_argument("package_path", help="Source audit package directory to redact.")
+    review_export_redacted.add_argument("--output", required=True, help="Output directory for the redacted package.")
+    review_export_redacted.add_argument(
+        "--policy-config", dest="policy_config", default=None,
+        help="Optional YAML/JSON redaction configuration file.",
+    )
+    review_export_redacted.add_argument(
+        "--predecessor", default=None,
+        help="Optional predecessor sha256 address for lineage preservation.",
+    )
+    review_export_redacted.add_argument("--json", action="store_true")
+    review_verify_redacted = review_subparsers.add_parser(
+        "verify-redacted", help="Verify a redacted audit package without consulting live registries."
+    )
+    review_verify_redacted.add_argument("package_path", help="Redacted audit package directory to verify.")
+    review_verify_redacted.add_argument("--json", action="store_true")
     review_diff = review_subparsers.add_parser(
         "diff", help="Compare one baseline with one or more review decision variants."
     )
@@ -2313,6 +2474,17 @@ def _build_parser() -> ArgumentParser:
     review_build.add_argument("--json", action="store_true")
     review_build.add_argument("--output-root", default=None)
     review_build.add_argument("--output", default=None)
+    review_build.add_argument(
+        "--predecessor",
+        default=None,
+        help="Optional predecessor sha256 address or verified audit-package directory.",
+    )
+    review_build.add_argument(
+        "--cas-store",
+        dest="cas_store_root",
+        default=None,
+        help="Optional root where the finalized package is stored by content address.",
+    )
 
     assurance = subparsers.add_parser("assurance", help="Build and inspect scoped engineering assurance records.")
     assurance_subparsers = assurance.add_subparsers(dest="assurance_command", required=True)
