@@ -7,6 +7,7 @@ from datetime import datetime
 import importlib.util
 import json
 from pathlib import Path
+import shutil
 from typing import Any
 
 import yaml
@@ -46,7 +47,12 @@ from intentforge.knowledge import (
     validate_rule_data,
 )
 from intentforge.knowledge.reasoning.benchmark import run_reasoning_benchmark
-from intentforge.assurance import build_assurance_case, build_audit_package, validate_assurance_case
+from intentforge.assurance import (
+    attach_assurance_predecessor,
+    build_assurance_case,
+    build_audit_package,
+    validate_assurance_case,
+)
 from intentforge.assurance.schema import AssuranceCase
 from intentforge.review import (
     ReviewEvaluationError,
@@ -61,6 +67,9 @@ from intentforge.review import (
     validate_review_policy_manifest,
     verify_decision_provenance,
     verify_offline_audit_package,
+    cas_storage_path,
+    store_audit_package,
+    verify_audit_chain,
 )
 from intentforge.review.portability import (
     canonical_json_bytes,
@@ -165,6 +174,15 @@ QUALITY_GATES: dict[str, float | int] = {
     "review_offline_hash_mismatch_count_max": 0,
     "review_portability_violation_count_max": 0,
     "review_cross_platform_portability_mismatch_count_max": 0,
+    "review_cas_store_failure_count_max": 0,
+    "review_cas_object_hash_mismatch_count_max": 0,
+    "review_cas_deterministic_mismatch_count_max": 0,
+    "review_predecessor_embedding_mismatch_count_max": 0,
+    "review_chain_validation_pass_count_min": 1,
+    "review_chain_length_min": 3,
+    "review_chain_tamper_detection_pass_count_min": 3,
+    "review_chain_pointer_mismatch_count_max": 0,
+    "review_chain_missing_predecessor_count_max": 0,
 }
 
 
@@ -812,6 +830,7 @@ def _review_policy_section(run_dir: Path, assurance_section: dict[str, Any]) -> 
     offline_hash_mismatch_count = 0
     portability_violation_count = 0
     cross_platform_portability_mismatch_count = 0
+    cas_object_hash_mismatch_count = 0
     aggregate = {
         "unknown_claim_reference_count": 0,
         "unknown_validation_reference_count": 0,
@@ -820,6 +839,8 @@ def _review_policy_section(run_dir: Path, assurance_section: dict[str, Any]) -> 
         "unknown_rule_reference_count": 0,
     }
     fixture_results: dict[str, Any] = {}
+    fixture_cases: dict[str, AssuranceCase] = {}
+    fixture_decisions: dict[str, Any] = {}
     case_paths = assurance_section.get("fixture_case_paths", {})
     for fixture_name, (policy_id, expected_status) in fixture_specs.items():
         try:
@@ -881,6 +902,7 @@ def _review_policy_section(run_dir: Path, assurance_section: dict[str, Any]) -> 
             offline.metrics.get("static_check_replay_mismatch_count", 0) or 0
         )
         offline_hash_mismatch_count += int(offline.metrics.get("hash_mismatch_count", 0) or 0)
+        cas_object_hash_mismatch_count += int(offline.metrics.get("cas_object_hash_mismatch_count", 0) or 0)
         portability_violation_count += int(offline.metrics.get("portability_violation_count", 0) or 0)
         platform_mismatches, platform_violations = _cross_platform_portability_check(case)
         cross_platform_portability_mismatch_count += platform_mismatches
@@ -902,6 +924,110 @@ def _review_policy_section(run_dir: Path, assurance_section: dict[str, Any]) -> 
             "offline_claim_count": offline.metrics.get("assurance_claim_count", 0),
         }
         decisions.append(first)
+        fixture_cases[fixture_name] = case
+        fixture_decisions[fixture_name] = first
+
+    cas_store_failure_count = 0
+    cas_deterministic_mismatch_count = 0
+    predecessor_embedding_mismatch_count = 0
+    chain_validation_pass_count = 0
+    chain_length = 0
+    chain_tamper_detection_pass_count = 0
+    chain_pointer_mismatch_count = 0
+    chain_missing_predecessor_count = 0
+    chain_addresses: list[str] = []
+    chain_errors: list[str] = []
+    try:
+        chain_store = review_dir / "cas_store"
+        chain_specs = (
+            ("wall_build", "intentforge_standard_design_review_v1"),
+            ("partial_feature", "intentforge_standard_design_review_v1"),
+            ("edit", "intentforge_edit_review_v1"),
+        )
+        predecessor = None
+        head_storage_path = None
+        for chain_index, (fixture_name, policy_id) in enumerate(chain_specs):
+            chain_case = attach_assurance_predecessor(fixture_cases[fixture_name], predecessor)
+            chain_policy = get_review_policy(policy_id)
+            chain_decision = evaluate_assurance_case(
+                chain_policy,
+                chain_case,
+                resources=shared_resources,
+            )
+            first_package = build_audit_package(
+                chain_case,
+                review_dir / "chain_packages" / f"{chain_index}_a",
+                review_policy=chain_policy,
+                review_decision=chain_decision,
+                predecessor_hash_pointer=predecessor,
+            )
+            second_package = build_audit_package(
+                chain_case,
+                review_dir / "chain_packages" / f"{chain_index}_b",
+                review_policy=chain_policy,
+                review_decision=chain_decision,
+                predecessor_hash_pointer=predecessor,
+            )
+            cas_deterministic_mismatch_count += int(
+                first_package["package_id"] != second_package["package_id"]
+            )
+            stored = store_audit_package(first_package["package_path"], chain_store)
+            reused = store_audit_package(first_package["package_path"], chain_store)
+            cas_store_failure_count += int(not stored.passed or not reused.passed or not reused.reused_existing)
+            if stored.content_address is None or stored.storage_path is None:
+                raise ValueError("CAS store did not return a content address and storage path")
+            embedded = (
+                chain_case.predecessor_hash_pointer == predecessor
+                and all(item.predecessor_hash_pointer == predecessor for item in chain_case.claims)
+                and all(item.predecessor_hash_pointer == predecessor for item in chain_case.arguments)
+                and chain_decision.predecessor_hash_pointer == predecessor
+                and chain_decision.decision_provenance is not None
+                and chain_decision.decision_provenance.predecessor_hash_pointer == predecessor
+            )
+            if predecessor is not None and chain_decision.decision_provenance is not None:
+                embedded = embedded and any(
+                    item.snapshot_type == "audit_lineage"
+                    and item.payload.get("predecessor_hash_pointer") == predecessor
+                    for item in chain_decision.decision_provenance.snapshots
+                ) and any(
+                    item.node_type == "lineage_binding"
+                    for item in chain_decision.decision_provenance.execution_nodes
+                )
+            predecessor_embedding_mismatch_count += int(not embedded)
+            predecessor = stored.content_address
+            chain_addresses.append(stored.content_address)
+            head_storage_path = stored.storage_path
+        if head_storage_path is None:
+            raise ValueError("CAS chain did not produce a head package")
+        chain_result = verify_audit_chain(head_storage_path, store_root=chain_store)
+        chain_validation_pass_count = int(chain_result.passed)
+        chain_length = chain_result.chain_length
+        chain_pointer_mismatch_count = chain_result.pointer_mismatch_count
+        chain_missing_predecessor_count = chain_result.missing_predecessor_count
+        chain_errors.extend(chain_result.errors)
+        for scenario in ("modified", "missing", "switched"):
+            scenario_store = review_dir / f"cas_tamper_{scenario}"
+            shutil.copytree(chain_store, scenario_store)
+            genesis_path = cas_storage_path(scenario_store, chain_addresses[0])
+            if scenario == "modified":
+                target = genesis_path / "assurance_case.json"
+                target.write_bytes(target.read_bytes() + b" ")
+            elif scenario == "missing":
+                shutil.rmtree(genesis_path)
+            else:
+                switched_source = cas_storage_path(scenario_store, chain_addresses[1])
+                switched_copy = review_dir / "switched_package_copy"
+                if switched_copy.exists():
+                    shutil.rmtree(switched_copy)
+                shutil.copytree(switched_source, switched_copy)
+                shutil.rmtree(genesis_path)
+                shutil.copytree(switched_copy, genesis_path)
+            scenario_head = cas_storage_path(scenario_store, chain_addresses[-1])
+            tampered = verify_audit_chain(scenario_head, store_root=scenario_store)
+            chain_tamper_detection_pass_count += int(not tampered.passed)
+    except (OSError, ValueError, KeyError) as exc:
+        cas_store_failure_count += 1
+        chain_errors.append(str(exc))
 
     full_policy_incompatible_acceptance_count = 0
     try:
@@ -988,6 +1114,17 @@ def _review_policy_section(run_dir: Path, assurance_section: dict[str, Any]) -> 
         "review_offline_hash_mismatch_count": offline_hash_mismatch_count,
         "review_portability_violation_count": portability_violation_count,
         "review_cross_platform_portability_mismatch_count": cross_platform_portability_mismatch_count,
+        "review_cas_store_failure_count": cas_store_failure_count,
+        "review_cas_object_hash_mismatch_count": cas_object_hash_mismatch_count,
+        "review_cas_deterministic_mismatch_count": cas_deterministic_mismatch_count,
+        "review_predecessor_embedding_mismatch_count": predecessor_embedding_mismatch_count,
+        "review_chain_validation_pass_count": chain_validation_pass_count,
+        "review_chain_length": chain_length,
+        "review_chain_tamper_detection_pass_count": chain_tamper_detection_pass_count,
+        "review_chain_pointer_mismatch_count": chain_pointer_mismatch_count,
+        "review_chain_missing_predecessor_count": chain_missing_predecessor_count,
+        "review_chain_addresses": chain_addresses,
+        "review_chain_errors": chain_errors,
         "review_audit_package_validation_pass_count": audit_package_validation_pass_count,
         "review_audit_package_hash_mismatch_count": audit_package_hash_mismatch_count,
         "expected_decision_mismatch_count": expected_decision_mismatch_count,
@@ -1027,9 +1164,140 @@ def _review_policy_section(run_dir: Path, assurance_section: dict[str, Any]) -> 
         and offline_hash_mismatch_count == 0
         and portability_violation_count == 0
         and cross_platform_portability_mismatch_count == 0
+        and cas_store_failure_count == 0
+        and cas_object_hash_mismatch_count == 0
+        and cas_deterministic_mismatch_count == 0
+        and predecessor_embedding_mismatch_count == 0
+        and chain_validation_pass_count == 1
+        and chain_length == 3
+        and chain_tamper_detection_pass_count == 3
+        and chain_pointer_mismatch_count == 0
+        and chain_missing_predecessor_count == 0
     )
     result["review_gate_passed"] = result["passed"]
     report_path = review_dir / "review_policy_harness_report.json"
+    _write_json(result, report_path)
+    result["report_path"] = str(report_path)
+    return result
+
+
+def _release_dossier_section(run_dir, review_policy_section):
+    from intentforge.dossier import ReleaseDossierBuilder, verify_release_dossier, write_dossier
+    from intentforge.redaction import default_redaction_config, export_redacted_package
+
+    dossier_dir = run_dir / "release_dossier"
+    chain_packages_dir = run_dir / "review_policy" / "chain_packages"
+    chain_package_paths = []
+    if chain_packages_dir.is_dir():
+        chain_package_paths = sorted(p for p in chain_packages_dir.iterdir() if p.is_dir() and p.name.endswith("_a"))
+    if len(chain_package_paths) < 2:
+        return {"passed": False, "reason": "insufficient chain packages", "chain_package_count": len(chain_package_paths)}
+    dossier_paths = [str(p) for p in chain_package_paths[:3]]
+    builder = ReleaseDossierBuilder()
+    dossier_validation_pass_count = 0
+    dossier_hash_mismatch_count = 0
+    merkle_root_count = 0
+    rollup_status_counts = {}
+    try:
+        dossier = builder.build(dossier_paths)
+        output_root = dossier_dir / "multi_component"
+        write_dossier(dossier, output_root)
+        result = verify_release_dossier(output_root)
+        dossier_validation_pass_count = int(result.passed)
+        dossier_hash_mismatch_count = int(not result.passed)
+        merkle_root_count = 1
+        rollup_status_counts[result.rollup_status or "unknown"] = rollup_status_counts.get(result.rollup_status or "unknown", 0) + 1
+    except (ValueError, OSError, KeyError) as exc:
+        return {"passed": False, "error": str(exc), "chain_package_count": len(chain_package_paths)}
+
+    redacted_package_paths = []
+    redacted_dir = dossier_dir / "redacted_packages"
+    try:
+        for source in chain_package_paths[:1]:
+            redacted_dir.mkdir(parents=True, exist_ok=True)
+            target = redacted_dir / source.name
+            export_redacted_package(source_package=source, output_dir=target, config=default_redaction_config())
+            if (target / "redacted_package_id.json").is_file() or (target / "redacted_cas_envelope.json").is_file():
+                redacted_package_paths.append(target)
+    except (OSError, ValueError):
+        redacted_package_paths = []
+
+    mixed_paths = dossier_paths + [str(p) for p in redacted_package_paths]
+    mixed_validation_pass_count = 0
+    mixed_merkle_root_count = 0
+    if mixed_paths and mixed_paths != dossier_paths:
+        try:
+            mixed_dossier = builder.build(mixed_paths)
+            mixed_output = dossier_dir / "mixed_redacted"
+            write_dossier(mixed_dossier, mixed_output)
+            mixed_result = verify_release_dossier(mixed_output)
+            mixed_validation_pass_count = int(mixed_result.passed)
+            mixed_merkle_root_count = 1
+        except (ValueError, OSError, KeyError):
+            mixed_validation_pass_count = 0
+
+    tamper_envelope_detection_count = 0
+    tamper_leaf_index_detection_count = 0
+    tamper_child_detection_count = 0
+    target_dossier_dir = dossier_dir / "multi_component"
+    if target_dossier_dir.is_dir():
+        envelope_path = target_dossier_dir / "dossier_envelope.json"
+        leaf_index_path = target_dossier_dir / "dossier_leaf_index.json"
+        if envelope_path.is_file():
+            original = envelope_path.read_bytes()
+            try:
+                payload = json.loads(original)
+                payload["root_hash"] = "sha256:" + "f" * 64
+                envelope_path.write_text(json.dumps(payload), encoding="utf-8")
+                tampered = verify_release_dossier(target_dossier_dir)
+                if not tampered.passed:
+                    tamper_envelope_detection_count = 1
+            finally:
+                envelope_path.write_bytes(original)
+        if leaf_index_path.is_file():
+            original = leaf_index_path.read_bytes()
+            try:
+                payload = json.loads(original)
+                if payload:
+                    payload[0]["content_address"] = "sha256:" + "1" * 64
+                    leaf_index_path.write_text(json.dumps(payload), encoding="utf-8")
+                    tampered = verify_release_dossier(target_dossier_dir)
+                    if not tampered.passed:
+                        tamper_leaf_index_detection_count = 1
+            finally:
+                leaf_index_path.write_bytes(original)
+        child_target = Path(chain_package_paths[0]) / "review_decision.json"
+        if child_target.is_file():
+            original = child_target.read_bytes()
+            try:
+                payload = json.loads(original)
+                payload["decision_status"] = "rejected_by_policy"
+                child_target.write_text(json.dumps(payload), encoding="utf-8")
+                tampered = verify_release_dossier(target_dossier_dir)
+                if not tampered.passed:
+                    tamper_child_detection_count = 1
+            finally:
+                child_target.write_bytes(original)
+
+    result = {
+        "passed": (dossier_validation_pass_count == 1 and dossier_hash_mismatch_count == 0
+                   and merkle_root_count == 1 and tamper_envelope_detection_count == 1
+                   and tamper_leaf_index_detection_count == 1 and tamper_child_detection_count == 1),
+        "release_dossier_chain_package_count": len(chain_package_paths),
+        "release_dossier_redacted_package_count": len(redacted_package_paths),
+        "release_dossier_validation_pass_count": dossier_validation_pass_count,
+        "release_dossier_hash_mismatch_count": dossier_hash_mismatch_count,
+        "release_dossier_merkle_root_count": merkle_root_count,
+        "release_dossier_rollup_status_counts": rollup_status_counts,
+        "release_dossier_mixed_validation_pass_count": mixed_validation_pass_count,
+        "release_dossier_mixed_merkle_root_count": mixed_merkle_root_count,
+        "release_dossier_tamper_envelope_detection_count": tamper_envelope_detection_count,
+        "release_dossier_tamper_leaf_index_detection_count": tamper_leaf_index_detection_count,
+        "release_dossier_tamper_child_detection_count": tamper_child_detection_count,
+        "release_dossier_output_path": str(dossier_dir / "multi_component"),
+    }
+    result["release_dossier_gate_passed"] = result["passed"]
+    report_path = dossier_dir / "release_dossier_harness_report.json"
     _write_json(result, report_path)
     result["report_path"] = str(report_path)
     return result
@@ -1225,6 +1493,15 @@ def _build_metrics(sections: dict[str, dict[str, Any]]) -> dict[str, float | int
         "review_offline_hash_mismatch_count": int(review_policy.get("review_offline_hash_mismatch_count", 0) or 0),
         "review_portability_violation_count": int(review_policy.get("review_portability_violation_count", 0) or 0),
         "review_cross_platform_portability_mismatch_count": int(review_policy.get("review_cross_platform_portability_mismatch_count", 0) or 0),
+        "review_cas_store_failure_count": int(review_policy.get("review_cas_store_failure_count", 0) or 0),
+        "review_cas_object_hash_mismatch_count": int(review_policy.get("review_cas_object_hash_mismatch_count", 0) or 0),
+        "review_cas_deterministic_mismatch_count": int(review_policy.get("review_cas_deterministic_mismatch_count", 0) or 0),
+        "review_predecessor_embedding_mismatch_count": int(review_policy.get("review_predecessor_embedding_mismatch_count", 0) or 0),
+        "review_chain_validation_pass_count": int(review_policy.get("review_chain_validation_pass_count", 0) or 0),
+        "review_chain_length": int(review_policy.get("review_chain_length", 0) or 0),
+        "review_chain_tamper_detection_pass_count": int(review_policy.get("review_chain_tamper_detection_pass_count", 0) or 0),
+        "review_chain_pointer_mismatch_count": int(review_policy.get("review_chain_pointer_mismatch_count", 0) or 0),
+        "review_chain_missing_predecessor_count": int(review_policy.get("review_chain_missing_predecessor_count", 0) or 0),
         "unexpected_failure_count": unexpected_failure_count,
         "unsafe_acceptance_count": unsafe_acceptance_count,
         "unexpected_exception_count": unexpected_exception_count,
@@ -1332,6 +1609,15 @@ def compute_quality_gates(report: dict[str, Any]) -> dict[str, Any]:
         ("review_offline_hash_mismatch_count_max", "review_offline_hash_mismatch_count", "<="),
         ("review_portability_violation_count_max", "review_portability_violation_count", "<="),
         ("review_cross_platform_portability_mismatch_count_max", "review_cross_platform_portability_mismatch_count", "<="),
+        ("review_cas_store_failure_count_max", "review_cas_store_failure_count", "<="),
+        ("review_cas_object_hash_mismatch_count_max", "review_cas_object_hash_mismatch_count", "<="),
+        ("review_cas_deterministic_mismatch_count_max", "review_cas_deterministic_mismatch_count", "<="),
+        ("review_predecessor_embedding_mismatch_count_max", "review_predecessor_embedding_mismatch_count", "<="),
+        ("review_chain_validation_pass_count_min", "review_chain_validation_pass_count", ">="),
+        ("review_chain_length_min", "review_chain_length", ">="),
+        ("review_chain_tamper_detection_pass_count_min", "review_chain_tamper_detection_pass_count", ">="),
+        ("review_chain_pointer_mismatch_count_max", "review_chain_pointer_mismatch_count", "<="),
+        ("review_chain_missing_predecessor_count_max", "review_chain_missing_predecessor_count", "<="),
     )
     for gate_name, metric_name, operator in gate_specs:
         if gate_name not in gates or metric_name not in metrics:
@@ -1428,6 +1714,12 @@ def _build_summary(report: dict[str, Any]) -> str:
         f"  - review_offline_policy_catalog_mismatch_count: {int(metrics.get('review_offline_policy_catalog_mismatch_count', 0))}",
         f"  - review_portability_violation_count: {int(metrics.get('review_portability_violation_count', 0))}",
         f"  - review_cross_platform_portability_mismatch_count: {int(metrics.get('review_cross_platform_portability_mismatch_count', 0))}",
+        f"  - review_cas_object_hash_mismatch_count: {int(metrics.get('review_cas_object_hash_mismatch_count', 0))}",
+        f"  - review_cas_deterministic_mismatch_count: {int(metrics.get('review_cas_deterministic_mismatch_count', 0))}",
+        f"  - review_predecessor_embedding_mismatch_count: {int(metrics.get('review_predecessor_embedding_mismatch_count', 0))}",
+        f"  - review_chain_validation_pass_count: {int(metrics.get('review_chain_validation_pass_count', 0))}",
+        f"  - review_chain_length: {int(metrics.get('review_chain_length', 0))}",
+        f"  - review_chain_tamper_detection_pass_count: {int(metrics.get('review_chain_tamper_detection_pass_count', 0))}",
         f"  - unexpected_failure_count: {metrics['unexpected_failure_count']}",
         f"  - unsafe_acceptance_count: {metrics['unsafe_acceptance_count']}",
         f"  - unexpected_exception_count: {metrics['unexpected_exception_count']}",
@@ -1537,6 +1829,10 @@ def run_technical_harness(
     sections["review_policy"] = _run_section(
         "review_policy",
         lambda: _review_policy_section(run_context.run_dir, sections["assurance"]),
+    )
+    sections["release_dossier"] = _run_section(
+        "release_dossier",
+        lambda: _release_dossier_section(run_context.run_dir, sections["review_policy"]),
     )
     if include_demo:
         sections["demo"] = _run_section("demo", lambda: _demo_section(section_output_root))

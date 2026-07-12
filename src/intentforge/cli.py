@@ -2247,6 +2247,63 @@ def _review_command(args) -> int:
             print(f"Identical: {str(result['identical']).lower()}")
             print(f"Changed fields: {', '.join(result['changed_fields']) if result['changed_fields'] else 'none'}")
         return 0
+    if action == "build-dossier":
+        from intentforge.dossier import ReleaseDossierBuilder, write_dossier
+        builder = ReleaseDossierBuilder(dossier_id=args.dossier_id)
+        try:
+            dossier = builder.build(args.package_paths)
+        except ValueError as exc:
+            if args.json:
+                print(json.dumps({"passed": False, "error": str(exc)}, indent=2, sort_keys=True))
+            else:
+                print("IntentForge Release Dossier")
+                print("FAIL")
+                print(f"Error: {exc}")
+            return 1
+        summary = write_dossier(dossier, args.output)
+        if args.json:
+            payload = {
+                "passed": True,
+                "dossier_id": dossier.dossier_id,
+                "root_hash": dossier.root_hash,
+                "rollup_status": dossier.rollup.rollup_status,
+                "leaf_count": dossier.merkle_tree.leaf_count,
+                "blocked_count": dossier.rollup.blocked_count,
+                "conditional_count": dossier.rollup.conditional_count,
+                "approved_count": dossier.rollup.approved_count,
+                "package_path": summary["package_path"],
+            }
+            print(json.dumps(payload, indent=2, sort_keys=True))
+        else:
+            print("IntentForge Release Dossier")
+            print("PASS")
+            print(f"Dossier ID: {dossier.dossier_id}")
+            print(f"Root hash: {dossier.root_hash}")
+            print(f"Rollup status: {dossier.rollup.rollup_status}")
+            print(f"Leaf count: {dossier.merkle_tree.leaf_count}")
+            print(f"Blocked: {dossier.rollup.blocked_count}")
+            print(f"Conditional: {dossier.rollup.conditional_count}")
+            print(f"Approved: {dossier.rollup.approved_count}")
+            print(f"Output: {summary['package_path']}")
+        return 0
+    if action == "verify-dossier":
+        from intentforge.dossier import verify_release_dossier
+        result = verify_release_dossier(args.dossier_path, max_children=args.max_children)
+        if args.json:
+            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        else:
+            print("IntentForge Release Dossier Verification")
+            print("PASS" if result.passed else "FAIL")
+            print(f"Status: {result.status}")
+            print(f"Dossier ID: {result.dossier_id}")
+            print(f"Root hash: {result.root_hash}")
+            print(f"Rollup status: {result.rollup_status}")
+            print(f"Child count: {result.child_count}")
+            print(f"Passed children: {result.passed_child_count}")
+            print(f"Failed children: {result.failed_child_count}")
+            for error in result.errors:
+                print(f"- {error}")
+        return 0 if result.passed else 1
     if action == "build-evaluate":
         policy_id = args.policy or {
             "static": "intentforge_static_review_v1",
@@ -2485,6 +2542,21 @@ def _build_parser() -> ArgumentParser:
         default=None,
         help="Optional root where the finalized package is stored by content address.",
     )
+    review_dossier = review_subparsers.add_parser(
+        "build-dossier",
+        help="Build a cryptographic Merkle-rooted release dossier from one or more audit packages.",
+    )
+    review_dossier.add_argument("package_paths", nargs="+", help="Audit package directories to aggregate.")
+    review_dossier.add_argument("--output", required=True, help="Output directory for the dossier.")
+    review_dossier.add_argument("--dossier-id", default=None, help="Optional dossier identifier override.")
+    review_dossier.add_argument("--json", action="store_true")
+    review_dossier_verify = review_subparsers.add_parser(
+        "verify-dossier",
+        help="Verify a release dossier using only its enclosed files.",
+    )
+    review_dossier_verify.add_argument("dossier_path", help="Dossier directory to verify.")
+    review_dossier_verify.add_argument("--max-children", type=int, default=1000)
+    review_dossier_verify.add_argument("--json", action="store_true")
 
     assurance = subparsers.add_parser("assurance", help="Build and inspect scoped engineering assurance records.")
     assurance_subparsers = assurance.add_subparsers(dest="assurance_command", required=True)
