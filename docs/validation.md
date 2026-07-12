@@ -8,6 +8,8 @@ Review-policy validation is additive to assurance validation. It checks policy I
 
 Decision-provenance validation checks every frozen snapshot and execution-node content ID, the check-registry and precedence contracts, the 65-definition evidence matrix, policy and assurance links, and optional deterministic replay. Audit-package validation also cross-checks the standalone provenance file and package manifest. Structural decision diffs validate their own delta, pairwise-report, and multi-variant logical identities; they do not use report prose as evidence.
 
+Phase 26 offline verification starts with package entry and SHA-256 checks, then validates canonical JSON and platform-neutral data before replaying the selected closed policy from frozen snapshots. It validates all 54 catalog checks structurally and evaluates only the policy selected for that run. This static verification does not rerun geometry, topology, feature recognition, reasoning, or simulation.
+
 Phase 21 adds capability coverage validation. This is not geometry validation. It validates product support declarations: known families, valid stages, rule-to-capability mapping, evidence references, unsupported boundaries, and orphan active rules.
 
 ## Geometry Validation

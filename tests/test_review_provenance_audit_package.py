@@ -32,6 +32,7 @@ def test_audit_package_freezes_and_replays_review_provenance(tmp_path: Path) -> 
     assert manifest["review_provenance_id"] == provenance["provenance_id"]
     assert validation["passed"]
     assert validation["review_provenance_verification_passed"] is True
+    assert validation["offline_verification_passed"] is True
 
 
 def test_audit_package_detects_provenance_tampering(tmp_path: Path) -> None:

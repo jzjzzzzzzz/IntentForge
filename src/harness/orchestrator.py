@@ -60,6 +60,12 @@ from intentforge.review import (
     validate_review_policy,
     validate_review_policy_manifest,
     verify_decision_provenance,
+    verify_offline_audit_package,
+)
+from intentforge.review.portability import (
+    canonical_json_bytes,
+    normalize_portable_data,
+    portability_violations,
 )
 from intentforge.workflows import edit_parse_apply_workflow, parse_build_workflow
 
@@ -150,6 +156,15 @@ QUALITY_GATES: dict[str, float | int] = {
     "review_semantic_diff_generation_failure_count_max": 0,
     "review_semantic_diff_deterministic_mismatch_count_max": 0,
     "review_multi_variant_diff_deterministic_mismatch_count_max": 0,
+    "review_offline_verification_pass_count_min": 5,
+    "review_offline_assurance_claim_count_min": 49,
+    "review_offline_assurance_claim_count_max": 49,
+    "review_offline_evidence_matrix_mismatch_count_max": 0,
+    "review_offline_policy_catalog_mismatch_count_max": 0,
+    "review_offline_static_replay_mismatch_count_max": 0,
+    "review_offline_hash_mismatch_count_max": 0,
+    "review_portability_violation_count_max": 0,
+    "review_cross_platform_portability_mismatch_count_max": 0,
 }
 
 
@@ -720,6 +735,46 @@ def _assurance_section(run_dir: Path) -> dict[str, Any]:
     return result
 
 
+def _cross_platform_portability_check(case: AssuranceCase) -> tuple[int, int]:
+    """Compare canonicalized Linux, macOS, and Windows-shaped run metadata."""
+
+    source = case.model_dump(mode="json")
+    baseline = normalize_portable_data(source)
+    baseline_bytes = canonical_json_bytes(baseline)
+    mismatches = 0
+    violations = len(portability_violations(baseline))
+    roots = {
+        "linux": "/tmp/intentforge/",
+        "macos": "/private/tmp/intentforge/",
+        "windows": "C:\\Users\\IntentForge\\AppData\\Local\\Temp\\intentforge\\",
+    }
+    for platform_name, root in roots.items():
+        variant = json.loads(json.dumps(source))
+        variant["request_id"] = f"{platform_name}_request"
+        if variant.get("run_id") is not None:
+            variant["run_id"] = f"{platform_name}_run"
+        if variant.get("parent_run_id") is not None:
+            variant["parent_run_id"] = f"{platform_name}_parent"
+        variant["runtime_metadata"] = {
+            "platform": platform_name,
+            "timezone": "local",
+            "temporary_directory": root,
+        }
+        for artifact in variant.get("artifact_records", []):
+            relative = str(artifact.get("path", "")).replace("\\", "/")
+            if platform_name == "windows":
+                artifact["path"] = root + relative.replace("/", "\\")
+            else:
+                artifact["path"] = root + relative
+            artifact["request_id"] = f"{platform_name}_request"
+            if artifact.get("run_id") is not None:
+                artifact["run_id"] = f"{platform_name}_run"
+        normalized = normalize_portable_data(variant)
+        mismatches += int(canonical_json_bytes(normalized) != baseline_bytes)
+        violations += len(portability_violations(normalized))
+    return mismatches, violations
+
+
 def _review_policy_section(run_dir: Path, assurance_section: dict[str, Any]) -> dict[str, Any]:
     review_dir = run_dir / "review_policy"
     manifest_validation = validate_review_policy_manifest()
@@ -749,6 +804,14 @@ def _review_policy_section(run_dir: Path, assurance_section: dict[str, Any]) -> 
     provenance_replay_mismatch_count = 0
     provenance_evidence_matrix_mismatch_count = 0
     deterministic_provenance_mismatch_count = 0
+    offline_verification_pass_count = 0
+    offline_assurance_claim_count = 0
+    offline_evidence_matrix_mismatch_count = 0
+    offline_policy_catalog_mismatch_count = 0
+    offline_static_replay_mismatch_count = 0
+    offline_hash_mismatch_count = 0
+    portability_violation_count = 0
+    cross_platform_portability_mismatch_count = 0
     aggregate = {
         "unknown_claim_reference_count": 0,
         "unknown_validation_reference_count": 0,
@@ -803,10 +866,29 @@ def _review_policy_section(run_dir: Path, assurance_section: dict[str, Any]) -> 
         )
         audit_package_validation_pass_count += int(package["validation"]["passed"])
         audit_package_hash_mismatch_count += int(package["validation"].get("hash_mismatch_count", 0))
+        offline = verify_offline_audit_package(package["package_path"])
+        offline_verification_pass_count += int(offline.passed)
+        offline_assurance_claim_count += int(offline.metrics.get("assurance_claim_count", 0) or 0)
+        offline_evidence_matrix_mismatch_count += int(
+            offline.metrics.get("evidence_definition_count") != 65
+            or offline.metrics.get("evidence_observation_count") != 65
+        )
+        offline_policy_catalog_mismatch_count += int(
+            offline.metrics.get("policy_catalog_count") != 5
+            or offline.metrics.get("policy_catalog_check_count") != 54
+        )
+        offline_static_replay_mismatch_count += int(
+            offline.metrics.get("static_check_replay_mismatch_count", 0) or 0
+        )
+        offline_hash_mismatch_count += int(offline.metrics.get("hash_mismatch_count", 0) or 0)
+        portability_violation_count += int(offline.metrics.get("portability_violation_count", 0) or 0)
+        platform_mismatches, platform_violations = _cross_platform_portability_check(case)
+        cross_platform_portability_mismatch_count += platform_mismatches
+        portability_violation_count += platform_violations
         decision_path = review_dir / "decisions" / f"{fixture_name}.json"
         _write_json(first.model_dump(mode="json"), decision_path)
         fixture_results[fixture_name] = {
-            "passed": validation.passed and provenance_validation.passed
+            "passed": validation.passed and provenance_validation.passed and offline.passed
                       and first.decision_status == expected_status and package["validation"]["passed"],
             "policy_id": policy_id,
             "decision_status": first.decision_status,
@@ -816,6 +898,8 @@ def _review_policy_section(run_dir: Path, assurance_section: dict[str, Any]) -> 
             "package_id": package["package_id"],
             "provenance_id": None if first.decision_provenance is None else first.decision_provenance.provenance_id,
             "provenance_verified": provenance_validation.passed,
+            "offline_verified": offline.passed,
+            "offline_claim_count": offline.metrics.get("assurance_claim_count", 0),
         }
         decisions.append(first)
 
@@ -896,6 +980,14 @@ def _review_policy_section(run_dir: Path, assurance_section: dict[str, Any]) -> 
         "review_semantic_diff_generation_failure_count": semantic_diff_generation_failure_count,
         "review_semantic_diff_deterministic_mismatch_count": semantic_diff_deterministic_mismatch_count,
         "review_multi_variant_diff_deterministic_mismatch_count": multi_variant_diff_deterministic_mismatch_count,
+        "review_offline_verification_pass_count": offline_verification_pass_count,
+        "review_offline_assurance_claim_count": offline_assurance_claim_count,
+        "review_offline_evidence_matrix_mismatch_count": offline_evidence_matrix_mismatch_count,
+        "review_offline_policy_catalog_mismatch_count": offline_policy_catalog_mismatch_count,
+        "review_offline_static_replay_mismatch_count": offline_static_replay_mismatch_count,
+        "review_offline_hash_mismatch_count": offline_hash_mismatch_count,
+        "review_portability_violation_count": portability_violation_count,
+        "review_cross_platform_portability_mismatch_count": cross_platform_portability_mismatch_count,
         "review_audit_package_validation_pass_count": audit_package_validation_pass_count,
         "review_audit_package_hash_mismatch_count": audit_package_hash_mismatch_count,
         "expected_decision_mismatch_count": expected_decision_mismatch_count,
@@ -927,6 +1019,14 @@ def _review_policy_section(run_dir: Path, assurance_section: dict[str, Any]) -> 
         and semantic_diff_generation_failure_count == 0
         and semantic_diff_deterministic_mismatch_count == 0
         and multi_variant_diff_deterministic_mismatch_count == 0
+        and offline_verification_pass_count == len(fixture_specs)
+        and offline_assurance_claim_count == 49
+        and offline_evidence_matrix_mismatch_count == 0
+        and offline_policy_catalog_mismatch_count == 0
+        and offline_static_replay_mismatch_count == 0
+        and offline_hash_mismatch_count == 0
+        and portability_violation_count == 0
+        and cross_platform_portability_mismatch_count == 0
     )
     result["review_gate_passed"] = result["passed"]
     report_path = review_dir / "review_policy_harness_report.json"
@@ -1117,6 +1217,14 @@ def _build_metrics(sections: dict[str, dict[str, Any]]) -> dict[str, float | int
         "review_semantic_diff_generation_failure_count": int(review_policy.get("review_semantic_diff_generation_failure_count", 0) or 0),
         "review_semantic_diff_deterministic_mismatch_count": int(review_policy.get("review_semantic_diff_deterministic_mismatch_count", 0) or 0),
         "review_multi_variant_diff_deterministic_mismatch_count": int(review_policy.get("review_multi_variant_diff_deterministic_mismatch_count", 0) or 0),
+        "review_offline_verification_pass_count": int(review_policy.get("review_offline_verification_pass_count", 0) or 0),
+        "review_offline_assurance_claim_count": int(review_policy.get("review_offline_assurance_claim_count", 0) or 0),
+        "review_offline_evidence_matrix_mismatch_count": int(review_policy.get("review_offline_evidence_matrix_mismatch_count", 0) or 0),
+        "review_offline_policy_catalog_mismatch_count": int(review_policy.get("review_offline_policy_catalog_mismatch_count", 0) or 0),
+        "review_offline_static_replay_mismatch_count": int(review_policy.get("review_offline_static_replay_mismatch_count", 0) or 0),
+        "review_offline_hash_mismatch_count": int(review_policy.get("review_offline_hash_mismatch_count", 0) or 0),
+        "review_portability_violation_count": int(review_policy.get("review_portability_violation_count", 0) or 0),
+        "review_cross_platform_portability_mismatch_count": int(review_policy.get("review_cross_platform_portability_mismatch_count", 0) or 0),
         "unexpected_failure_count": unexpected_failure_count,
         "unsafe_acceptance_count": unsafe_acceptance_count,
         "unexpected_exception_count": unexpected_exception_count,
@@ -1215,6 +1323,15 @@ def compute_quality_gates(report: dict[str, Any]) -> dict[str, Any]:
         ("review_semantic_diff_generation_failure_count_max", "review_semantic_diff_generation_failure_count", "<="),
         ("review_semantic_diff_deterministic_mismatch_count_max", "review_semantic_diff_deterministic_mismatch_count", "<="),
         ("review_multi_variant_diff_deterministic_mismatch_count_max", "review_multi_variant_diff_deterministic_mismatch_count", "<="),
+        ("review_offline_verification_pass_count_min", "review_offline_verification_pass_count", ">="),
+        ("review_offline_assurance_claim_count_min", "review_offline_assurance_claim_count", ">="),
+        ("review_offline_assurance_claim_count_max", "review_offline_assurance_claim_count", "<="),
+        ("review_offline_evidence_matrix_mismatch_count_max", "review_offline_evidence_matrix_mismatch_count", "<="),
+        ("review_offline_policy_catalog_mismatch_count_max", "review_offline_policy_catalog_mismatch_count", "<="),
+        ("review_offline_static_replay_mismatch_count_max", "review_offline_static_replay_mismatch_count", "<="),
+        ("review_offline_hash_mismatch_count_max", "review_offline_hash_mismatch_count", "<="),
+        ("review_portability_violation_count_max", "review_portability_violation_count", "<="),
+        ("review_cross_platform_portability_mismatch_count_max", "review_cross_platform_portability_mismatch_count", "<="),
     )
     for gate_name, metric_name, operator in gate_specs:
         if gate_name not in gates or metric_name not in metrics:
@@ -1305,6 +1422,12 @@ def _build_summary(report: dict[str, Any]) -> str:
         f"  - review_provenance_replay_mismatch_count: {int(metrics.get('review_provenance_replay_mismatch_count', 0))}",
         f"  - review_provenance_evidence_matrix_mismatch_count: {int(metrics.get('review_provenance_evidence_matrix_mismatch_count', 0))}",
         f"  - review_semantic_diff_deterministic_mismatch_count: {int(metrics.get('review_semantic_diff_deterministic_mismatch_count', 0))}",
+        f"  - review_offline_verification_pass_count: {int(metrics.get('review_offline_verification_pass_count', 0))}",
+        f"  - review_offline_assurance_claim_count: {int(metrics.get('review_offline_assurance_claim_count', 0))}",
+        f"  - review_offline_evidence_matrix_mismatch_count: {int(metrics.get('review_offline_evidence_matrix_mismatch_count', 0))}",
+        f"  - review_offline_policy_catalog_mismatch_count: {int(metrics.get('review_offline_policy_catalog_mismatch_count', 0))}",
+        f"  - review_portability_violation_count: {int(metrics.get('review_portability_violation_count', 0))}",
+        f"  - review_cross_platform_portability_mismatch_count: {int(metrics.get('review_cross_platform_portability_mismatch_count', 0))}",
         f"  - unexpected_failure_count: {metrics['unexpected_failure_count']}",
         f"  - unsafe_acceptance_count: {metrics['unsafe_acceptance_count']}",
         f"  - unexpected_exception_count: {metrics['unexpected_exception_count']}",

@@ -13,6 +13,16 @@ from intentforge.assurance.schema import AssuranceCase, canonical_digest, safe_r
 from intentforge.assurance.validator import validate_assurance_case
 from intentforge.knowledge.capabilities import load_capability_manifest
 from intentforge.knowledge.evidence_registry import load_evidence_definitions
+from intentforge.review.portability import (
+    PORTABILITY_PROFILE,
+    PORTABILITY_VERSION,
+    canonical_json_bytes,
+    make_portable_assurance_case,
+    normalize_package_observation,
+    normalize_portable_data,
+    policy_catalog_snapshot,
+    portability_violations,
+)
 
 REQUIRED_FILES = {
     "assurance_case.json", "assurance_case.md", "intent.json", "capability_snapshot.json",
@@ -22,7 +32,8 @@ REVIEW_CORE_FILES = {
     "review_policy_snapshot.json", "review_decision.json", "review_decision.md",
 }
 REVIEW_PROVENANCE_FILE = "review_decision_provenance.json"
-OPTIONAL_REVIEW_FILES = REVIEW_CORE_FILES.union({REVIEW_PROVENANCE_FILE})
+REVIEW_POLICY_CATALOG_FILE = "review_policy_catalog_snapshot.json"
+OPTIONAL_REVIEW_FILES = REVIEW_CORE_FILES.union({REVIEW_PROVENANCE_FILE, REVIEW_POLICY_CATALOG_FILE})
 
 
 def _tool_version() -> str:
@@ -33,7 +44,7 @@ def _tool_version() -> str:
 
 
 def _json_bytes(value: Any) -> bytes:
-    return (json.dumps(value, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    return canonical_json_bytes(value)
 
 
 def _sha256(data: bytes) -> str:
@@ -62,22 +73,24 @@ def build_audit_package(
     review_policy: Any | None = None,
     review_decision: Any | None = None,
 ) -> dict[str, Any]:
-    """Write a safe metadata-focused audit package directory."""
+    """Write a safe metadata-focused, platform-neutral audit package directory."""
 
-    record = _read_case(case)
+    source_record = _read_case(case)
     if (review_policy is None) != (review_decision is None):
         raise ValueError("review policy and review decision must be supplied together")
     decision_record = None
     policy_record = None
     frozen_resources = None
+    original_package_result = None
     if review_policy is not None and review_decision is not None:
-        from intentforge.review.provenance import resources_from_provenance
+        from intentforge.review.provenance import package_result_from_provenance, resources_from_provenance
         from intentforge.review.schema import ReviewDecision, ReviewPolicy
 
         policy_record = review_policy if isinstance(review_policy, ReviewPolicy) else ReviewPolicy.model_validate(review_policy)
         decision_record = review_decision if isinstance(review_decision, ReviewDecision) else ReviewDecision.model_validate(review_decision)
         if decision_record.decision_provenance is not None:
             frozen_resources = resources_from_provenance(decision_record.decision_provenance)
+            original_package_result = package_result_from_provenance(decision_record.decision_provenance)
     frozen_capability_ids = None if frozen_resources is None else {
         str(item.get("capability_id"))
         for item in frozen_resources.capability_manifest.get("capabilities", [])
@@ -88,14 +101,55 @@ def build_audit_package(
     frozen_rule_ids = None if frozen_resources is None else {
         str(item.get("id")) for item in frozen_resources.rules
     }
-    validation = validate_assurance_case(
-        record,
+    source_validation = validate_assurance_case(
+        source_record,
         capability_ids=frozen_capability_ids,
         evidence_ids=frozen_evidence_ids,
         rule_ids=frozen_rule_ids,
     )
-    if not validation.passed:
-        raise ValueError("cannot package invalid assurance case: " + "; ".join(validation.errors))
+    if not source_validation.passed:
+        raise ValueError("cannot package invalid assurance case: " + "; ".join(source_validation.errors))
+    if policy_record is not None and decision_record is not None:
+        from intentforge.review.validator import validate_review_decision, validate_review_policy
+
+        policy_validation = validate_review_policy(
+            policy_record,
+            known_capability_ids=frozen_capability_ids,
+            known_evidence_ids=frozen_evidence_ids,
+            known_rule_ids=frozen_rule_ids,
+        )
+        decision_validation = validate_review_decision(
+            decision_record,
+            policy=policy_record,
+            assurance_case=source_record,
+            known_capability_ids=frozen_capability_ids,
+            known_evidence_ids=frozen_evidence_ids,
+            known_rule_ids=frozen_rule_ids,
+        )
+        if not policy_validation.passed:
+            raise ValueError("cannot package invalid review policy: " + "; ".join(policy_validation.errors))
+        if not decision_validation.passed:
+            raise ValueError("cannot package invalid review decision: " + "; ".join(decision_validation.errors))
+
+    record = make_portable_assurance_case(source_record)
+    if decision_record is not None:
+        if decision_record.decision_provenance is not None:
+            from intentforge.review.evaluator import evaluate_assurance_case
+
+            decision_record = evaluate_assurance_case(
+                policy_record,
+                record,
+                normalize_package_observation(original_package_result),
+                resources=frozen_resources,
+                runtime_metadata={},
+            )
+        else:
+            from intentforge.review.schema import ReviewDecision
+
+            decision_record = ReviewDecision.model_validate(
+                normalize_portable_data(decision_record.model_dump(mode="json"))
+            )
+
     if frozen_resources is None:
         capabilities = {item.capability_id: item.model_dump(mode="json") for item in load_capability_manifest().capabilities}
         evidence = {item.evidence_id: item.model_dump(mode="json") for item in load_evidence_definitions()}
@@ -108,55 +162,54 @@ def build_audit_package(
             str(item["evidence_id"]): item
             for item in frozen_resources.evidence_definitions
         }
-    payloads: dict[str, bytes] = {
-        "assurance_case.json": record.to_json().encode("utf-8"),
-        "assurance_case.md": render_assurance_markdown(record).encode("utf-8"),
-        "intent.json": _json_bytes(record.structured_intent or record.input_request),
-        "capability_snapshot.json": _json_bytes({key: capabilities[key] for key in record.capability_references}),
-        "evidence_snapshot.json": _json_bytes({key: evidence[key] for key in record.evidence_references}),
-        "validation_summary.json": _json_bytes([item.model_dump(mode="json") for item in record.validation_observations]),
-        "reasoning_summary.json": _json_bytes(record.reasoning_summary or {"available": False}),
-        "artifact_manifest.json": _json_bytes([item.model_dump(mode="json") for item in record.artifact_records]),
+    structured_payloads: dict[str, Any] = {
+        "assurance_case.json": record.model_dump(mode="json"),
+        "intent.json": record.structured_intent or record.input_request,
+        "capability_snapshot.json": {key: capabilities[key] for key in record.capability_references},
+        "evidence_snapshot.json": {key: evidence[key] for key in record.evidence_references},
+        "validation_summary.json": [item.model_dump(mode="json") for item in record.validation_observations],
+        "reasoning_summary.json": record.reasoning_summary or {"available": False},
+        "artifact_manifest.json": [item.model_dump(mode="json") for item in record.artifact_records],
     }
+    payloads: dict[str, bytes] = {
+        name: _json_bytes(normalize_portable_data(value)) for name, value in structured_payloads.items()
+    }
+    payloads["assurance_case.md"] = render_assurance_markdown(record).encode("utf-8")
+    policy_catalog = None
     if policy_record is not None and decision_record is not None:
+        from intentforge.review.policies import load_review_policy_manifest
         from intentforge.review.renderer import render_review_decision_markdown
-        from intentforge.review.validator import validate_review_decision, validate_review_policy
 
-        policy_validation = validate_review_policy(
-            policy_record,
-            known_capability_ids=frozen_capability_ids,
-            known_evidence_ids=frozen_evidence_ids,
-            known_rule_ids=frozen_rule_ids,
-        )
-        decision_validation = validate_review_decision(
-            decision_record,
-            policy=policy_record,
-            assurance_case=record,
-            known_capability_ids=frozen_capability_ids,
-            known_evidence_ids=frozen_evidence_ids,
-            known_rule_ids=frozen_rule_ids,
-        )
-        if not policy_validation.passed:
-            raise ValueError("cannot package invalid review policy: " + "; ".join(policy_validation.errors))
-        if not decision_validation.passed:
-            raise ValueError("cannot package invalid review decision: " + "; ".join(decision_validation.errors))
         payloads.update({
-            "review_policy_snapshot.json": policy_record.to_json().encode("utf-8"),
-            "review_decision.json": decision_record.to_json().encode("utf-8"),
+            "review_policy_snapshot.json": _json_bytes(
+                policy_record.model_dump(mode="json", serialize_as_any=True)
+            ),
+            "review_decision.json": _json_bytes(decision_record.model_dump(mode="json")),
             "review_decision.md": render_review_decision_markdown(decision_record).encode("utf-8"),
         })
         if decision_record.decision_provenance is not None:
+            policy_catalog = policy_catalog_snapshot(load_review_policy_manifest())
             payloads[REVIEW_PROVENANCE_FILE] = _json_bytes(
                 decision_record.decision_provenance.model_dump(mode="json")
             )
+            payloads[REVIEW_POLICY_CATALOG_FILE] = _json_bytes(policy_catalog)
+    for name, data in payloads.items():
+        if name.endswith(".json"):
+            violations = portability_violations(json.loads(data.decode("utf-8")), location=name)
+            if violations:
+                raise ValueError("non-portable audit payload: " + "; ".join(violations))
     inventory = {name: _sha256(data) for name, data in sorted(payloads.items())}
     package_id = _logical_package_id(record, inventory)
     manifest = {
-        "schema_version": "1.0", "package_id": package_id, "assurance_case_id": record.assurance_case_id,
+        "schema_version": "1.1" if policy_catalog is not None else "1.0",
+        "package_id": package_id, "assurance_case_id": record.assurance_case_id,
         "tool_version": _tool_version(), "cad_family": record.cad_family, "operation": record.operation,
         "assurance_profile": record.profile, "validation_status": record.overall_assurance_status,
         "file_inventory": inventory, "limitations": [item.limitation_id for item in record.limitations],
         "review_requirements": record.review_requirements,
+        "portability_profile": PORTABILITY_PROFILE,
+        "portability_version": PORTABILITY_VERSION,
+        "canonical_json": True,
     }
     if decision_record is not None and policy_record is not None:
         manifest["review_policy_id"] = policy_record.policy_id
@@ -168,6 +221,14 @@ def build_audit_package(
         if decision_record.decision_provenance is not None:
             manifest["review_provenance_id"] = decision_record.decision_provenance.provenance_id
             manifest["review_provenance_content_id"] = decision_record.decision_provenance.content_id
+            manifest["review_policy_catalog_content_id"] = canonical_digest(
+                "review_policy_catalog", policy_catalog
+            )
+            manifest["review_policy_catalog_policy_count"] = len(policy_catalog["policies"])
+            manifest["review_policy_catalog_check_count"] = sum(
+                len(item["checks"]) for item in policy_catalog["policies"]
+            )
+            manifest["offline_verification_required"] = True
     payloads["manifest.json"] = _json_bytes(manifest)
     checksums = {name: _sha256(data) for name, data in sorted(payloads.items())}
     payloads["checksums.json"] = _json_bytes(checksums)
@@ -189,7 +250,9 @@ def validate_audit_package(package_path: str | Path) -> dict[str, Any]:
     if missing: errors.append("missing required files: " + ", ".join(missing))
     review_files = names.intersection(OPTIONAL_REVIEW_FILES)
     review_attachment_complete = frozenset(review_files) in {
-        frozenset(REVIEW_CORE_FILES), frozenset(OPTIONAL_REVIEW_FILES)
+        frozenset(REVIEW_CORE_FILES),
+        frozenset(REVIEW_CORE_FILES.union({REVIEW_PROVENANCE_FILE})),
+        frozenset(OPTIONAL_REVIEW_FILES),
     }
     if review_files and not review_attachment_complete:
         errors.append("incomplete review decision attachment")
@@ -318,12 +381,22 @@ def validate_audit_package(package_path: str | Path) -> dict[str, Any]:
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             review_validation_passed = False
             errors.append(f"invalid review decision attachment: {exc}")
+    offline_verification = None
+    if manifest.get("schema_version") == "1.1":
+        from intentforge.review.offline_verifier import verify_offline_audit_package
+
+        offline_result = verify_offline_audit_package(root)
+        offline_verification = offline_result.to_dict()
+        if not offline_result.passed:
+            errors.extend(f"offline verification: {item}" for item in offline_result.errors)
     return {"passed": not errors, "errors": errors, "package_id": manifest.get("package_id"),
             "assurance_case_id": case.assurance_case_id, "file_count": len(names),
             "hash_mismatch_count": len(hash_mismatches),
             "review_decision_attached": bool(review_files) and review_attachment_complete,
             "review_decision_validation_passed": review_validation_passed,
-            "review_provenance_verification_passed": provenance_verification_passed}
+            "review_provenance_verification_passed": provenance_verification_passed,
+            "offline_verification": offline_verification,
+            "offline_verification_passed": None if offline_verification is None else offline_verification["passed"]}
 
 
 def inspect_audit_package(package_path: str | Path) -> dict[str, Any]:

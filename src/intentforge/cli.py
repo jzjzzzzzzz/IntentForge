@@ -39,6 +39,7 @@ from intentforge.review import (
     validate_review_decision,
     validate_review_policy_manifest,
     verify_decision_provenance,
+    verify_offline_audit_package,
 )
 
 from harness.topology import (
@@ -2086,6 +2087,27 @@ def _review_command(args) -> int:
         else:
             print(render_decision_provenance_markdown(decision, verify=args.verify), end="")
         return 0 if verification.passed else 1
+    if action == "verify-offline":
+        verification = verify_offline_audit_package(args.package_path)
+        if args.json:
+            print(verification.to_json(), end="")
+        else:
+            print("IntentForge Offline Audit Package Verification")
+            print("PASS" if verification.passed else "FAIL")
+            print(f"Status: {verification.status}")
+            print(f"Package ID: {verification.package_id}")
+            print(f"Assurance case ID: {verification.assurance_case_id}")
+            print(f"Review decision ID: {verification.decision_id}")
+            print(f"Frozen rules: {verification.metrics.get('rule_snapshot_count', 0)}")
+            print(f"Frozen capabilities: {verification.metrics.get('capability_snapshot_count', 0)}")
+            print(f"Frozen evidence records: {verification.metrics.get('evidence_definition_count', 0)}")
+            print(f"Policy catalog checks: {verification.metrics.get('policy_catalog_check_count', 0)}")
+            print(f"Run claims: {verification.metrics.get('assurance_claim_count', 0)}")
+            print(f"Portability violations: {verification.metrics.get('portability_violation_count', 0)}")
+            for error in verification.errors:
+                print(f"- {error}")
+            print("Static verification does not re-run CAD generation or simulation.")
+        return 0 if verification.passed else 1
     if action == "diff":
         baseline = load_review_decision_source(args.baseline)
         variants = [load_review_decision_source(item) for item in args.variants]
@@ -2265,6 +2287,12 @@ def _build_parser() -> ArgumentParser:
     review_provenance.add_argument("decision_source", help="Review decision JSON or audit-package directory.")
     review_provenance.add_argument("--verify", action="store_true", help="Replay using only frozen provenance snapshots.")
     review_provenance.add_argument("--json", action="store_true")
+    review_offline = review_subparsers.add_parser(
+        "verify-offline",
+        help="Verify a portable audit package using enclosed frozen snapshots only.",
+    )
+    review_offline.add_argument("package_path")
+    review_offline.add_argument("--json", action="store_true")
     review_diff = review_subparsers.add_parser(
         "diff", help="Compare one baseline with one or more review decision variants."
     )

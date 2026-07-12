@@ -8,6 +8,8 @@ The review-policy layer consumes a validated assurance case. Packaged declarativ
 
 The Phase 25 provenance layer freezes policy, assurance, rule, capability, evidence, package, boundary, check-registry, and precedence inputs alongside the ordered execution graph. Replay uses these snapshots instead of live manifests. The differential-audit layer compares keyed graph nodes, checks, findings, conditions, references, and outcomes; rendered Markdown is never used as comparison input.
 
+The Phase 26 portability boundary creates a normalized export copy without mutating the live run record. Reviewed packages add a frozen catalog of all five policies and 54 checks. `intentforge.offline_verify` is an isolated standard-library verifier that checks package inventory, canonical serialization, frozen registry references, selected policy evaluation, precedence, and provenance without importing CadQuery, Pydantic models, live registries, or network clients.
+
 Importable Python packages use a `src/` layout:
 
 - `src/intentforge`
@@ -46,6 +48,8 @@ Project assets such as `tests/`, `docs/`, `examples/`, and `demo/` remain at the
 `intentforge.assurance` builds run-level Claims-Arguments-Evidence records and safe directory audit packages from existing workflow outputs.
 
 `intentforge.review` loads versioned review policies, validates typed checks and references, evaluates assurance observations, freezes and replays decision provenance, renders acceptance decisions, performs structural pairwise or multi-variant diffs, and optionally attaches policy, decision, and provenance snapshots to audit packages.
+
+`intentforge.offline_verify` validates Phase 26 package schema `1.1` from enclosed bytes only. It is intentionally outside the eager `intentforge.review` import surface so `python -S` can load it without site packages.
 
 `intentforge.editor` applies structured edits to an existing parameter table and feature state. It preserves unchanged parameters and rejects unsupported or invalid edits before CAD export.
 

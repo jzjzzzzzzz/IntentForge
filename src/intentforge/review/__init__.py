@@ -31,6 +31,19 @@ from intentforge.review.provenance_schema import (
     FrozenDecisionSnapshot,
     ReviewExecutionNode,
 )
+from intentforge.review.offline_verifier import (
+    OFFLINE_VERIFIER_VERSION,
+    OfflineVerificationResult,
+    verify_offline_audit_package,
+)
+from intentforge.review.portability import (
+    PORTABILITY_PROFILE,
+    PORTABILITY_VERSION,
+    canonical_json_bytes,
+    make_portable_assurance_case,
+    normalize_portable_data,
+    portability_violations,
+)
 from intentforge.review.renderer import (
     render_decision_provenance_markdown,
     render_multi_variant_diff_markdown,
@@ -60,6 +73,10 @@ __all__ = [
     "DecisionProvenanceVerification",
     "FrozenDecisionSnapshot",
     "MultiVariantReviewDiff",
+    "OFFLINE_VERIFIER_VERSION",
+    "OfflineVerificationResult",
+    "PORTABILITY_PROFILE",
+    "PORTABILITY_VERSION",
     "PolicyCheck",
     "PolicyFinding",
     "ReviewDecision",
@@ -72,6 +89,7 @@ __all__ = [
     "ReviewExecutionNode",
     "SemanticDecisionDelta",
     "compare_review_decisions",
+    "canonical_json_bytes",
     "compute_policy_check_content_id",
     "compute_review_decision_content_id",
     "compute_review_policy_content_id",
@@ -85,6 +103,9 @@ __all__ = [
     "load_review_decision_source",
     "load_review_policies",
     "load_review_policy_manifest",
+    "make_portable_assurance_case",
+    "normalize_portable_data",
+    "portability_violations",
     "render_decision_provenance_markdown",
     "render_multi_variant_diff_markdown",
     "render_review_decision_markdown",
@@ -94,5 +115,6 @@ __all__ = [
     "validate_review_policy",
     "validate_review_policy_manifest",
     "verify_decision_provenance",
+    "verify_offline_audit_package",
     "collect_review_evaluation_resources",
 ]

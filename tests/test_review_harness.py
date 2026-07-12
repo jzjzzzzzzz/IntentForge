@@ -23,3 +23,11 @@ def test_review_harness_uses_five_assurance_fixtures(tmp_path: Path) -> None:
     assert review["review_semantic_diff_generation_failure_count"] == 0
     assert review["review_semantic_diff_deterministic_mismatch_count"] == 0
     assert review["review_multi_variant_diff_deterministic_mismatch_count"] == 0
+    assert review["review_offline_verification_pass_count"] == 5
+    assert review["review_offline_assurance_claim_count"] == 49
+    assert review["review_offline_evidence_matrix_mismatch_count"] == 0
+    assert review["review_offline_policy_catalog_mismatch_count"] == 0
+    assert review["review_offline_static_replay_mismatch_count"] == 0
+    assert review["review_offline_hash_mismatch_count"] == 0
+    assert review["review_portability_violation_count"] == 0
+    assert review["review_cross_platform_portability_mismatch_count"] == 0

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import PurePosixPath
+import re
 from typing import Any, Literal
 from urllib.parse import unquote
 
@@ -42,9 +43,20 @@ def canonical_digest(prefix: str, payload: Any) -> str:
 
 
 def safe_relative_path(value: str) -> str:
-    decoded = unquote(value.replace("\\", "/"))
+    decoded = value.replace("\\", "/")
+    for _ in range(4):
+        next_value = unquote(decoded)
+        if next_value == decoded:
+            break
+        decoded = next_value
     path = PurePosixPath(decoded)
-    if not decoded or path.is_absolute() or ".." in path.parts:
+    if (
+        not decoded
+        or path.is_absolute()
+        or decoded.startswith("//")
+        or re.match(r"^[A-Za-z]:/", decoded)
+        or ".." in path.parts
+    ):
         raise ValueError("artifact path must be a safe relative path")
     if any(part in FORBIDDEN_PATH_PARTS for part in path.parts):
         raise ValueError("artifact path contains a forbidden component")

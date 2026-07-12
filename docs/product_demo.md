@@ -278,8 +278,11 @@ intentforge review evaluate output/assurance/assurance_case.json \
   --policy intentforge_standard_design_review_v1
 intentforge review provenance output/assurance/review_decision.json --verify
 intentforge review diff baseline-review-decision.json candidate-review-decision.json
+intentforge review verify-offline output/assurance/audit_package_<case-id>
 ```
 
 Phase 25 keeps the same interface boundary: provenance replay and multi-variant differential audit are library and CLI operations. No HTTP or MCP contract is expanded, and neither operation generates CAD.
+
+Phase 26 keeps that boundary. Offline package verification is a library and CLI operation and makes no network request. It verifies frozen static records and package integrity; it does not rerun CAD or certify the design.
 
 The decision is scoped to the recorded assurance observations. It is not regulatory approval or production authorization.

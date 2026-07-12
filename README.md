@@ -4,7 +4,7 @@
 
 IntentForge is a deterministic CAD intent pipeline for turning simple engineering language into editable, explainable, validated parametric CAD models.
 
-Phase 25 adds frozen decision provenance and structural multi-variant differential audits to the Phase 24 review-policy layer. Every new review decision records the exact policy, assurance input, rule/capability/evidence registries, 65-entry evidence matrix, boundary conditions, closed check-registry contract, precedence strategy, and ordered execution graph used for that run. The record can be replayed without consulting shifted live knowledge manifests. Semantic diffs compare those structures directly rather than comparing rendered text.
+Phase 26 adds offline audit-package verification and platform-neutral serialization to the frozen Phase 25 review chain. A reviewed package now includes all five policy definitions (54 declarative checks), the selected run's assurance claims, and the existing 10-rule, 28-capability, and 65-evidence snapshots. The standalone verifier uses only enclosed files and the Python standard library; it does not consult live registries, use a network, or rerun CAD.
 
 ```bash
 intentforge assurance build --profile static
@@ -15,9 +15,10 @@ intentforge review policies
 intentforge review evaluate output/assurance/assurance_case.json --policy intentforge_standard_design_review_v1
 intentforge review provenance output/assurance/review_decision.json --verify
 intentforge review diff baseline-decision.json candidate-decision.json
+intentforge review verify-offline output/assurance/audit_package
 ```
 
-See [Engineering assurance cases](docs/assurance_cases.md), [Audit packages](docs/audit_packages.md), [Review policies](docs/review_policies.md), [Acceptance decisions](docs/acceptance_decisions.md), [Decision provenance](docs/decision_provenance.md), [Multi-variant differential audit](docs/multi_variant_audit.md), and [Policy checks](docs/policy_checks.md).
+See [Engineering assurance cases](docs/assurance_cases.md), [Audit packages](docs/audit_packages.md), [Offline verification](docs/offline_verification.md), [Audit portability](docs/audit_portability.md), [Review policies](docs/review_policies.md), [Acceptance decisions](docs/acceptance_decisions.md), [Decision provenance](docs/decision_provenance.md), [Multi-variant differential audit](docs/multi_variant_audit.md), and [Policy checks](docs/policy_checks.md).
 
 It is not a general text-to-CAD generator. The goal is not to produce geometry that merely looks right once. The goal is to preserve the design intent behind the model so later edits can update named parameters and active features without losing the original assumptions, constraints, and feature history.
 
@@ -93,6 +94,8 @@ Supported features:
 - declarative engineering review policies, findings, conditions, and acceptance decisions
 - frozen review-decision provenance with deterministic replay verification
 - structural pairwise and multi-variant review differential audits
+- standard-library-only offline audit-package verification
+- canonical platform-neutral package JSON, paths, runtime identifiers, and hashes
 - deterministic engineering reasoning over knowledge findings
 - golden-case reasoning verification and recommendation consistency checks
 - topology-informed feature recognition for supported generated models
@@ -486,6 +489,10 @@ Default quality gates require:
 - review provenance snapshot, execution-node, and replay mismatches == 0
 - every review provenance record maps all 65 evidence definitions
 - semantic pairwise and multi-variant diff identities remain deterministic
+- five reviewed fixture packages pass isolated static-chain verification
+- frozen offline package matrices contain 10 rules, 28 capabilities, 65 evidence records, and 54 policy checks
+- the five fixture assurance records total 49 claims with no static replay mismatch
+- portability violations and Linux/macOS/Windows canonical identity mismatches == 0
 
 Reports are written to:
 
