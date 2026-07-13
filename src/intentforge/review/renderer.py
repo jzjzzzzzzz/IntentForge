@@ -42,6 +42,7 @@ def render_review_decision_markdown(decision: ReviewDecision | dict) -> str:
         "## Assurance Profile",
         f"- Profile: {record.assurance_profile}",
         f"- Assurance case: {record.assurance_case_id}",
+        f"- Predecessor package: {record.predecessor_hash_pointer or 'genesis'}",
         "",
         "## Final Decision",
         f"**{record.decision_status}**",

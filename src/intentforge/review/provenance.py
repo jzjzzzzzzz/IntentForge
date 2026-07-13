@@ -175,7 +175,7 @@ def _snapshot(snapshot_type: str, reference_id: str, version_value: str, payload
 
 
 def _boundary_conditions(case: AssuranceCase, subject_type: str) -> dict[str, Any]:
-    return {
+    result = {
         "subject_type": subject_type,
         "cad_family": case.cad_family,
         "operation": case.operation,
@@ -208,6 +208,9 @@ def _boundary_conditions(case: AssuranceCase, subject_type: str) -> dict[str, An
         },
         "review_requirements": sorted(case.review_requirements),
     }
+    if case.predecessor_hash_pointer is not None:
+        result["predecessor_hash_pointer"] = case.predecessor_hash_pointer
+    return result
 
 
 def _registry_versions(resources: ReviewEvaluationResources) -> tuple[str, str]:
@@ -298,6 +301,18 @@ def build_decision_provenance(
             boundaries,
         ),
     ]
+    if assurance_case.predecessor_hash_pointer is not None:
+        snapshots.append(
+            _snapshot(
+                "audit_lineage",
+                assurance_case.predecessor_hash_pointer,
+                "1.0",
+                {
+                    "predecessor_hash_pointer": assurance_case.predecessor_hash_pointer,
+                    "assurance_case_id": assurance_case.assurance_case_id,
+                },
+            )
+        )
     by_type = {item.snapshot_type: item for item in snapshots}
     nodes: list[ReviewExecutionNode] = [
         ReviewExecutionNode(
@@ -352,9 +367,27 @@ def build_decision_provenance(
             expected_value={"one_observation_per_definition": True},
         ),
     ]
+    if assurance_case.predecessor_hash_pointer is not None:
+        nodes.append(
+            ReviewExecutionNode(
+                sequence=len(nodes),
+                node_type="lineage_binding",
+                node_key="predecessor_hash_binding",
+                status="completed",
+                input_content_ids=[
+                    case_snapshot.content_id,
+                    by_type["audit_lineage"].content_id,
+                ],
+                output_content_ids=[by_type["audit_lineage"].content_id],
+                observed_value={
+                    "predecessor_hash_pointer": assurance_case.predecessor_hash_pointer,
+                },
+                expected_value={"content_address_algorithm": "sha256"},
+            )
+        )
     findings_by_check = {item.check_id: item for item in findings}
     conditions_by_check = {item.source_check_id: item for item in conditions}
-    for sequence, check in enumerate(sorted(policy.checks, key=lambda item: item.check_id), start=4):
+    for sequence, check in enumerate(sorted(policy.checks, key=lambda item: item.check_id), start=len(nodes)):
         finding = findings_by_check[check.check_id]
         condition = conditions_by_check.get(check.check_id)
         outputs = [finding.content_id]
@@ -411,6 +444,7 @@ def build_decision_provenance(
         snapshots=snapshots,
         execution_nodes=nodes,
         active_boundary_conditions=boundaries,
+        predecessor_hash_pointer=assurance_case.predecessor_hash_pointer,
         evidence_definition_count=len(resources.evidence_definitions),
         evidence_observation_count=len(resources.evidence_observations),
         runtime_metadata=runtime_metadata or {},
@@ -492,6 +526,23 @@ def verify_decision_provenance(
             errors.append("decision policy content does not match frozen policy")
         if case_snapshot.payload.get("content_id") != record.assurance_case_content_id:
             errors.append("decision assurance content does not match frozen assurance case")
+        frozen_pointer = case_snapshot.payload.get("predecessor_hash_pointer")
+        if frozen_pointer != record.predecessor_hash_pointer:
+            errors.append("decision predecessor pointer does not match frozen assurance case")
+        if frozen_pointer != provenance.predecessor_hash_pointer:
+            errors.append("provenance predecessor pointer does not match frozen assurance case")
+        if frozen_pointer is not None:
+            lineage_snapshot = provenance.snapshot("audit_lineage")
+            if lineage_snapshot.payload.get("predecessor_hash_pointer") != frozen_pointer:
+                errors.append("frozen audit lineage pointer mismatch")
+            lineage_nodes = [
+                item for item in provenance.execution_nodes
+                if item.node_type == "lineage_binding"
+            ]
+            if len(lineage_nodes) != 1 or lineage_nodes[0].observed_value.get("predecessor_hash_pointer") != frozen_pointer:
+                errors.append("lineage binding execution node mismatch")
+        elif any(item.snapshot_type == "audit_lineage" for item in provenance.snapshots):
+            errors.append("unexpected audit lineage snapshot without predecessor")
     except (ValueError, AttributeError) as exc:
         errors.append(str(exc))
     evidence_registry = provenance.snapshot("evidence_registry").payload

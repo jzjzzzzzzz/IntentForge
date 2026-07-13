@@ -46,7 +46,7 @@ Absolute local artifact paths may be used internally while building a run, but p
 
 IntentForge guarantees deterministic logical package identity for identical deterministic content. It does not claim byte-identical ZIP archives because archive timestamps, compression libraries, and container metadata can differ. Phase 26 exports a directory package and compares canonical file bytes and logical hashes.
 
-Runtime creation metadata, when present outside the deterministic payload, must not alter content IDs. The package tool version is read with `importlib.metadata.version("intentforge")`; the project version is not changed by this phase.
+Runtime creation metadata, when present outside the deterministic payload, must not alter content IDs. The package tool version is read with `importlib.metadata.version("intentforge")`; the project version is not changed by this phase. Phase 27's full CAS address is calculated only after this portability normalization.
 
 ## Technical Harness
 

@@ -45,6 +45,7 @@ def validate_assurance_case(
             capability_ids=claim.capability_ids, evidence_ids=claim.supporting_evidence_ids,
             validation_ids=claim.supporting_validation_ids, artifact_ids=claim.supporting_artifact_ids,
             rule_ids=claim.rule_ids, limitations=claim.limitations, required_review=claim.required_review,
+            predecessor_hash_pointer=claim.predecessor_hash_pointer,
         )
         if claim.content_id != expected_claim.content_id or claim.claim_id != expected_claim.claim_id:
             errors.append(f"claim content ID mismatch: {claim.claim_id}")
@@ -55,6 +56,11 @@ def validate_assurance_case(
             errors.append(f"argument content ID mismatch: {linked[0].argument_id}")
     for argument in record.arguments:
         if argument.claim_id not in claim_ids: errors.append(f"argument {argument.argument_id} references unknown claim")
+    lineage_pointers = {
+        item.predecessor_hash_pointer for item in [*record.claims, *record.arguments]
+    }
+    if lineage_pointers and lineage_pointers != {record.predecessor_hash_pointer}:
+        errors.append("assurance claim/argument predecessor pointers do not match the assurance case")
     unsafe_paths = 0
     for artifact in record.artifact_records:
         try: safe_relative_path(artifact.path)

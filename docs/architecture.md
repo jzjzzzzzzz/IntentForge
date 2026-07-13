@@ -10,6 +10,8 @@ The Phase 25 provenance layer freezes policy, assurance, rule, capability, evide
 
 The Phase 26 portability boundary creates a normalized export copy without mutating the live run record. Reviewed packages add a frozen catalog of all five policies and 54 checks. `intentforge.offline_verify` is an isolated standard-library verifier that checks package inventory, canonical serialization, frozen registry references, selected policy evaluation, precedence, and provenance without importing CadQuery, Pydantic models, live registries, or network clients.
 
+The Phase 27 CAS boundary assigns full SHA-256 addresses to structural package files and to a canonical envelope over those objects. `intentforge.cas` stores verified packages under deterministic digest paths and follows optional predecessor addresses to verify chronological lineage. A predecessor is a recorded content reference only; the CAS layer never executes CAD, policies, or manifest-selected code.
+
 Importable Python packages use a `src/` layout:
 
 - `src/intentforge`
@@ -49,7 +51,9 @@ Project assets such as `tests/`, `docs/`, `examples/`, and `demo/` remain at the
 
 `intentforge.review` loads versioned review policies, validates typed checks and references, evaluates assurance observations, freezes and replays decision provenance, renders acceptance decisions, performs structural pairwise or multi-variant diffs, and optionally attaches policy, decision, and provenance snapshots to audit packages.
 
-`intentforge.offline_verify` validates Phase 26 package schema `1.1` from enclosed bytes only. It is intentionally outside the eager `intentforge.review` import surface so `python -S` can load it without site packages.
+`intentforge.offline_verify` validates portable package schemas `1.1` and `1.2` from enclosed bytes only. It is intentionally outside the eager `intentforge.review` import surface so `python -S` can load it without site packages.
+
+`intentforge.cas` is a standard-library storage and chain-verification layer over the isolated package verifier. It rejects different bytes at an occupied address and returns structured chain failures for missing, modified, switched, cyclic, or mismatched predecessors.
 
 `intentforge.editor` applies structured edits to an existing parameter table and feature state. It preserves unchanged parameters and rejects unsupported or invalid edits before CAD export.
 

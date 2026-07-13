@@ -31,3 +31,12 @@ def test_review_harness_uses_five_assurance_fixtures(tmp_path: Path) -> None:
     assert review["review_offline_hash_mismatch_count"] == 0
     assert review["review_portability_violation_count"] == 0
     assert review["review_cross_platform_portability_mismatch_count"] == 0
+    assert review["review_cas_store_failure_count"] == 0
+    assert review["review_cas_object_hash_mismatch_count"] == 0
+    assert review["review_cas_deterministic_mismatch_count"] == 0
+    assert review["review_predecessor_embedding_mismatch_count"] == 0
+    assert review["review_chain_validation_pass_count"] == 1
+    assert review["review_chain_length"] == 3
+    assert review["review_chain_tamper_detection_pass_count"] == 3
+    assert review["review_chain_pointer_mismatch_count"] == 0
+    assert review["review_chain_missing_predecessor_count"] == 0

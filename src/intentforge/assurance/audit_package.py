@@ -10,6 +10,7 @@ from typing import Any
 
 from intentforge.assurance.renderer import render_assurance_markdown
 from intentforge.assurance.schema import AssuranceCase, canonical_digest, safe_relative_path
+from intentforge.assurance.lineage import attach_assurance_predecessor
 from intentforge.assurance.validator import validate_assurance_case
 from intentforge.knowledge.capabilities import load_capability_manifest
 from intentforge.knowledge.evidence_registry import load_evidence_definitions
@@ -23,6 +24,7 @@ from intentforge.review.portability import (
     policy_catalog_snapshot,
     portability_violations,
 )
+from intentforge.review.cas_schema import AuditPackageCasEnvelope, CasObjectRecord
 
 REQUIRED_FILES = {
     "assurance_case.json", "assurance_case.md", "intent.json", "capability_snapshot.json",
@@ -33,6 +35,7 @@ REVIEW_CORE_FILES = {
 }
 REVIEW_PROVENANCE_FILE = "review_decision_provenance.json"
 REVIEW_POLICY_CATALOG_FILE = "review_policy_catalog_snapshot.json"
+CAS_ENVELOPE_FILE = "cas_envelope.json"
 OPTIONAL_REVIEW_FILES = REVIEW_CORE_FILES.union({REVIEW_PROVENANCE_FILE, REVIEW_POLICY_CATALOG_FILE})
 
 
@@ -72,8 +75,18 @@ def build_audit_package(
     *,
     review_policy: Any | None = None,
     review_decision: Any | None = None,
+    predecessor_hash_pointer: str | None = None,
+    exemption_manifests: list[Any] | None = None,
+    exemption_evaluation: Any | None = None,
 ) -> dict[str, Any]:
-    """Write a safe metadata-focused, platform-neutral audit package directory."""
+    """Write a safe metadata-focused, platform-neutral audit package directory.
+
+    The optional ``exemption_manifests`` list and ``exemption_evaluation`` record
+    are ingested into the CAS envelope when supplied. Phase 31 mandates that any
+    applied exemption is fully content-addressed inside the package so that the
+    Merkle root of any dossier built from this package cryptographically
+    changes whenever an override is recorded.
+    """
 
     source_record = _read_case(case)
     if (review_policy is None) != (review_decision is None):
@@ -132,6 +145,10 @@ def build_audit_package(
             raise ValueError("cannot package invalid review decision: " + "; ".join(decision_validation.errors))
 
     record = make_portable_assurance_case(source_record)
+    effective_predecessor = predecessor_hash_pointer or record.predecessor_hash_pointer
+    if effective_predecessor is not None and (policy_record is None or decision_record is None):
+        raise ValueError("a predecessor pointer requires a provenance-backed review decision")
+    record = attach_assurance_predecessor(record, effective_predecessor)
     if decision_record is not None:
         if decision_record.decision_provenance is not None:
             from intentforge.review.evaluator import evaluate_assurance_case
@@ -193,15 +210,77 @@ def build_audit_package(
                 decision_record.decision_provenance.model_dump(mode="json")
             )
             payloads[REVIEW_POLICY_CATALOG_FILE] = _json_bytes(policy_catalog)
+        # Phase 31: ingest any applied exemption manifests and their evaluation
+        # into the CAS envelope so that the cryptographic identity of the
+        # audit package changes when an override is recorded.
+        if exemption_manifests:
+            from intentforge.review.exemption_schema import (
+                ExemptionManifest as _ExemptionManifest,
+            )
+
+            manifest_payloads: list[tuple[str, _ExemptionManifest]] = []
+            for index, raw_manifest in enumerate(exemption_manifests):
+                if isinstance(raw_manifest, _ExemptionManifest):
+                    manifest_model = raw_manifest
+                else:
+                    manifest_model = _ExemptionManifest.model_validate(raw_manifest)
+                manifest_payloads.append(
+                    (f"exemption_manifest_{index:03d}_{manifest_model.exemption_id}.json", manifest_model)
+                )
+            for filename, manifest_model in manifest_payloads:
+                payloads[filename] = _json_bytes(manifest_model.model_dump(mode="json"))
+            if exemption_evaluation is not None:
+                payloads["exemption_evaluation.json"] = _json_bytes(
+                    exemption_evaluation.model_dump(mode="json")
+                )
     for name, data in payloads.items():
         if name.endswith(".json"):
             violations = portability_violations(json.loads(data.decode("utf-8")), location=name)
             if violations:
                 raise ValueError("non-portable audit payload: " + "; ".join(violations))
+    cas_envelope = None
+    if policy_catalog is not None and decision_record is not None:
+        object_roles = {
+            "assurance_case.json": "assurance",
+            "assurance_case.md": "report",
+            "intent.json": "intent",
+            "capability_snapshot.json": "capability_snapshot",
+            "evidence_snapshot.json": "evidence_snapshot",
+            "validation_summary.json": "validation",
+            "reasoning_summary.json": "reasoning",
+            "artifact_manifest.json": "artifact_manifest",
+            "review_policy_snapshot.json": "policy",
+            "review_policy_catalog_snapshot.json": "policy_catalog",
+            "review_decision.json": "decision",
+            "review_decision.md": "report",
+            REVIEW_PROVENANCE_FILE: "provenance",
+        }
+        for filename in payloads:
+            if filename.startswith("exemption_manifest_") and filename.endswith(".json"):
+                object_roles[filename] = "exemption_manifest"
+            if filename == "exemption_evaluation.json":
+                object_roles[filename] = "exemption_evaluation"
+        cas_envelope = AuditPackageCasEnvelope(
+            predecessor_hash_pointer=effective_predecessor,
+            assurance_case_id=record.assurance_case_id,
+            review_decision_id=decision_record.decision_id,
+            cad_family=record.cad_family,
+            operation=record.operation,
+            tool_version=_tool_version(),
+            objects=[
+                CasObjectRecord(
+                    logical_path=name,
+                    role=object_roles[name],
+                    content_address=f"sha256:{_sha256(data)}",
+                )
+                for name, data in sorted(payloads.items())
+            ],
+        )
+        payloads[CAS_ENVELOPE_FILE] = _json_bytes(cas_envelope.model_dump(mode="json"))
     inventory = {name: _sha256(data) for name, data in sorted(payloads.items())}
-    package_id = _logical_package_id(record, inventory)
+    package_id = cas_envelope.content_address if cas_envelope is not None else _logical_package_id(record, inventory)
     manifest = {
-        "schema_version": "1.1" if policy_catalog is not None else "1.0",
+        "schema_version": "1.2" if cas_envelope is not None else "1.0",
         "package_id": package_id, "assurance_case_id": record.assurance_case_id,
         "tool_version": _tool_version(), "cad_family": record.cad_family, "operation": record.operation,
         "assurance_profile": record.profile, "validation_status": record.overall_assurance_status,
@@ -211,6 +290,15 @@ def build_audit_package(
         "portability_version": PORTABILITY_VERSION,
         "canonical_json": True,
     }
+    if cas_envelope is not None:
+        manifest["package_content_address"] = cas_envelope.content_address
+        manifest["predecessor_hash_pointer"] = effective_predecessor
+        manifest["cas_envelope_schema_version"] = cas_envelope.schema_version
+        manifest["cas_object_count"] = len(cas_envelope.objects)
+        if exemption_manifests:
+            manifest["exemption_manifest_count"] = len(exemption_manifests)
+        if exemption_evaluation is not None:
+            manifest["exemption_evaluation_content_id"] = exemption_evaluation.content_address
     if decision_record is not None and policy_record is not None:
         manifest["review_policy_id"] = policy_record.policy_id
         manifest["review_policy_version"] = policy_record.policy_version
@@ -218,6 +306,13 @@ def build_audit_package(
         manifest["review_decision_id"] = decision_record.decision_id
         manifest["review_decision_content_id"] = decision_record.content_id
         manifest["review_decision_status"] = decision_record.decision_status
+        if decision_record.applied_exemption_references:
+            manifest["review_applied_exemption_count"] = len(decision_record.applied_exemption_references)
+            manifest["review_applied_exemption_hashes"] = sorted(
+                reference.get("exemption_hash", "")
+                for reference in decision_record.applied_exemption_references
+            )
+            manifest["review_exemption_evaluation_content_id"] = decision_record.exemption_evaluation_content_id
         if decision_record.decision_provenance is not None:
             manifest["review_provenance_id"] = decision_record.decision_provenance.provenance_id
             manifest["review_provenance_content_id"] = decision_record.decision_provenance.content_id
@@ -275,7 +370,15 @@ def validate_audit_package(package_path: str | Path) -> dict[str, Any]:
     for name, expected in logical_inventory.items():
         path = root / name
         if not path.is_file() or _sha256(path.read_bytes()) != expected: errors.append(f"logical inventory mismatch: {name}")
-    expected_package_id = _logical_package_id(case, logical_inventory)
+    if manifest.get("schema_version") == "1.2" and (root / CAS_ENVELOPE_FILE).is_file():
+        try:
+            cas_envelope_data = json.loads((root / CAS_ENVELOPE_FILE).read_text(encoding="utf-8"))
+            expected_package_id = cas_envelope_data.get("content_address")
+        except (OSError, json.JSONDecodeError) as exc:
+            errors.append(f"invalid CAS envelope: {exc}")
+            expected_package_id = None
+    else:
+        expected_package_id = _logical_package_id(case, logical_inventory)
     if manifest.get("package_id") != expected_package_id: errors.append("package content ID mismatch")
     if manifest.get("assurance_case_id") != case.assurance_case_id: errors.append("assurance case ID mismatch")
     attached_provenance = None
@@ -382,7 +485,7 @@ def validate_audit_package(package_path: str | Path) -> dict[str, Any]:
             review_validation_passed = False
             errors.append(f"invalid review decision attachment: {exc}")
     offline_verification = None
-    if manifest.get("schema_version") == "1.1":
+    if manifest.get("schema_version") in {"1.1", "1.2"}:
         from intentforge.review.offline_verifier import verify_offline_audit_package
 
         offline_result = verify_offline_audit_package(root)

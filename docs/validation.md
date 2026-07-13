@@ -10,6 +10,8 @@ Decision-provenance validation checks every frozen snapshot and execution-node c
 
 Phase 26 offline verification starts with package entry and SHA-256 checks, then validates canonical JSON and platform-neutral data before replaying the selected closed policy from frozen snapshots. It validates all 54 catalog checks structurally and evaluates only the policy selected for that run. This static verification does not rerun geometry, topology, feature recognition, reasoning, or simulation.
 
+Phase 27 CAS validation checks every structural object address, the canonical envelope address, manifest binding, and predecessor consistency across assurance claims, the assurance case, review decision, provenance snapshot/node, and CAS envelope. Chain validation applies isolated package verification to each predecessor and rejects missing, modified, switched, cyclic, or mismatched history blocks.
+
 Phase 21 adds capability coverage validation. This is not geometry validation. It validates product support declarations: known families, valid stages, rule-to-capability mapping, evidence references, unsupported boundaries, and orphan active rules.
 
 ## Geometry Validation

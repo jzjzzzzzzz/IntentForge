@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from intentforge.assurance.schema import canonical_digest
+from intentforge.assurance.schema import canonical_digest, validate_content_address
 
 
 REVIEW_PROVENANCE_SCHEMA_VERSION = "1.0"
@@ -24,6 +24,7 @@ SnapshotType = Literal[
     "decision_strategy",
     "audit_package_observation",
     "boundary_conditions",
+    "audit_lineage",
 ]
 ExecutionNodeType = Literal[
     "input_validation",
@@ -33,6 +34,7 @@ ExecutionNodeType = Literal[
     "check_evaluation",
     "decision_precedence",
     "decision_assembly",
+    "lineage_binding",
 ]
 ExecutionNodeStatus = Literal[
     "completed",
@@ -147,10 +149,18 @@ class DecisionProvenance(BaseModel):
     snapshots: list[FrozenDecisionSnapshot] = Field(..., min_length=1)
     execution_nodes: list[ReviewExecutionNode] = Field(..., min_length=1)
     active_boundary_conditions: dict[str, Any] = Field(default_factory=dict)
+    predecessor_hash_pointer: str | None = None
     evidence_definition_count: int = Field(ge=0)
     evidence_observation_count: int = Field(ge=0)
     content_id: str = ""
     runtime_metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_predecessor(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            validate_content_address(data.get("predecessor_hash_pointer"))
+        return data
 
     @model_validator(mode="after")
     def validate_identity_and_ordering(self) -> "DecisionProvenance":
@@ -191,6 +201,8 @@ class DecisionProvenance(BaseModel):
         data = self.model_dump(mode="json")
         for field_name in ("provenance_id", "content_id", "runtime_metadata"):
             data.pop(field_name, None)
+        if data.get("predecessor_hash_pointer") is None:
+            data.pop("predecessor_hash_pointer", None)
         data["snapshot_ids"] = sorted(data["snapshot_ids"])
         data["snapshots"] = sorted(
             data["snapshots"], key=lambda item: (item["snapshot_type"], item["reference_id"])

@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Mapping, Sequence
 
 from intentforge.assurance.schema import AssuranceCase, canonical_digest
 from intentforge.assurance.validator import validate_assurance_case
 from intentforge.review.checks import CheckEvaluation, evaluate_policy_check
+from intentforge.review.exemption_engine import apply_exemptions_to_decision
+from intentforge.review.exemption_schema import ExemptionManifest
 from intentforge.review.provenance import (
     ReviewEvaluationResources,
     build_decision_provenance,
@@ -133,6 +135,10 @@ def _decision_status(policy: ReviewPolicy, findings: list[PolicyFinding]) -> Rev
         for finding in findings
     ):
         return "accepted_with_conditions"
+    # ``accepted_with_exemption`` is produced exclusively by
+    # ``apply_exemptions_to_decision`` once a manifest matches a blocking
+    # finding. The deterministic precedence contract here never emits it
+    # directly so the close-rejection path remains explicit and auditable.
     return "accepted_within_declared_scope"
 
 
@@ -143,8 +149,16 @@ def evaluate_assurance_case(
     *,
     runtime_metadata: dict[str, Any] | None = None,
     resources: ReviewEvaluationResources | None = None,
+    exemption_manifests: Sequence[ExemptionManifest] | None = None,
 ) -> ReviewDecision:
-    """Evaluate a validated assurance case using only registered deterministic checks."""
+    """Evaluate a validated assurance case using only registered deterministic checks.
+
+    When ``exemption_manifests`` is non-empty, the decision is post-processed
+    through ``apply_exemptions_to_decision`` so that any matching declaration
+    can deterministically elevate ``rejected_by_policy`` to the new
+    ``accepted_with_exemption`` status. The exemption manifests themselves are
+    returned to the caller through the ``applied_exemption_references`` field.
+    """
 
     record = assurance_case if isinstance(assurance_case, AssuranceCase) else AssuranceCase.model_validate(assurance_case)
     selected_policy = policy if isinstance(policy, ReviewPolicy) else ReviewPolicy.model_validate(policy)
@@ -214,6 +228,7 @@ def evaluate_assurance_case(
         "cad_family": record.cad_family,
         "operation": record.operation,
         "assurance_profile": record.profile,
+        "predecessor_hash_pointer": record.predecessor_hash_pointer,
         "decision_status": status,
         "findings": findings,
         "conditions": conditions,
@@ -252,7 +267,16 @@ def evaluate_assurance_case(
     )
     provisional = core_decision.model_copy(update={"decision_provenance": provenance})
     content_id = canonical_digest("review_decision_content", provisional.deterministic_payload())
-    return provisional.model_copy(update={
+    final_decision = provisional.model_copy(update={
         "decision_id": canonical_digest("review_decision", {"content_id": content_id}),
         "content_id": content_id,
     })
+    if exemption_manifests:
+        package_mapping: Mapping[str, Any] | None = package_result if isinstance(package_result, Mapping) else None
+        elevated = apply_exemptions_to_decision(
+            final_decision,
+            list(exemption_manifests),
+            package_result=package_mapping,
+        )
+        return elevated
+    return final_decision

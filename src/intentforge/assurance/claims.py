@@ -41,6 +41,7 @@ def make_claim(
     rule_ids: list[str] | None = None,
     limitations: list[str] | None = None,
     required_review: bool = False,
+    predecessor_hash_pointer: str | None = None,
 ) -> tuple[AssuranceClaim, AssuranceArgument]:
     title, statement = CLAIM_TEXT[claim_type]
     base = {
@@ -50,6 +51,8 @@ def make_claim(
         "validation_ids": sorted(validation_ids or []), "artifact_ids": sorted(artifact_ids or []),
         "rule_ids": sorted(rule_ids or []), "limitations": sorted(limitations or []),
     }
+    if predecessor_hash_pointer is not None:
+        base["predecessor_hash_pointer"] = predecessor_hash_pointer
     claim_id = canonical_digest("claim", base)
     argument_payload: dict[str, Any] = {"claim_id": claim_id, "rationale_code": f"{claim_type}_evidence", **base}
     argument_id = canonical_digest("argument", argument_payload)
@@ -58,6 +61,7 @@ def make_claim(
         rationale=statement, rule_ids=base["rule_ids"], capability_ids=base["capability_ids"],
         evidence_ids=base["evidence_ids"], validation_ids=base["validation_ids"],
         artifact_ids=base["artifact_ids"], limitation_ids=[], parent_argument_ids=[],
+        predecessor_hash_pointer=predecessor_hash_pointer,
         content_id=canonical_digest("argument_content", argument_payload),
     )
     claim_payload = {**base, "claim_id": claim_id, "argument_ids": [argument_id], "statement": statement}
@@ -67,6 +71,7 @@ def make_claim(
         supporting_evidence_ids=base["evidence_ids"], supporting_validation_ids=base["validation_ids"],
         supporting_artifact_ids=base["artifact_ids"], capability_ids=base["capability_ids"],
         rule_ids=base["rule_ids"], limitations=base["limitations"], required_review=required_review,
+        predecessor_hash_pointer=predecessor_hash_pointer,
         content_id=canonical_digest("claim_content", claim_payload),
     )
     return claim, argument

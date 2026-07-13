@@ -8,7 +8,7 @@ The provenance record does not preserve executable Python code. It records valid
 
 ## Frozen Inputs
 
-Each new decision records ten deterministic snapshots:
+Each new decision records ten deterministic base snapshots:
 
 - review policy, including every typed check and parameter
 - assurance case
@@ -20,6 +20,8 @@ Each new decision records ten deterministic snapshots:
 - decision precedence strategy
 - audit-package observation supplied to policy checks
 - active run boundary conditions
+
+A Phase 27 successor records an eleventh `audit_lineage` snapshot and one `lineage_binding` execution node. Both carry the predecessor's full SHA-256 package address. Genesis decisions retain the ten-snapshot Phase 25 shape and prior deterministic identities.
 
 Evidence that was not selected by the reviewed case remains in the matrix with `not_checked` status. Static provenance does not claim runtime verification for those entries.
 

@@ -18,7 +18,8 @@ from urllib.parse import unquote
 
 
 OFFLINE_VERIFIER_VERSION = "1.0"
-SUPPORTED_PACKAGE_SCHEMA = "1.1"
+SUPPORTED_PACKAGE_SCHEMAS = {"1.1", "1.2"}
+CAS_ENVELOPE_FILE = "cas_envelope.json"
 EXPECTED_RULE_COUNT = 10
 EXPECTED_CAPABILITY_COUNT = 28
 EXPECTED_EVIDENCE_COUNT = 65
@@ -66,6 +67,7 @@ REQUIRED_FILES = {
     "review_decision.json", "review_decision.md", "review_decision_provenance.json",
 }
 JSON_FILES = {name for name in REQUIRED_FILES if name.endswith(".json")}
+JSON_FILES.add(CAS_ENVELOPE_FILE)
 FORBIDDEN_PARTS = {".git", ".claude", "claude.md", "__pycache__"}
 PROFILE_RANK = {"static": 0, "standard": 1, "full": 2}
 FEATURE_CAPABILITY_FLAGS = {
@@ -242,6 +244,14 @@ def _assurance_payload(case: dict[str, Any]) -> dict[str, Any]:
         case,
         "assurance_case_id", "content_id", "runtime_metadata", "request_id", "run_id", "parent_run_id",
     )
+    if data.get("predecessor_hash_pointer") is None:
+        data.pop("predecessor_hash_pointer", None)
+    for claim in data.get("claims", []):
+        if claim.get("predecessor_hash_pointer") is None:
+            claim.pop("predecessor_hash_pointer", None)
+    for argument in data.get("arguments", []):
+        if argument.get("predecessor_hash_pointer") is None:
+            argument.pop("predecessor_hash_pointer", None)
     data["artifact_records"] = []
     for artifact in case.get("artifact_records", []):
         data["artifact_records"].append(
@@ -264,6 +274,8 @@ def _claim_identities(claim: dict[str, Any]) -> tuple[str, str, str, str]:
         "rule_ids": sorted(claim.get("rule_ids", [])),
         "limitations": sorted(claim.get("limitations", [])),
     }
+    if claim.get("predecessor_hash_pointer") is not None:
+        base["predecessor_hash_pointer"] = claim["predecessor_hash_pointer"]
     claim_id = _digest("claim", base)
     argument_payload = {
         "claim_id": claim_id,
@@ -290,6 +302,9 @@ def _validate_assurance_case(
     validations = case.get("validation_observations", [])
     artifacts = case.get("artifact_records", [])
     limitations = case.get("limitations", [])
+    predecessor = case.get("predecessor_hash_pointer")
+    if predecessor is not None and not re.fullmatch(r"sha256:[0-9a-f]{64}", str(predecessor)):
+        errors.append("assurance case predecessor content address is malformed")
     id_groups = {
         "claim": [item.get("claim_id") for item in claims],
         "argument": [item.get("argument_id") for item in arguments],
@@ -318,6 +333,10 @@ def _validate_assurance_case(
             errors.append(f"claim references missing argument: {claim.get('claim_id')}")
         elif argument.get("content_id") != argument_content or argument.get("claim_id") != claim_id:
             errors.append(f"argument identity mismatch: {argument_id}")
+        elif argument.get("predecessor_hash_pointer") != predecessor:
+            errors.append(f"argument predecessor pointer mismatch: {argument_id}")
+        if claim.get("predecessor_hash_pointer") != predecessor:
+            errors.append(f"claim predecessor pointer mismatch: {claim.get('claim_id')}")
         if set(claim.get("supporting_validation_ids", [])) - validation_set:
             errors.append(f"claim references unknown validation: {claim.get('claim_id')}")
         if set(claim.get("supporting_artifact_ids", [])) - artifact_set:
@@ -682,6 +701,8 @@ def _subject_type(case: dict[str, Any]) -> str:
 
 def _decision_payload(decision: dict[str, Any]) -> dict[str, Any]:
     data = _without(decision, "decision_id", "content_id", "runtime_metadata")
+    if data.get("predecessor_hash_pointer") is None:
+        data.pop("predecessor_hash_pointer", None)
     provenance = data.get("decision_provenance")
     if provenance is None:
         data.pop("decision_provenance", None)
@@ -708,6 +729,8 @@ def _node_payload(node: dict[str, Any]) -> dict[str, Any]:
 
 def _provenance_payload(provenance: dict[str, Any]) -> dict[str, Any]:
     data = _without(provenance, "provenance_id", "content_id", "runtime_metadata")
+    if data.get("predecessor_hash_pointer") is None:
+        data.pop("predecessor_hash_pointer", None)
     data["snapshot_ids"] = sorted(data.get("snapshot_ids", []))
     data["snapshots"] = sorted(data.get("snapshots", []), key=lambda item: (item["snapshot_type"], item["reference_id"]))
     data["execution_nodes"] = sorted(data.get("execution_nodes", []), key=lambda item: (item["sequence"], item["node_key"]))
@@ -741,9 +764,13 @@ def _validate_frozen_chain(
         if snapshot.get("snapshot_type") in by_type:
             errors.append(f"duplicate snapshot type: {snapshot.get('snapshot_type')}")
         by_type[snapshot.get("snapshot_type")] = snapshot
-    if set(by_type) != EXPECTED_SNAPSHOT_TYPES:
+    predecessor = case.get("predecessor_hash_pointer")
+    expected_snapshot_types = set(EXPECTED_SNAPSHOT_TYPES)
+    if predecessor is not None:
+        expected_snapshot_types.add("audit_lineage")
+    if set(by_type) != expected_snapshot_types:
         errors.append("frozen snapshot type set mismatch")
-    if len(snapshots) != len(EXPECTED_SNAPSHOT_TYPES):
+    if len(snapshots) != len(expected_snapshot_types):
         errors.append("frozen snapshot count mismatch")
     if errors:
         return errors, metrics
@@ -753,6 +780,14 @@ def _validate_frozen_chain(
         errors.append("top-level review policy differs from frozen snapshot")
     if decision.get("decision_provenance") != provenance:
         errors.append("top-level provenance differs from embedded decision provenance")
+    if decision.get("predecessor_hash_pointer") != predecessor:
+        errors.append("review decision predecessor pointer mismatch")
+    if provenance.get("predecessor_hash_pointer") != predecessor:
+        errors.append("review provenance predecessor pointer mismatch")
+    if predecessor is not None:
+        lineage = by_type["audit_lineage"]["payload"]
+        if lineage.get("predecessor_hash_pointer") != predecessor:
+            errors.append("frozen audit lineage predecessor pointer mismatch")
     if policy.get("policy_id") not in catalog_by_id or catalog_by_id.get(policy.get("policy_id")) != policy:
         errors.append("selected review policy differs from frozen policy catalog")
     rules_payload = by_type["rule_registry"]["payload"]
@@ -844,6 +879,12 @@ def _validate_frozen_chain(
         elif node.get("status") != finding["status"] or finding["content_id"] not in node.get("output_content_ids", []): errors.append(f"check execution node result mismatch: {check['check_id']}")
     precedence_node = node_by_key.get("deterministic_precedence_v1")
     if precedence_node is None or precedence_node.get("observed_value") != status or core_content not in precedence_node.get("output_content_ids", []): errors.append("decision precedence execution node mismatch")
+    lineage_nodes = [item for item in nodes if item.get("node_type") == "lineage_binding"]
+    if predecessor is None and lineage_nodes:
+        errors.append("unexpected lineage binding node for genesis package")
+    if predecessor is not None:
+        if len(lineage_nodes) != 1 or lineage_nodes[0].get("observed_value", {}).get("predecessor_hash_pointer") != predecessor:
+            errors.append("predecessor lineage binding execution node mismatch")
     registry_contract = {"registry_version": "1.0", "check_algorithms": {kind: "1.0" for kind in sorted(CHECK_TYPES)}}
     registry_id = _digest("review_check_registry", registry_contract)
     strategy_id = _digest("review_decision_strategy", DECISION_PRECEDENCE)
@@ -879,6 +920,85 @@ def _validate_frozen_chain(
         "frozen_registry_validation_passed": not any("registry" in item or "reference" in item for item in errors),
     })
     return errors, metrics
+
+
+def _validate_cas_envelope(
+    envelope: dict[str, Any],
+    *,
+    files: dict[str, bytes],
+    manifest: dict[str, Any],
+    case: dict[str, Any],
+    decision: dict[str, Any],
+    provenance: dict[str, Any],
+) -> tuple[list[str], dict[str, int | bool | str]]:
+    errors: list[str] = []
+    allowed_keys = {
+        "schema_version", "hash_algorithm", "content_address", "predecessor_hash_pointer",
+        "assurance_case_id", "review_decision_id", "cad_family", "operation", "tool_version", "objects",
+    }
+    if set(envelope) != allowed_keys:
+        errors.append("CAS envelope field set mismatch")
+    if envelope.get("schema_version") != "1.0" or envelope.get("hash_algorithm") != "sha256":
+        errors.append("unsupported CAS envelope contract")
+    predecessor = envelope.get("predecessor_hash_pointer")
+    if predecessor is not None and not re.fullmatch(r"sha256:[0-9a-f]{64}", str(predecessor)):
+        errors.append("CAS predecessor content address is malformed")
+    objects = envelope.get("objects")
+    if not isinstance(objects, list):
+        return errors + ["CAS envelope objects must be a list"], {"cas_object_count": 0}
+    paths = [item.get("logical_path") for item in objects if isinstance(item, dict)]
+    if len(paths) != len(objects) or len(paths) != len(set(paths)):
+        errors.append("CAS object paths are missing or duplicated")
+    if objects != sorted(objects, key=lambda item: item.get("logical_path", "")):
+        errors.append("CAS object order is not deterministic")
+    expected_paths = set(files) - {"manifest.json", "checksums.json", CAS_ENVELOPE_FILE}
+    if set(paths) != expected_paths:
+        errors.append("CAS object inventory does not match structural package files")
+    object_hash_mismatches = 0
+    for item in objects:
+        path = str(item.get("logical_path", ""))
+        if not _safe_name(path) or path not in files:
+            errors.append(f"unsafe or missing CAS object path: {path}")
+            continue
+        expected = "sha256:" + _sha256(files[path])
+        if item.get("content_address") != expected:
+            object_hash_mismatches += 1
+            errors.append(f"CAS object content address mismatch: {path}")
+    deterministic = dict(envelope)
+    deterministic.pop("content_address", None)
+    expected_address = "sha256:" + hashlib.sha256(
+        json.dumps(deterministic, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    ).hexdigest()
+    if envelope.get("content_address") != expected_address:
+        errors.append("CAS envelope content address mismatch")
+    for key, expected in (
+        ("assurance_case_id", case.get("assurance_case_id")),
+        ("review_decision_id", decision.get("decision_id")),
+        ("cad_family", case.get("cad_family")),
+        ("operation", case.get("operation")),
+    ):
+        if envelope.get(key) != expected:
+            errors.append(f"CAS envelope {key} mismatch")
+    if predecessor != case.get("predecessor_hash_pointer"):
+        errors.append("CAS predecessor does not match assurance case")
+    if predecessor != decision.get("predecessor_hash_pointer"):
+        errors.append("CAS predecessor does not match review decision")
+    if predecessor != provenance.get("predecessor_hash_pointer"):
+        errors.append("CAS predecessor does not match review provenance")
+    if manifest.get("package_id") != expected_address or manifest.get("package_content_address") != expected_address:
+        errors.append("manifest primary package ID does not match CAS content address")
+    if manifest.get("predecessor_hash_pointer") != predecessor:
+        errors.append("manifest predecessor pointer mismatch")
+    if manifest.get("cas_envelope_schema_version") != envelope.get("schema_version"):
+        errors.append("manifest CAS envelope version mismatch")
+    if manifest.get("cas_object_count") != len(objects):
+        errors.append("manifest CAS object count mismatch")
+    return errors, {
+        "cas_object_count": len(objects),
+        "cas_object_hash_mismatch_count": object_hash_mismatches,
+        "cas_content_address_verified": envelope.get("content_address") == expected_address,
+        "predecessor_pointer_present": predecessor is not None,
+    }
 
 
 def verify_offline_audit_package(package_path: str | os.PathLike[str]) -> OfflineVerificationResult:
@@ -929,6 +1049,14 @@ def verify_offline_audit_package(package_path: str | os.PathLike[str]) -> Offlin
         return _result(errors=[str(exc)], stage="checksum_manifest", metrics=base_metrics)
     if not isinstance(checksums, dict) or not isinstance(manifest, dict):
         return _result(errors=["manifest and checksums must contain JSON objects"], stage="checksum_manifest", metrics=base_metrics)
+    package_schema = manifest.get("schema_version")
+    if package_schema == "1.2" and CAS_ENVELOPE_FILE not in files:
+        return _result(
+            errors=["missing required files: cas_envelope.json"],
+            stage="package_structure",
+            manifest=manifest,
+            metrics=base_metrics,
+        )
     expected_checksum_names = set(files) - {"checksums.json"}
     if set(checksums) != expected_checksum_names:
         errors.append("checksum inventory does not exactly match enclosed files")
@@ -948,7 +1076,7 @@ def verify_offline_audit_package(package_path: str | os.PathLike[str]) -> Offlin
     if errors:
         return _result(errors=errors, stage="checksum_manifest", manifest=manifest, metrics=base_metrics)
     payloads: dict[str, Any] = {"manifest.json": manifest, "checksums.json": checksums}
-    for name in sorted(JSON_FILES - {"manifest.json", "checksums.json"}):
+    for name in sorted((JSON_FILES.intersection(files)) - {"manifest.json", "checksums.json"}):
         try:
             payloads[name] = _load_json_bytes(files[name], name)
         except ValueError as exc:
@@ -969,7 +1097,7 @@ def verify_offline_audit_package(package_path: str | os.PathLike[str]) -> Offlin
         violations = _portability_errors(payloads[name], name)
         base_metrics["portability_violation_count"] = int(base_metrics["portability_violation_count"]) + len(violations)
         errors.extend(violations)
-    if manifest.get("schema_version") != SUPPORTED_PACKAGE_SCHEMA:
+    if package_schema not in SUPPORTED_PACKAGE_SCHEMAS:
         errors.append(f"unsupported audit package schema: {manifest.get('schema_version')}")
     if manifest.get("portability_profile") != "intentforge_portable_audit_v1" or manifest.get("canonical_json") is not True:
         errors.append("portable audit profile metadata is missing or unsupported")
@@ -981,8 +1109,10 @@ def verify_offline_audit_package(package_path: str | os.PathLike[str]) -> Offlin
     if case.get("parent_run_id") not in {None, "portable_parent_run"}: errors.append("assurance parent run ID was not normalized")
     if errors:
         return _result(errors=errors, stage="portability", manifest=manifest, decision=decision, metrics=base_metrics)
-    expected_package_id = _digest("audit_package", {"assurance_case_id": case.get("assurance_case_id"), "files": dict(sorted(inventory.items()))})
-    if manifest.get("package_id") != expected_package_id: errors.append("audit package logical content ID mismatch")
+    expected_package_id = None
+    if package_schema == "1.1":
+        expected_package_id = _digest("audit_package", {"assurance_case_id": case.get("assurance_case_id"), "files": dict(sorted(inventory.items()))})
+        if manifest.get("package_id") != expected_package_id: errors.append("audit package logical content ID mismatch")
     if manifest.get("assurance_case_id") != case.get("assurance_case_id"): errors.append("manifest assurance case ID mismatch")
     catalog_errors, catalog_by_id = _validate_policy_catalog(payloads["review_policy_catalog_snapshot.json"])
     errors.extend(catalog_errors)
@@ -992,6 +1122,18 @@ def verify_offline_audit_package(package_path: str | os.PathLike[str]) -> Offlin
     )
     errors.extend(chain_errors)
     base_metrics.update(chain_metrics)
+    if package_schema == "1.2":
+        cas_errors, cas_metrics = _validate_cas_envelope(
+            payloads[CAS_ENVELOPE_FILE],
+            files=files,
+            manifest=manifest,
+            case=case,
+            decision=decision,
+            provenance=provenance,
+        )
+        errors.extend(cas_errors)
+        base_metrics.update(cas_metrics)
+        expected_package_id = payloads[CAS_ENVELOPE_FILE].get("content_address")
     base_metrics.update({
         "file_count": len(files), "deterministic_package_id_verified": manifest.get("package_id") == expected_package_id,
         "offline_static_chain_verified": not chain_errors,

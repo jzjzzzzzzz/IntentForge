@@ -235,6 +235,19 @@ def _expected_decision_status(decision: ReviewDecision, policy: ReviewPolicy) ->
         for finding in decision.findings
     ):
         return "unresolved"
+    raw_status = _raw_precedence_status(decision)
+    # Phase 31: when an applied exemption reference elevates a
+    # ``rejected_by_policy`` to ``accepted_with_exemption``, the validator must
+    # accept the elevated form but never assume it without an explicit, content-
+    # addressed exemption reference.
+    if raw_status == "rejected_by_policy":
+        if decision.applied_exemption_references and decision.exemption_evaluation_content_id:
+            return "accepted_with_exemption"
+        return "rejected_by_policy"
+    return raw_status
+
+
+def _raw_precedence_status(decision: ReviewDecision) -> str:
     if any(finding.status == "failed" and finding.severity == "blocking" for finding in decision.findings):
         return "rejected_by_policy"
     if any(
@@ -333,6 +346,8 @@ def validate_review_decision(
     if assurance_case is not None:
         if record.assurance_case_id != assurance_case.assurance_case_id: errors.append("assurance case ID mismatch")
         if record.assurance_case_content_id != assurance_case.content_id: errors.append("assurance case content ID mismatch")
+        if record.predecessor_hash_pointer != assurance_case.predecessor_hash_pointer:
+            errors.append("review decision predecessor pointer does not match assurance case")
         claim_ids = {item.claim_id for item in assurance_case.claims}
         validation_ids = {item.validation_id for item in assurance_case.validation_observations}
         artifact_ids = {item.artifact_id for item in assurance_case.artifact_records}

@@ -43,7 +43,8 @@ def render_assurance_markdown(case: AssuranceCase | dict) -> str:
     lines.extend(["", "## Artifact Integrity", f"- Artifact records: {len(record.artifact_records)}",
                   f"- Hashed artifacts: {sum(1 for item in record.artifact_records if item.content_hash)}", "",
                   "## Reproducibility", f"- Deterministic case ID: {record.assurance_case_id}",
-                  f"- Deterministic content ID: {record.content_id}", "", "## Review Requirements"])
+                  f"- Deterministic content ID: {record.content_id}",
+                  f"- Predecessor package: {record.predecessor_hash_pointer or 'genesis'}", "", "## Review Requirements"])
     lines.extend(f"- {item}" for item in record.review_requirements)
     lines.extend(["", "## Overall Assurance Status", f"**{record.overall_assurance_status}**", "",
                   "This record provides assurance within the declared IntentForge scope. It does not certify safety, manufacturability, regulatory approval, or fitness for a specific external use.", ""])

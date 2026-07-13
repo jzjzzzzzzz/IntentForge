@@ -15,6 +15,7 @@ from intentforge.assurance.schema import (
     LimitationSignificance,
     ValidationObservationStatus,
     canonical_digest,
+    validate_content_address,
 )
 from intentforge.knowledge.evidence_schema import EvidenceStatus
 from intentforge.review.provenance_schema import DecisionProvenance
@@ -112,10 +113,18 @@ PolicyCheckStatus = Literal["passed", "failed", "unresolved", "not_applicable", 
 ReviewDecisionStatus = Literal[
     "accepted_within_declared_scope",
     "accepted_with_conditions",
+    "accepted_with_exemption",
     "manual_review_required",
     "rejected_by_policy",
     "unresolved",
 ]
+# ``EXEMPTION_*`` constants live in ``intentforge.review.exemption_schema`` to
+# avoid a circular import, but they are re-exported below for the namespace
+# contract of ``intentforge.review.schema``.
+EXEMPTION_SCHEMA_VERSION = "1.0"
+EXEMPTION_CONDITION_TYPE = "policy_acknowledgement_required"
+SUPPORTED_EXEMPTION_TARGET_KINDS = ("rule_id", "metric", "parameter")
+SUPPORTED_EXEMPTION_COMPARATORS = ("eq", "lt", "le", "gt", "ge")
 ConditionType = Literal[
     "additional_validation_required",
     "external_review_required",
@@ -124,6 +133,7 @@ ConditionType = Literal[
     "reproducibility_check_required",
     "unsupported_scope_correction_required",
     "intent_clarification_required",
+    "policy_acknowledgement_required",
 ]
 
 SUPPORTED_POLICY_SCOPES = ("assurance_case", "assurance_case_and_audit_package")
@@ -161,9 +171,20 @@ SUPPORTED_CHECK_STATUSES = ("passed", "failed", "unresolved", "not_applicable", 
 SUPPORTED_DECISION_STATUSES = (
     "accepted_within_declared_scope",
     "accepted_with_conditions",
+    "accepted_with_exemption",
     "manual_review_required",
     "rejected_by_policy",
     "unresolved",
+)
+SUPPORTED_CONDITION_TYPES = (
+    EXEMPTION_CONDITION_TYPE,
+    "additional_validation_required",
+    "external_review_required",
+    "limitation_acknowledgement_required",
+    "artifact_integrity_required",
+    "reproducibility_check_required",
+    "unsupported_scope_correction_required",
+    "intent_clarification_required",
 )
 
 
@@ -526,6 +547,7 @@ class ReviewDecision(BaseModel):
     cad_family: str
     operation: str
     assurance_profile: AssuranceProfile
+    predecessor_hash_pointer: str | None = None
     decision_status: ReviewDecisionStatus
     findings: list[PolicyFinding] = Field(default_factory=list)
     conditions: list[AcceptanceCondition] = Field(default_factory=list)
@@ -545,6 +567,9 @@ class ReviewDecision(BaseModel):
     decision_provenance: DecisionProvenance | None = None
     content_id: str
     runtime_metadata: dict[str, Any] = Field(default_factory=dict)
+    applied_exemption_references: list[dict[str, Any]] = Field(default_factory=list)
+    exemption_evaluation_content_id: str | None = None
+    exemption_elevation_reason: str | None = None
 
     @field_validator("cad_family")
     @classmethod
@@ -552,6 +577,11 @@ class ReviewDecision(BaseModel):
         if value not in SUPPORTED_POLICY_FAMILIES:
             raise ValueError(f"unsupported CAD family: {value}")
         return value
+
+    @field_validator("predecessor_hash_pointer")
+    @classmethod
+    def valid_predecessor(cls, value: str | None) -> str | None:
+        return validate_content_address(value)
 
     @model_validator(mode="after")
     def validate_unique_ids(self) -> "ReviewDecision":
@@ -567,6 +597,8 @@ class ReviewDecision(BaseModel):
         data = self.model_dump(mode="json")
         for field_name in ("decision_id", "content_id", "runtime_metadata"):
             data.pop(field_name, None)
+        if data.get("predecessor_hash_pointer") is None:
+            data.pop("predecessor_hash_pointer", None)
         # Preserve Phase 24 identities for legacy decisions that predate the
         # additive provenance field.
         if data.get("decision_provenance") is None:

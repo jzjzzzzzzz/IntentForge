@@ -4,7 +4,7 @@
 
 IntentForge is a deterministic CAD intent pipeline for turning simple engineering language into editable, explainable, validated parametric CAD models.
 
-Phase 26 adds offline audit-package verification and platform-neutral serialization to the frozen Phase 25 review chain. A reviewed package now includes all five policy definitions (54 declarative checks), the selected run's assurance claims, and the existing 10-rule, 28-capability, and 65-evidence snapshots. The standalone verifier uses only enclosed files and the Python standard library; it does not consult live registries, use a network, or rerun CAD.
+Phase 27 adds full SHA-256 content addresses and optional predecessor linkage to the portable Phase 26 audit package. Every structural assurance, policy, evidence, provenance, decision, and report file receives an exact object address. Finalized packages can be stored under that address and linked into a deterministic chronological chain; changed, missing, or switched predecessors fail verification.
 
 ```bash
 intentforge assurance build --profile static
@@ -16,9 +16,12 @@ intentforge review evaluate output/assurance/assurance_case.json --policy intent
 intentforge review provenance output/assurance/review_decision.json --verify
 intentforge review diff baseline-decision.json candidate-decision.json
 intentforge review verify-offline output/assurance/audit_package
+intentforge review cas-check output/assurance/audit_package
+intentforge review cas-store output/assurance/audit_package --store output/review-cas
+intentforge review chain-verify <head-package> --store output/review-cas
 ```
 
-See [Engineering assurance cases](docs/assurance_cases.md), [Audit packages](docs/audit_packages.md), [Offline verification](docs/offline_verification.md), [Audit portability](docs/audit_portability.md), [Review policies](docs/review_policies.md), [Acceptance decisions](docs/acceptance_decisions.md), [Decision provenance](docs/decision_provenance.md), [Multi-variant differential audit](docs/multi_variant_audit.md), and [Policy checks](docs/policy_checks.md).
+See [Engineering assurance cases](docs/assurance_cases.md), [Audit packages](docs/audit_packages.md), [Offline verification](docs/offline_verification.md), [Audit portability](docs/audit_portability.md), [Content-addressed audit](docs/content_addressed_audit.md), [Audit chains](docs/audit_chain.md), [Review policies](docs/review_policies.md), [Acceptance decisions](docs/acceptance_decisions.md), [Decision provenance](docs/decision_provenance.md), [Multi-variant differential audit](docs/multi_variant_audit.md), and [Policy checks](docs/policy_checks.md).
 
 It is not a general text-to-CAD generator. The goal is not to produce geometry that merely looks right once. The goal is to preserve the design intent behind the model so later edits can update named parameters and active features without losing the original assumptions, constraints, and feature history.
 
@@ -96,6 +99,9 @@ Supported features:
 - structural pairwise and multi-variant review differential audits
 - standard-library-only offline audit-package verification
 - canonical platform-neutral package JSON, paths, runtime identifiers, and hashes
+- full SHA-256 package/object content addresses and immutable-by-address local storage
+- optional predecessor binding across assurance claims, decisions, provenance, and CAS envelopes
+- deterministic multi-package chain verification with changed/deleted/switched predecessor detection
 - deterministic engineering reasoning over knowledge findings
 - golden-case reasoning verification and recommendation consistency checks
 - topology-informed feature recognition for supported generated models
@@ -493,6 +499,8 @@ Default quality gates require:
 - frozen offline package matrices contain 10 rules, 28 capabilities, 65 evidence records, and 54 policy checks
 - the five fixture assurance records total 49 claims with no static replay mismatch
 - portability violations and Linux/macOS/Windows canonical identity mismatches == 0
+- three-block CAS chain validates with zero pointer or object-hash mismatches
+- changed, missing, and switched predecessor simulations are all rejected
 
 Reports are written to:
 

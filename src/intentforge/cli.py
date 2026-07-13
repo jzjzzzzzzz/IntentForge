@@ -1995,6 +1995,7 @@ def _load_assurance_case(path: str | Path) -> AssuranceCase:
 REVIEW_EXIT_CODES = {
     "accepted_within_declared_scope": 0,
     "accepted_with_conditions": 2,
+    "accepted_with_exemption": 2,
     "manual_review_required": 3,
     "rejected_by_policy": 4,
     "unresolved": 5,
@@ -2361,7 +2362,21 @@ def _review_command(args) -> int:
         case = attach_assurance_predecessor(source_case, predecessor)
         case_path = review_root / "assurance_case.json"
         case_path.write_text(case.to_json(), encoding="utf-8")
-        decision = evaluate_assurance_case(policy, case, package_result)
+        exemption_models = []
+        evaluation = None
+        if args.apply_exemption:
+            from intentforge.review.exemption_engine import (
+                load_exemption_manifest,
+                match_exemptions,
+            )
+            for manifest_path in args.apply_exemption:
+                exemption_models.append(load_exemption_manifest(manifest_path))
+        decision = evaluate_assurance_case(
+            policy, case, package_result, exemption_manifests=exemption_models,
+        )
+        if exemption_models:
+            from intentforge.review.exemption_engine import match_exemptions
+            evaluation = match_exemptions(decision, exemption_models, package_result=package_result)
         output = Path(args.output) if args.output else review_root / "review_decision.json"
         json_path, markdown_path = _write_review_decision(decision, output)
         if package_path is not None:
@@ -2371,7 +2386,15 @@ def _review_command(args) -> int:
                 review_policy=policy,
                 review_decision=decision,
                 predecessor_hash_pointer=predecessor,
+                exemption_manifests=exemption_models or None,
+                exemption_evaluation=evaluation,
             )
+        if evaluation is not None and not args.json:
+            print(f"Applied exemptions: {len(evaluation.applied_references)}")
+            for reference in evaluation.applied_references:
+                print(f"  - {reference.exemption_id} -> {reference.matched_check_id}")
+            if evaluation.unmatched_manifest_ids:
+                print(f"Unmatched manifests: {', '.join(evaluation.unmatched_manifest_ids)}")
         _print_review_decision(decision, as_json=args.json, json_path=json_path, markdown_path=markdown_path)
         if package_path is not None and not args.json: print(f"Audit package: {package_path}")
         if package_path is not None and args.cas_store_root is not None:
@@ -2572,6 +2595,18 @@ def _build_parser() -> ArgumentParser:
         dest="cas_store_root",
         default=None,
         help="Optional root where the finalized package is stored by content address.",
+    )
+    review_build.add_argument(
+        "--apply-exemption",
+        dest="apply_exemption",
+        action="append",
+        default=[],
+        metavar="MANIFEST",
+        help=(
+            "Optional path to an exemption manifest JSON file. May be repeated. "
+            "Any matching declaration elevates ``rejected_by_policy`` to "
+            "``accepted_with_exemption`` and is content-addressed inside the audit package."
+        ),
     )
     review_dossier = review_subparsers.add_parser(
         "build-dossier",

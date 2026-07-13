@@ -40,7 +40,7 @@ ROLLOUP_STATUS_APPROVED_WITH_CONDITIONS = "release_approved_with_conditions"
 ROLLOUP_STATUS_BLOCKED = "release_blocked"
 
 _BLOCKING_CHILD_STATUSES = {"rejected_by_policy", "unresolved"}
-_CONDITIONAL_CHILD_STATUSES = {"accepted_with_conditions", "manual_review_required"}
+_CONDITIONAL_CHILD_STATUSES = {"accepted_with_conditions", "manual_review_required", "accepted_with_exemption"}
 _APPROVED_CHILD_STATUSES = {"accepted_within_declared_scope"}
 
 
@@ -170,9 +170,15 @@ def compute_dossier_rollup(leaves: tuple[DossierLeaf, ...]) -> DossierRollup:
     """Compute deterministic rollup status from registered leaves.
 
     Precedence:
-      * any blocking child (`rejected_by_policy`, `unresolved`) ⇒ ``release_blocked``
-      * otherwise any conditional child (`accepted_with_conditions`,
-        `manual_review_required`) ⇒ ``release_approved_with_conditions``
+      * any blocking child (``rejected_by_policy``, ``unresolved``) ⇒ ``release_blocked``
+      * otherwise any conditional child (``accepted_with_conditions``,
+        ``manual_review_required``, ``accepted_with_exemption``) ⇒
+        ``release_approved_with_conditions``.
+
+        Per Phase 31, ``accepted_with_exemption`` overrides are bucketed with
+        conditional approval: the release is allowed but the cryptographic
+        exemption references remain visible in the audit trail.
+
       * otherwise ``release_approved`` when every child is approved;
         missing or unknown statuses contribute to ``other_count`` but
         do not flip the rollup to blocked once approved children exist.

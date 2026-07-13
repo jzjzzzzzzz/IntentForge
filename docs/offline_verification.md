@@ -65,4 +65,4 @@ This is integrity checking for the enclosed deterministic record. It is not a di
 
 ## Compatibility
 
-Phase 23 through Phase 25 packages remain readable by the normal audit-package validator. The isolated Phase 26 verifier requires package schema `1.1`, the frozen policy catalog, and portability metadata. It reports older packages as unsupported rather than treating missing data as verified.
+Phase 23 through Phase 25 packages remain readable by the normal audit-package validator. The isolated verifier supports Phase 26 schema `1.1` and Phase 27 schema `1.2`. Schema `1.2` additionally requires and verifies the CAS envelope, every structural object address, the full package address, and predecessor consistency. Older packages without the frozen policy catalog remain unsupported by the isolated verifier rather than being treated as verified.
