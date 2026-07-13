@@ -1,0 +1,46 @@
+assembly_family: flange_bolted_joint
+manifest_version: "1.0"
+title: Flange bolted joint
+description: A single flat industrial flange populated with one standard bolt per registered bolt hole.
+status: active
+aliases: [bolted flange, flange joint]
+assembly_factory_id: flange_bolted_joint_factory_v1
+components:
+  - component_id: flange
+    topology_family: industrial_flange
+    quantity: 1
+  - component_id: bolt
+    topology_family: standard_bolt
+    quantity_expression: flange_hole_count
+    quantity_bindings:
+      flange_hole_count: flange.hole_count
+spatial_constraints:
+  - constraint_id: bolt_hole_coaxial_clearance
+    title: Bolt-to-hole diametral clearance
+    description: The bolt nominal diameter must be smaller than the flange bolt-hole diameter after reserving the declared assembly clearance.
+    left_expression: bolt_nominal_diameter
+    operator: lt
+    right_expression: flange_bolt_hole_diameter - flange_bore_clearance
+    variable_bindings:
+      bolt_nominal_diameter: bolt.nominal_diameter
+      flange_bolt_hole_diameter: flange.bolt_hole_diameter
+      flange_bore_clearance: flange.bore_clearance
+    blocking: true
+  - constraint_id: bolt_body_length_through_flange
+    title: Bolt body length through flange
+    description: The combined shank and thread length must span the flange thickness.
+    left_expression: bolt_shank_length + bolt_thread_length
+    operator: ge
+    right_expression: flange_thickness
+    variable_bindings:
+      bolt_shank_length: bolt.shank_length
+      bolt_thread_length: bolt.thread_length
+      flange_thickness: flange.flange_thickness
+    blocking: true
+limitations:
+  - This assembly represents one flange and its bolts; it does not include a mating flange, nut, washer, gasket, preload, torque, or thread engagement analysis.
+  - Bolt threads use the registered simplified cylindrical macro-geometry.
+metadata:
+  adapter_kind: assembly_manifest
+  domain: bolted_joint
+  placement_pattern: flange_bolt_circle

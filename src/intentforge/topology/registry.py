@@ -58,6 +58,12 @@ class RegistryManager:
         self._manifests = ordered
         self._by_family = {item.topology_family: item for item in ordered}
         self._aliases = aliases
+        from intentforge.assemblies.registry import AssemblyRegistry
+
+        self._assembly_registry = AssemblyRegistry.load(topology_parameters={
+            item.topology_family: {parameter.name for parameter in item.controlled_parameters}
+            for item in ordered
+        })
 
     @classmethod
     def load(cls) -> "RegistryManager":
@@ -104,6 +110,18 @@ class RegistryManager:
 
     def snapshot(self) -> list[dict[str, Any]]:
         return [item.model_dump(mode="json") for item in self._manifests]
+
+    def all_assemblies(self, *, active_only: bool = False) -> tuple[Any, ...]:
+        return self._assembly_registry.all(active_only=active_only)
+
+    def get_assembly(self, family: str) -> Any:
+        return self._assembly_registry.get(family)
+
+    def assembly_count(self) -> int:
+        return self._assembly_registry.count()
+
+    def assembly_snapshot(self) -> list[dict[str, Any]]:
+        return self._assembly_registry.snapshot()
 
 
 @lru_cache(maxsize=1)

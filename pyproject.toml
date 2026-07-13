@@ -55,6 +55,7 @@ include = ["intentforge*", "mcp_server*", "benchmark*", "harness*"]
 "intentforge.knowledge.packs.data" = ["*.yaml"]
 "intentforge.knowledge.reasoning.data" = ["*.yaml"]
 "intentforge.knowledge.topology" = ["families/*/*.yaml"]
+"intentforge.knowledge.assemblies" = ["*/*.yaml"]
 "intentforge.review.data" = ["*.yaml"]
 
 [tool.pytest.ini_options]

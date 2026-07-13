@@ -1,0 +1,1 @@
+"""Packaged declarative assembly manifests."""
