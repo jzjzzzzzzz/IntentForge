@@ -2304,6 +2304,37 @@ def _review_command(args) -> int:
             for error in result.errors:
                 print(f"- {error}")
         return 0 if result.passed else 1
+    if action == "synthesize-remediation":
+        from intentforge.remediation import synthesize_remediation_intent
+        parameters_override = None
+        if args.parameters:
+            parameters_override = json.loads(Path(args.parameters).read_text(encoding="utf-8"))
+        output_dir = Path(args.output) if args.output else None
+        result = synthesize_remediation_intent(
+            args.package_path, parameters_override=parameters_override, output_dir=output_dir,
+        )
+        if args.json:
+            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        else:
+            print("IntentForge Auto-Remediation Synthesis")
+            print("PASS" if result.passed else "FAIL")
+            print(f"Status: {result.status}")
+            print(f"Rationale: {result.rationale}")
+            if result.delta is not None:
+                print(f"Remediation ID: {result.delta.remediation_id}")
+                print(f"Target family: {result.delta.target_family}")
+                print(f"Parameter changes: {len(result.delta.parameter_changes)}")
+                for change in result.delta.parameter_changes:
+                    print(
+                        f"  - {change.parameter}: "
+                        f"{change.current_value:g} -> {change.proposed_value:g} "
+                        f"(rule {change.rule_id})"
+                    )
+            if result.remediation_path is not None:
+                print(f"Remediation Intent: {result.remediation_path}")
+            for error in result.errors:
+                print(f"- {error}")
+        return 0 if result.passed else 1
     if action == "build-evaluate":
         policy_id = args.policy or {
             "static": "intentforge_static_review_v1",
@@ -2557,6 +2588,14 @@ def _build_parser() -> ArgumentParser:
     review_dossier_verify.add_argument("dossier_path", help="Dossier directory to verify.")
     review_dossier_verify.add_argument("--max-children", type=int, default=1000)
     review_dossier_verify.add_argument("--json", action="store_true")
+    review_remediation = review_subparsers.add_parser(
+        "synthesize-remediation",
+        help="Analyze a rejected audit package and synthesize a deterministic Remediation_Intent.json.",
+    )
+    review_remediation.add_argument("package_path", help="Audit package directory whose parameters failed at least one knowledge rule.")
+    review_remediation.add_argument("--output", default=None, help="Directory to write the Remediation_Intent.json (defaults to the package directory).")
+    review_remediation.add_argument("--parameters", default=None, help="Optional path to a JSON parameter table override.")
+    review_remediation.add_argument("--json", action="store_true")
 
     assurance = subparsers.add_parser("assurance", help="Build and inspect scoped engineering assurance records.")
     assurance_subparsers = assurance.add_subparsers(dest="assurance_command", required=True)

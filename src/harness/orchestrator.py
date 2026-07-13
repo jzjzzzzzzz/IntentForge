@@ -53,7 +53,7 @@ from intentforge.assurance import (
     build_audit_package,
     validate_assurance_case,
 )
-from intentforge.assurance.schema import AssuranceCase
+from intentforge.assurance.schema import AssuranceCase, canonical_digest
 from intentforge.review import (
     ReviewEvaluationError,
     collect_review_evaluation_resources,
@@ -1303,6 +1303,265 @@ def _release_dossier_section(run_dir, review_policy_section):
     return result
 
 
+def _build_workflow_result(prompt: str, family: str, parameters: dict[str, Any]) -> dict[str, Any]:
+    """Construct a minimal workflow result dict for harness remediation runs.
+
+    The regular :func:`intentforge.workflows.parse_build_workflow` enforces
+    minimum-value validation rules declared by the parameter schema. The
+    closed-loop QA harness intentionally feeds in parameters that violate
+    those minimums (so the policy rejects them). This helper bypasses the
+    parser while still populating the keys that ``build_assurance_case``
+    requires.
+    """
+
+    intent_payload = {
+        "family": family,
+        "user_prompt": prompt,
+        "objective": prompt,
+        "requirements": [],
+        "assumptions": [],
+        "unknowns": [],
+        "metadata": {"harness_scenario": True},
+    }
+    parameter_records = [
+        {
+            "name": name,
+            "value": value,
+            "unit": "mm",
+            "description": f"Harness scenario parameter {name}.",
+            "source": "user",
+            "reason": "Closed-loop remediation scenario.",
+        }
+        for name, value in sorted(parameters.items())
+        if not isinstance(value, bool)  # exclude feature_flags-style entries
+    ]
+    return {
+        "ok": True,
+        "object_type": family,
+        "intent": intent_payload,
+        "parameters": {"family": family, "parameters": parameter_records, "assumptions": [], "unknowns": [], "metadata": {}},
+        "constraints": {"constraints": []},
+        "feature_plan": None,
+        "warnings": [],
+        "assumptions": [],
+        "unknowns": [],
+        "active_features": [],
+        "omitted_features": [],
+        "operation": "parse_build",
+        "request_id": canonical_digest("request", {"prompt": prompt, "family": family})[:16],
+    }
+
+
+def _auto_remediation_section(run_dir, assurance_section) -> dict[str, Any]:
+    """Closed-loop QA harness for Phase 30 auto-remediation synthesis.
+
+    The lifecycle exercised here is:
+
+        Initial flawed intent → deterministic block / reject →
+        remediation synthesis → delta application → re-evaluation →
+        approved release dossier.
+    """
+
+    from intentforge.assurance import build_assurance_case
+    from intentforge.dossier import ReleaseDossierBuilder, write_dossier
+    from intentforge.remediation import (
+        apply_remediation_to_parameters,
+        build_metrics,
+        synthesize_remediation,
+        synthesize_remediation_intent,
+    )
+    from intentforge.review import evaluate_assurance_case, get_review_policy
+
+    remediation_dir = run_dir / "auto_remediation"
+    remediation_dir.mkdir(parents=True, exist_ok=True)
+    iterations: list[dict[str, Any]] = []
+    initial_rejected_count = 0
+    remediated_accepted_count = 0
+    remediated_synthesized_count = 0
+    final_dossier_built_count = 0
+    impossible_count = 0
+    # Use one wall-mounted bracket and one L-bracket scenario so the engine
+    # is exercised across both supported families.
+    scenarios = [
+        {
+            "family": "wall_mounted_bracket",
+            "prompt": "Make a wall-mounted bracket 30 mm wide, 60 mm tall, 8 mm thick, with two screw holes.",
+            "parameters": {
+                "back_plate_width_mm": 30.0,
+                "back_plate_height_mm": 60.0,
+                "back_plate_thickness_mm": 8.0,
+                "mounting_hole_diameter_mm": 10.0,
+                "mounting_hole_count": 2,
+                "mounting_hole_spacing_x_mm": 1.0,
+                "mounting_hole_spacing_y_mm": 1.0,
+                "corner_radius_mm": 0.0,
+            },
+        },
+        {
+            "family": "l_bracket",
+            "prompt": "Make an L-bracket 30 mm wide with 60 mm legs, 8 mm thick, two holes on each leg.",
+            "parameters": {
+                "bracket_width_mm": 30.0,
+                "base_leg_length_mm": 60.0,
+                "vertical_leg_length_mm": 60.0,
+                "thickness_mm": 8.0,
+                "hole_diameter_mm": 10.0,
+                "base_hole_count": 2,
+                "vertical_hole_count": 2,
+                "base_hole_spacing_mm": 1.0,
+                "vertical_hole_spacing_mm": 1.0,
+                "outside_edge_fillet_radius_mm": 0.0,
+            },
+        },
+    ]
+    for index, scenario in enumerate(scenarios):
+        scenario_dir = remediation_dir / f"scenario_{index}"
+        scenario_dir.mkdir(parents=True, exist_ok=True)
+        family = scenario["family"]
+        parameters = dict(scenario["parameters"])
+        # Step 1: initial (flawed) intent → deterministic block / reject
+        initial_result = _build_workflow_result(scenario["prompt"], family, parameters)
+        initial_assurance = build_assurance_case(initial_result, profile="standard", input_request=scenario["prompt"])
+        policy = get_review_policy("intentforge_standard_design_review_v1")
+        decision = evaluate_assurance_case(policy, initial_assurance, initial_result)
+        iterations.append({
+            "step": "initial",
+            "family": family,
+            "decision_status": decision.decision_status,
+        })
+        if decision.decision_status in {"rejected_by_policy", "accepted_with_conditions"}:
+            initial_rejected_count += 1
+        # Step 2: remediation synthesis
+        parameters_path = scenario_dir / "initial_parameters.json"
+        parameters_path.write_text(json.dumps(parameters, indent=2, sort_keys=True), encoding="utf-8")
+        case_path = scenario_dir / "initial_assurance_case.json"
+        case_path.write_text(initial_assurance.to_json(), encoding="utf-8")
+        remediation_result = synthesize_remediation_intent(
+            scenario_dir,
+            parameters_override=parameters,
+            output_dir=scenario_dir / "remediation",
+        )
+        if remediation_result.status == "remediation_impossible":
+            impossible_count += 1
+            iterations.append({"step": "remediation", "family": family, "status": remediation_result.status})
+            continue
+        if remediation_result.delta is None:
+            iterations.append({"step": "remediation", "family": family, "status": remediation_result.status})
+            continue
+        remediated_synthesized_count += 1
+        # Step 3: delta application
+        remediated_parameters = apply_remediation_to_parameters(parameters, remediation_result.to_dict()["delta"])
+        # Step 4: re-evaluation
+        re_result = _build_workflow_result(scenario["prompt"], family, remediated_parameters)
+        re_assurance = build_assurance_case(re_result, profile="standard", input_request=scenario["prompt"])
+        re_decision = evaluate_assurance_case(policy, re_assurance, re_result)
+        iterations.append({
+            "step": "remediated",
+            "family": family,
+            "decision_status": re_decision.decision_status,
+            "parameter_change_count": len(remediation_result.delta.parameter_changes),
+        })
+        if re_decision.decision_status in {"accepted_within_declared_scope", "accepted_with_conditions"}:
+            remediated_accepted_count += 1
+        # Step 5: build approved release dossier for the remediated case
+        try:
+            case_dir = scenario_dir / "approved_package"
+            case_dir.mkdir(parents=True, exist_ok=True)
+            from intentforge.assurance import build_audit_package
+            re_assurance_path = case_dir / "assurance_case.json"
+            re_assurance_path.write_text(re_assurance.to_json(), encoding="utf-8")
+            build_audit_package(re_assurance, case_dir, review_policy=policy, review_decision=re_decision)
+            params_payload = case_dir / "parameters.json"
+            params_payload.write_text(json.dumps(remediated_parameters, indent=2, sort_keys=True), encoding="utf-8")
+            dossier_dir = scenario_dir / "dossier"
+            dossier_dir.mkdir(parents=True, exist_ok=True)
+            dossier = ReleaseDossierBuilder().build([str(case_dir)])
+            write_dossier(dossier, dossier_dir)
+            final_dossier_built_count += 1
+        except Exception as exc:  # noqa: BLE001
+            iterations.append({"step": "dossier", "family": family, "error": str(exc)})
+    # Deterministic synthetic scenario to validate the algebra end-to-end
+    algebra_dir = remediation_dir / "algebra_synthetic"
+    algebra_dir.mkdir(parents=True, exist_ok=True)
+    algebra_metrics = build_metrics({
+        "back_plate_width_mm": 30.0,
+        "back_plate_height_mm": 60.0,
+        "back_plate_thickness_mm": 8.0,
+        "mounting_hole_diameter_mm": 10.0,
+        "mounting_hole_spacing_x_mm": 0.0,
+    }, family="wall_mounted_bracket")
+    from intentforge.knowledge.evaluator import evaluate_expression
+    from intentforge.knowledge.rules import RuleRegistry
+    algebra_registry: dict[str, dict[str, Any]] = {}
+    for rule in RuleRegistry.load().rules:
+        if family not in rule.applies_to:
+            continue
+        if rule.status != "active":
+            continue
+        algebra_registry[rule.id] = {
+            "id": rule.id,
+            "name": rule.name,
+            "condition": rule.condition,
+            "applies_to": list(rule.applies_to),
+        }
+    algebra_findings = []
+    for rule_id, rule in algebra_registry.items():
+        expression = rule["condition"].get("expression")
+        if not isinstance(expression, str):
+            continue
+        when = rule["condition"].get("when") or {}
+        skip = False
+        for key, expected in when.items():
+            if algebra_metrics.get(key) != expected:
+                skip = True
+                break
+        if skip:
+            continue
+        try:
+            passed = bool(evaluate_expression(expression, algebra_metrics))
+        except Exception:  # noqa: BLE001
+            continue
+        if not passed:
+            algebra_findings.append({"rule_id": rule_id, "rule_name": rule["name"]})
+    algebra_delta = synthesize_remediation(
+        family="wall_mounted_bracket",
+        parameters={"back_plate_width_mm": 30.0, "mounting_hole_diameter_mm": 10.0, "mounting_hole_spacing_x_mm": 0.0},
+        metrics=algebra_metrics,
+        failed_findings=algebra_findings,
+        rule_registry=algebra_registry,
+    )
+    (algebra_dir / "synthetic_remediation.json").write_text(
+        json.dumps(algebra_delta.to_dict(), indent=2, sort_keys=True), encoding="utf-8",
+    )
+    iterations.append({
+        "step": "algebra_synthetic",
+        "status": algebra_delta.remediation_status,
+        "parameter_change_count": len(algebra_delta.parameter_changes),
+    })
+    result = {
+        "name": "auto_remediation",
+        "passed": (
+            remediated_synthesized_count >= 1
+            and final_dossier_built_count >= 1
+            and algebra_delta.remediation_status == "remediation_synthesized"
+        ),
+        "scenario_count": len(scenarios),
+        "initial_rejected_count": initial_rejected_count,
+        "remediated_synthesized_count": remediated_synthesized_count,
+        "remediated_accepted_count": remediated_accepted_count,
+        "final_dossier_built_count": final_dossier_built_count,
+        "impossible_count": impossible_count,
+        "algebra_synthetic_status": algebra_delta.remediation_status,
+        "iterations": iterations,
+        "output_path": str(remediation_dir),
+    }
+    result["auto_remediation_gate_passed"] = result["passed"]
+    report_path = remediation_dir / "auto_remediation_harness_report.json"
+    _write_json(result, report_path)
+    result["report_path"] = str(report_path)
+    return result
+
+
 def _demo_section(output_root: Path) -> dict[str, Any]:
     from intentforge.demo_runner import run_demo
 
@@ -1833,6 +2092,10 @@ def run_technical_harness(
     sections["release_dossier"] = _run_section(
         "release_dossier",
         lambda: _release_dossier_section(run_context.run_dir, sections["review_policy"]),
+    )
+    sections["auto_remediation"] = _run_section(
+        "auto_remediation",
+        lambda: _auto_remediation_section(run_context.run_dir, sections["assurance"]),
     )
     if include_demo:
         sections["demo"] = _run_section("demo", lambda: _demo_section(section_output_root))
