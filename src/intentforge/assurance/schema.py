@@ -33,7 +33,7 @@ LimitationSignificance = Literal[
 ]
 
 SCHEMA_VERSION = "1.0"
-SUPPORTED_FAMILIES = {"wall_mounted_bracket", "l_bracket"}
+SUPPORTED_FAMILIES = {"wall_mounted_bracket", "l_bracket", "industrial_flange"}
 FORBIDDEN_PATH_PARTS = {".git", ".claude", "CLAUDE.md"}
 CONTENT_ADDRESS_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 
@@ -117,9 +117,9 @@ class AssuranceClaim(BaseModel):
     @field_validator("family")
     @classmethod
     def known_family(cls, value: str) -> str:
-        if value not in SUPPORTED_FAMILIES:
-            raise ValueError(f"unsupported family: {value}")
-        return value
+        from intentforge.schemas.family import validate_registered_family
+
+        return validate_registered_family(value)
 
     @field_validator("predecessor_hash_pointer")
     @classmethod

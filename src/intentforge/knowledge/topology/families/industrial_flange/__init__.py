@@ -1,0 +1,1 @@
+"""Industrial flange topology profile."""

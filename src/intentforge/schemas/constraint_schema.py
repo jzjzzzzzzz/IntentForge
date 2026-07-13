@@ -2,9 +2,11 @@
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-SupportedFamily = Literal["wall_mounted_bracket", "l_bracket"]
+from intentforge.schemas.family import validate_registered_family
+
+SupportedFamily = str
 ConstraintKind = Literal[
     "dimensional",
     "geometric",
@@ -62,6 +64,8 @@ class ConstraintGraph(BaseModel):
     assumptions: list[str] = Field(default_factory=list)
     unknowns: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    _registered_family = field_validator("family")(validate_registered_family)
 
     @model_validator(mode="after")
     def validate_graph(self) -> "ConstraintGraph":

@@ -124,6 +124,7 @@ from intentforge.reports.design_review import (
     write_design_review_summary,
 )
 from intentforge.schemas import ConstraintGraph, FeaturePlan, IntentSpec, ParameterTable, ValidationReport
+from intentforge.topology.registry import registered_family_ids
 from intentforge.validator.geometry_validator import validate_geometry, validate_wall_bracket, write_validation_report
 from intentforge.validator.intent_validator import validate_wall_bracket_intent
 from intentforge.workflows import (
@@ -131,6 +132,7 @@ from intentforge.workflows import (
     edit_parse_apply_workflow,
     edit_parse_workflow,
     parse_build_workflow,
+    parse_build_intent_workflow,
     parse_prompt_workflow,
     validate_example_workflow,
 )
@@ -144,7 +146,75 @@ from intentforge.redaction import (
     default_redaction_config,
 )
 
-SUPPORTED_MODEL_FAMILIES = ["wall_mounted_bracket", "l_bracket"]
+SUPPORTED_MODEL_FAMILIES = list(registered_family_ids())
+
+
+def _topology_command(args) -> int:
+    from intentforge.topology.registry import get_topology_registry
+    from intentforge.parser.registered_parser import build_registered_intent_json_schema
+
+    registry = get_topology_registry()
+    if args.topology_command == "list":
+        payload = [
+            {
+                "family": item.topology_family,
+                "version": item.manifest_version,
+                "status": item.status,
+                "parameters": len(item.controlled_parameters),
+                "features": len(item.supported_features),
+                "factory": item.geometry_factory_id,
+            }
+            for item in registry.all()
+        ]
+        if args.json:
+            print(json.dumps(payload, indent=2, sort_keys=True))
+        else:
+            print("IntentForge Registered Topology Families")
+            for item in payload:
+                print(f"{item['family']} v{item['version']} ({item['status']})")
+                print(f"  parameters: {item['parameters']}; features: {item['features']}; factory: {item['factory']}")
+        return 0
+    if args.topology_command == "validate":
+        evidence_ids = {item.evidence_id for item in load_evidence_definitions()}
+        rule_ids = {item.id for item in RuleRegistry.load().rules}
+        errors: list[str] = []
+        for manifest in registry.all():
+            binding = manifest.capability_evidence_binding
+            errors.extend(
+                f"{manifest.topology_family}: unknown evidence {item}"
+                for item in sorted(set(binding.evidence_catalog_ids + binding.applicable_evidence_ids) - evidence_ids)
+            )
+            errors.extend(
+                f"{manifest.topology_family}: unknown rule {item}"
+                for item in sorted(set(binding.rule_ids) - rule_ids)
+            )
+        print("IntentForge Topology Registry Validation")
+        print("PASS" if not errors else "FAIL")
+        print(f"Families checked: {registry.count()}")
+        for error in errors:
+            print(f"- {error}")
+        return 0 if not errors else 1
+    if args.topology_command == "schema":
+        print(json.dumps(build_registered_intent_json_schema(args.family), indent=2, sort_keys=True))
+        return 0
+    if args.topology_command == "build-json":
+        payload = json.loads(Path(args.intent_path).read_text(encoding="utf-8"))
+        result = parse_build_intent_workflow(payload, args.output_root, dry_run=args.dry_run)
+        if args.json:
+            print(json.dumps(result, indent=2, sort_keys=True))
+        else:
+            print("IntentForge Registered Topology Build")
+            print("PASS" if result.get("ok") else "FAIL")
+            print(f"Family: {result.get('object_type')}")
+            print(f"CAD exported: {str(result.get('cad_exported', False)).lower()}")
+            print(f"Validation passed: {str(result.get('validation_valid', False)).lower()}")
+            for artifact in result.get("artifacts", []):
+                if artifact.get("path"):
+                    print(f"- {artifact.get('kind')}: {artifact['path']}")
+            if not result.get("ok"):
+                print(f"Error: {(result.get('error') or {}).get('message', result.get('message', 'unknown error'))}")
+        return 0 if result.get("ok") else 1
+    raise ValueError(f"unsupported topology action: {args.topology_command}")
 
 
 def _project_root() -> Path:
@@ -2494,6 +2564,19 @@ def _build_parser() -> ArgumentParser:
     parser = ArgumentParser(prog="intentforge")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    topology = subparsers.add_parser("topology", help="Inspect and build declaratively registered CAD topology families.")
+    topology_subparsers = topology.add_subparsers(dest="topology_command", required=True)
+    topology_list = topology_subparsers.add_parser("list", help="List packaged topology manifests.")
+    topology_list.add_argument("--json", action="store_true")
+    topology_subparsers.add_parser("validate", help="Validate topology adapters, evidence IDs, and rule bindings.")
+    topology_schema = topology_subparsers.add_parser("schema", help="Render the structured intent schema for one family.")
+    topology_schema.add_argument("family")
+    topology_build = topology_subparsers.add_parser("build-json", help="Build and validate a topology from structured JSON intent.")
+    topology_build.add_argument("intent_path")
+    topology_build.add_argument("--output-root", default=None)
+    topology_build.add_argument("--dry-run", action="store_true")
+    topology_build.add_argument("--json", action="store_true")
+
     review = subparsers.add_parser("review", help="Evaluate assurance cases with deterministic engineering review policies.")
     review_subparsers = review.add_subparsers(dest="review_command", required=True)
     review_policies = review_subparsers.add_parser("policies", help="List packaged engineering review policies.")
@@ -3079,6 +3162,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "build-example":
             return _build_example_model(args.example)
+        if args.command == "topology":
+            return _topology_command(args)
         if args.command == "assurance":
             return _assurance_command(args)
         if args.command == "review":

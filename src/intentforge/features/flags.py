@@ -63,7 +63,14 @@ FEATURE_PARAMETER_MAP: dict[str, str] = {
 def optional_features_for_family(family: str) -> tuple[str, ...]:
     """Return the feature flag names used by a supported family."""
 
-    return OPTIONAL_FEATURES_BY_FAMILY.get(family, WALL_OPTIONAL_FEATURES)
+    if family in OPTIONAL_FEATURES_BY_FAMILY:
+        return OPTIONAL_FEATURES_BY_FAMILY[family]
+    try:
+        from intentforge.topology.registry import get_topology_registry
+
+        return tuple(item.feature_id for item in get_topology_registry().get(family).supported_features)
+    except (ImportError, ValueError):
+        return ()
 
 
 def hole_pattern_for_count(hole_count: int) -> str | None:
@@ -254,7 +261,12 @@ def _infer_l_bracket_feature_flags(parameter_table: ParameterTable) -> dict[str,
 def _infer_feature_flags(parameter_table: ParameterTable) -> dict[str, dict[str, Any]]:
     if parameter_table.family == "l_bracket":
         return _infer_l_bracket_feature_flags(parameter_table)
-    return _infer_wall_feature_flags(parameter_table)
+    if parameter_table.family == "wall_mounted_bracket":
+        return _infer_wall_feature_flags(parameter_table)
+    flags = normalize_feature_flags(None, parameter_table.family)
+    for name in flags:
+        flags[name] = make_feature_flag("defaulted_by_system", "Required by the registered topology manifest.")
+    return flags
 
 
 def feature_flags_for_parameter_table(parameter_table: ParameterTable) -> dict[str, dict[str, Any]]:

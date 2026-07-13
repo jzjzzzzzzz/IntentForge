@@ -141,6 +141,41 @@ def build_design_metrics(parameter_table: ParameterTable, feature_plan: FeatureP
         )
         return metrics
 
+    if family != "l_bracket":
+        from intentforge.topology.expressions import evaluate_numeric_expression
+        from intentforge.topology.registry import get_topology_registry
+
+        manifest = get_topology_registry().get(family)
+        values = {item.name: item.value for item in parameter_table.parameters}
+        for mapping in manifest.capability_evidence_binding.rule_variable_mapping:
+            metrics[mapping.metric] = evaluate_numeric_expression(mapping.expression, values)
+        hole_diameter = _numeric(values.get("bolt_hole_diameter", values.get("hole_diameter", 0.0)))
+        hole_count = _numeric(values.get("hole_count", 0.0))
+        outer = _numeric(values.get("flange_outer_diameter", values.get("width", 0.0)))
+        bore = _numeric(values.get("bore_diameter", 0.0))
+        thickness = _numeric(values.get("flange_thickness", values.get("thickness", 0.0)))
+        metrics.update(
+            {
+                "width": outer,
+                "height": outer,
+                "bracket_width": outer,
+                "thickness": thickness,
+                "hole_count": hole_count,
+                "hole_diameter": hole_diameter,
+                "mounting_holes_active": hole_count > 0,
+                "fastener_edge_clearance": metrics.get("hole_edge_distance", 0.0),
+                "tool_clearance": min(value for value in (hole_diameter, thickness) if value > 0),
+                "minimum_section_thickness": max(0.0, (outer - bore) / 2.0),
+                "corner_radius": 0.0,
+                "rounded_corners_active": False,
+                "center_cutout_active": False,
+                "cutout_area_ratio": 0.0,
+                "gusset_enabled": False,
+                "vertical_leg_height_to_thickness": 0.0,
+            }
+        )
+        return metrics
+
     base_length = _numeric(_parameter_value(parameter_table, "base_leg_length_mm"))
     vertical_length = _numeric(_parameter_value(parameter_table, "vertical_leg_length_mm"))
     bracket_width = _numeric(_parameter_value(parameter_table, "bracket_width_mm"))
@@ -271,8 +306,18 @@ def evaluate_design(
     else:
         selected_rules = rules
         rule_sources = {}
+    bound_rule_ids: set[str] = set()
+    if family not in {"wall_mounted_bracket", "l_bracket"}:
+        try:
+            from intentforge.topology.registry import get_topology_registry
+
+            bound_rule_ids = set(
+                get_topology_registry().get(family).capability_evidence_binding.rule_ids
+            )
+        except (ImportError, ValueError):
+            bound_rule_ids = set()
     for rule in selected_rules:
-        if family not in rule.applies_to:
+        if family not in rule.applies_to and rule.id not in bound_rule_ids:
             continue
         if rule.status != "active":
             continue

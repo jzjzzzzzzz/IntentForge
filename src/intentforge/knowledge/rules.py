@@ -374,7 +374,16 @@ class RuleRegistry:
         return len(self._rules)
 
     def for_family(self, family: str) -> list[DesignKnowledgeRule]:
-        return [rule for rule in self._rules if family in rule.applies_to]
+        direct = [rule for rule in self._rules if family in rule.applies_to]
+        if direct:
+            return direct
+        try:
+            from intentforge.topology.registry import get_topology_registry
+
+            bound_ids = get_topology_registry().get(family).capability_evidence_binding.rule_ids
+        except (ImportError, ValueError):
+            return []
+        return [self._by_id[rule_id] for rule_id in bound_ids if rule_id in self._by_id]
 
     def get(self, rule_id: str) -> DesignKnowledgeRule:
         return self._by_id[rule_id]

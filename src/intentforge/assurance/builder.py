@@ -23,6 +23,7 @@ from intentforge.workflows import parse_build_workflow, parse_prompt_workflow
 DEFAULT_PROMPTS = {
     "wall_mounted_bracket": "Make a wall-mounted bracket 120 mm wide, 60 mm tall, 8 mm thick, with two screw holes.",
     "l_bracket": "Make an L-bracket 80 mm wide with 60 mm legs, 8 mm thick, and two holes on each leg.",
+    "industrial_flange": "Create an industrial flange with manifest default dimensions.",
 }
 
 
@@ -140,6 +141,10 @@ def build_assurance_case(result: dict[str, Any], *, profile: str = "standard", i
     family = result.get("object_type") or (result.get("intent") or {}).get("family")
     if family not in DEFAULT_PROMPTS:
         raise AssuranceBuildError("assurance input is missing a supported CAD family")
+    from intentforge.topology.registry import get_topology_registry
+
+    topology_manifest = get_topology_registry().get(family)
+    registry_native = topology_manifest.metadata.get("adapter_kind") == "manifest"
     rejected = not bool(result.get("ok")) and not bool(result.get("validation_report"))
     exercised, boundary_caps = _capabilities(family, profile, rejected)
     capability_ids = [item.capability_id for item in exercised]
@@ -200,6 +205,24 @@ def build_assurance_case(result: dict[str, Any], *, profile: str = "standard", i
                 significance="partial_support" if cap.status == "partially_supported" else "unsupported_boundary",
                 review_required=True, source=f"capability:{cap.capability_id}", content_id=canonical_digest("limitation_content", payload),
             ))
+    if registry_native:
+        for index, text in enumerate(topology_manifest.limitations):
+            payload = {"topology_family": family, "text": text, "index": index}
+            limitations.append(
+                LimitationRecord(
+                    limitation_id=canonical_digest("limitation", payload),
+                    title=f"{topology_manifest.title} topology limitation",
+                    description=text,
+                    family=family,
+                    capability_ids=[],
+                    rule_ids=[],
+                    stages=["cad_generation", "geometry_validation"],
+                    significance="external_review_required",
+                    review_required=True,
+                    source=f"topology_manifest:{family}@{topology_manifest.manifest_version}",
+                    content_id=canonical_digest("limitation_content", payload),
+                )
+            )
 
     claims = []
     arguments = []
@@ -207,6 +230,10 @@ def build_assurance_case(result: dict[str, Any], *, profile: str = "standard", i
         claim, argument = make_claim(kind, family=family, **kwargs)
         claims.append(claim); arguments.append(argument)
 
+    if registry_native and not evidence_ids:
+        evidence_ids = sorted(
+            topology_manifest.capability_evidence_binding.applicable_evidence_ids
+        )
     cap_ev = {"capability_ids": capability_ids, "evidence_ids": evidence_ids}
     if rejected:
         add("unsupported_behavior_rejected", stages=["rejection"], **cap_ev)

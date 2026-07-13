@@ -28,7 +28,13 @@ from intentforge.output_manager import (
 )
 from intentforge.paths import default_output_root as _default_output_root
 from intentforge.paths import project_root as _project_root
-from intentforge.parser import UnsupportedEditError, UnsupportedObjectError, parse_edit_request, parse_prompt
+from intentforge.parser import (
+    UnsupportedEditError,
+    UnsupportedObjectError,
+    parse_edit_request,
+    parse_prompt,
+    parse_registered_intent,
+)
 from intentforge.schemas import ConstraintGraph, FeaturePlan, IntentSpec, ParameterTable, ValidationReport
 from intentforge.validator.geometry_validator import validate_l_bracket, validate_wall_bracket, write_validation_report
 from intentforge.validator.intent_validator import validate_l_bracket_intent, validate_wall_bracket_intent
@@ -107,15 +113,15 @@ def _example_bundle(target: str) -> tuple[ParameterTable, IntentSpec, FeaturePla
 
 
 def _build_model(parameter_table: ParameterTable, feature_plan: FeaturePlan | None = None) -> Any:
-    if parameter_table.family == "l_bracket":
-        return build_l_bracket(parameter_table, feature_plan)
-    return build_wall_bracket(parameter_table)
+    from intentforge.topology import build_registered_model
+
+    return build_registered_model(parameter_table, feature_plan)
 
 
 def _validate_geometry(model: object, parameter_table: ParameterTable, output_paths: dict[str, Path] | None = None) -> ValidationReport:
-    if parameter_table.family == "l_bracket":
-        return validate_l_bracket(model, parameter_table, output_paths=output_paths)
-    return validate_wall_bracket(model, parameter_table, output_paths=output_paths)
+    from intentforge.topology import validate_registered_geometry
+
+    return validate_registered_geometry(model, parameter_table, output_paths=output_paths)
 
 
 def _validate_intent(
@@ -124,21 +130,30 @@ def _validate_intent(
     feature_plan: FeaturePlan,
     constraint_graph: ConstraintGraph,
 ) -> ValidationReport:
-    if intent.family == "l_bracket":
-        return validate_l_bracket_intent(intent, parameter_table, feature_plan, constraint_graph)
-    return validate_wall_bracket_intent(intent, parameter_table, feature_plan, constraint_graph)
+    from intentforge.topology import validate_registered_intent
+
+    return validate_registered_intent(intent, parameter_table, feature_plan, constraint_graph)
 
 
 def _parsed_cad_basename(family: str) -> str:
-    return "parsed_l_bracket" if family == "l_bracket" else "parsed_bracket"
+    return {
+        "wall_mounted_bracket": "parsed_bracket",
+        "l_bracket": "parsed_l_bracket",
+    }.get(family, f"parsed_{family}")
 
 
 def _edited_cad_basename(family: str) -> str:
-    return "l_bracket_edited" if family == "l_bracket" else "bracket_edited"
+    return {
+        "wall_mounted_bracket": "bracket_edited",
+        "l_bracket": "l_bracket_edited",
+    }.get(family, f"{family}_edited")
 
 
 def _parsed_validation_report_name(family: str) -> str:
-    return "parsed_l_bracket_validation_report.json" if family == "l_bracket" else "parsed_validation_report.json"
+    return {
+        "wall_mounted_bracket": "parsed_validation_report.json",
+        "l_bracket": "parsed_l_bracket_validation_report.json",
+    }.get(family, f"parsed_{family}_validation_report.json")
 
 
 def _edited_validation_report_name(family: str) -> str:
@@ -310,12 +325,21 @@ def parse_prompt_workflow(
     try:
         parsed = parse_prompt(prompt)
     except UnsupportedObjectError as exc:
+        from intentforge.topology.rejection import build_safe_rejection_envelope
+
         return error_response(
             operation="parse",
             request_id=request_id,
             error_type=exc.__class__.__name__,
             message=str(exc),
             recoverable=True,
+            metadata={
+                "safe_rejection": build_safe_rejection_envelope(
+                    requested_family=None,
+                    message=str(exc),
+                    input_kind="natural_language",
+                )
+            },
         )
     active_features, omitted_features = feature_state_names(parsed.parameter_table)
     result: dict[str, Any] = {
@@ -376,20 +400,34 @@ def parse_build_workflow(
     *,
     request_id: str | None = None,
     dry_run: bool = False,
+    _parsed: Any | None = None,
 ) -> dict[str, Any]:
     """Parse a prompt, build CAD, export latest and persistent files, and validate."""
 
     request_id = ensure_request_id(request_id)
     out_root = _output_root(output_root)
     try:
-        parsed = parse_prompt(prompt)
-    except UnsupportedObjectError as exc:
+        parsed = _parsed if _parsed is not None else parse_prompt(prompt)
+    except (UnsupportedObjectError, ValueError) as exc:
+        metadata = None
+        if isinstance(exc, UnsupportedObjectError):
+            from intentforge.topology.rejection import build_safe_rejection_envelope
+
+            metadata = {
+                "safe_rejection": build_safe_rejection_envelope(
+                    requested_family=None,
+                    message=str(exc),
+                    input_kind="natural_language",
+                )
+            }
+
         return error_response(
             operation="parse_build",
             request_id=request_id,
             error_type=exc.__class__.__name__,
             message=str(exc),
             recoverable=True,
+            metadata=metadata,
         )
     run_context = create_parsed_run_context(prompt, out_root)
     latest_paths, persistent_paths = _write_parsed_outputs(parsed, prompt, out_root, run_context.run_dir)
@@ -397,7 +435,7 @@ def parse_build_workflow(
 
     try:
         model = _build_model(parsed.parameter_table, parsed.feature_plan)
-    except CadQueryUnavailableError as exc:
+    except (CadQueryUnavailableError, ValueError) as exc:
         return error_response(
             operation="parse_build",
             request_id=request_id,
@@ -512,6 +550,48 @@ def parse_build_workflow(
         object_type=parsed.intent.family,
         validation_report=validation_report,
         dry_run=dry_run,
+    )
+
+
+def parse_build_intent_workflow(
+    payload: dict[str, Any],
+    output_root: str | Path | None = None,
+    *,
+    request_id: str | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Build a registered topology from validated structured JSON intent."""
+
+    try:
+        parsed = parse_registered_intent(payload)
+    except (UnsupportedObjectError, ValueError) as exc:
+        requested_family = payload.get("family") or payload.get("object_type")
+        metadata = None
+        if isinstance(exc, UnsupportedObjectError):
+            from intentforge.topology.rejection import build_safe_rejection_envelope
+
+            metadata = {
+                "safe_rejection": build_safe_rejection_envelope(
+                    requested_family=str(requested_family) if requested_family else None,
+                    message=str(exc),
+                    input_kind="structured_intent",
+                )
+            }
+        return error_response(
+            operation="parse_build",
+            request_id=ensure_request_id(request_id),
+            error_type=exc.__class__.__name__,
+            message=str(exc),
+            recoverable=True,
+            object_type=str(requested_family) if requested_family else None,
+            metadata=metadata,
+        )
+    return parse_build_workflow(
+        parsed.intent.user_prompt,
+        output_root,
+        request_id=request_id,
+        dry_run=dry_run,
+        _parsed=parsed,
     )
 
 

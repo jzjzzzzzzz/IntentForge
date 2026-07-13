@@ -1,0 +1,32 @@
+topology_family: l_bracket
+manifest_version: "1.0"
+title: L-bracket
+description: Legacy deterministic two-leg L-bracket topology adapter.
+status: active
+aliases: [l-bracket, l bracket, angle bracket]
+parser_id: legacy_l_bracket_v1
+geometry_factory_id: l_bracket_factory_v1
+validator_id: l_bracket_validator_v1
+controlled_parameters:
+  - {name: base_leg_length_mm, parameter_type: float, default: 60.0, unit: mm, safe_bounds: [10.0, 1000.0], description: Base-leg length.}
+  - {name: vertical_leg_length_mm, parameter_type: float, default: 60.0, unit: mm, safe_bounds: [10.0, 1000.0], description: Vertical-leg length.}
+  - {name: bracket_width_mm, parameter_type: float, default: 80.0, unit: mm, safe_bounds: [10.0, 1000.0], description: Bracket width.}
+  - {name: thickness_mm, parameter_type: float, default: 8.0, unit: mm, safe_bounds: [1.0, 100.0], description: Leg thickness.}
+  - {name: hole_diameter_mm, parameter_type: float, default: 5.0, unit: mm, safe_bounds: [1.0, 100.0], description: Mounting-hole diameter.}
+  - {name: base_hole_spacing_mm, parameter_type: float, default: 30.0, unit: mm, safe_bounds: [3.0, 900.0], description: Base-leg hole spacing.}
+  - {name: vertical_hole_spacing_mm, parameter_type: float, default: 30.0, unit: mm, safe_bounds: [3.0, 900.0], description: Vertical-leg hole spacing.}
+supported_features:
+  - {feature_id: base_leg, operation: extrude_box, description: Required base leg., parameter_names: [base_leg_length_mm, bracket_width_mm, thickness_mm]}
+  - {feature_id: vertical_leg, operation: extrude_box, description: Required vertical leg., parameter_names: [vertical_leg_length_mm, bracket_width_mm, thickness_mm]}
+  - {feature_id: mounting_holes, operation: cut_hole_pattern, description: Optional base and vertical mounting holes., parameter_names: [hole_diameter_mm, base_hole_spacing_mm, vertical_hole_spacing_mm]}
+capability_evidence_binding:
+  evidence_catalog_ids: []
+  applicable_evidence_ids: [ev_impl_l_parser_support, ev_impl_l_generator_support, ev_impl_l_validation_support, ev_impl_l_topology_support, ev_impl_l_feature_recognition_support, ev_impl_l_knowledge_support, ev_impl_l_reasoning_support]
+  rule_ids: [hole_edge_margin_001, hole_spacing_001, gusset_recommendation_001, corner_radius_001, tool_clearance_001, manufacturing_simplicity_001, fastener_accessibility_001, installation_difficulty_001, cutout_stiffness_tradeoff_001, thin_section_warning_001]
+  rule_variable_mapping:
+    - {metric: hole_edge_distance, expression: "bracket_width_mm / 2.0 - hole_diameter_mm / 2.0", remediation_parameter: bracket_width_mm, rule_ids: [hole_edge_margin_001, fastener_accessibility_001]}
+    - {metric: hole_spacing, expression: "base_hole_spacing_mm", remediation_parameter: base_hole_spacing_mm, rule_ids: [hole_spacing_001]}
+  scope_note: Applicable evidence is limited to the existing L-bracket capability declaration.
+limitations:
+  - Four-hole, curved, adjustable, and sheet-metal unfold variants remain unsupported.
+metadata: {adapter_kind: legacy}

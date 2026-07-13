@@ -8,6 +8,7 @@ from intentforge.parser.requirement_parser import (
     parse_prompt,
     parse_requirements,
 )
+from intentforge.parser.registered_parser import parse_registered_intent, parse_registered_prompt
 
 __all__ = [
     "ParsedPrompt",
@@ -17,4 +18,6 @@ __all__ = [
     "parse_edit_request",
     "parse_prompt",
     "parse_requirements",
+    "parse_registered_intent",
+    "parse_registered_prompt",
 ]

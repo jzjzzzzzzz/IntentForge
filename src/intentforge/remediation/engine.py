@@ -139,8 +139,9 @@ def _load_metrics_and_family(
 ) -> tuple[str, dict[str, Any], dict[str, float]]:
     manifest = _read_json(package_path / "manifest.json") if (package_path / "manifest.json").is_file() else {}
     family = manifest.get("cad_family") or "wall_mounted_bracket"
-    if family not in {"wall_mounted_bracket", "l_bracket"}:
-        family = "wall_mounted_bracket"
+    from intentforge.topology.registry import get_topology_registry
+
+    get_topology_registry().get(str(family))
     parameters = parameters_override or _load_parameter_table_from_package(package_path)
     metrics = build_metrics(parameters, family=family)
     return family, parameters, metrics
@@ -196,7 +197,7 @@ def build_metrics(parameters: dict[str, Any], *, family: str) -> dict[str, float
             "vertical_leg_height_to_thickness": 0.0,
             "active_optional_feature_count": active_feature_count,
         })
-    else:
+    elif family == "l_bracket":
         base_length = _numeric(parameters.get("base_leg_length_mm"))
         vertical_length = _numeric(parameters.get("vertical_leg_length_mm"))
         bracket_width = _numeric(parameters.get("bracket_width_mm"))
@@ -245,6 +246,38 @@ def build_metrics(parameters: dict[str, Any], *, family: str) -> dict[str, float
             "cutout_area_ratio": 0.0,
             "active_optional_feature_count": active_feature_count,
         })
+    else:
+        from intentforge.topology.expressions import evaluate_numeric_expression
+        from intentforge.topology.registry import get_topology_registry
+
+        manifest = get_topology_registry().get(family)
+        for mapping in manifest.capability_evidence_binding.rule_variable_mapping:
+            metrics[mapping.metric] = evaluate_numeric_expression(mapping.expression, parameters)
+        outer = _numeric(parameters.get("flange_outer_diameter"))
+        bore = _numeric(parameters.get("bore_diameter"))
+        hole_diameter = _numeric(parameters.get("bolt_hole_diameter"))
+        thickness = _numeric(parameters.get("flange_thickness"))
+        hole_count = _numeric(parameters.get("hole_count"))
+        metrics.update({
+            "object_type": family,
+            "width": outer,
+            "height": outer,
+            "bracket_width": outer,
+            "thickness": thickness,
+            "hole_diameter": hole_diameter,
+            "hole_count": hole_count,
+            "mounting_holes_active": hole_count > 0,
+            "fastener_edge_clearance": metrics.get("hole_edge_distance", 0.0),
+            "tool_clearance": _min_positive([hole_diameter, thickness]),
+            "minimum_section_thickness": max(0.0, (outer - bore) / 2.0),
+            "corner_radius": 0.0,
+            "rounded_corners_active": False,
+            "center_cutout_active": False,
+            "cutout_area_ratio": 0.0,
+            "gusset_enabled": False,
+            "vertical_leg_height_to_thickness": 0.0,
+            "active_optional_feature_count": len(manifest.supported_features),
+        })
     return metrics
 
 
@@ -272,16 +305,15 @@ def _min_positive(values: list[float | None]) -> float:
 def _load_rule_registry(family: str | None = None) -> dict[str, dict[str, Any]]:
     registry = RuleRegistry.load()
     payload: dict[str, dict[str, Any]] = {}
-    for rule in registry.rules:
-        if family and family not in rule.applies_to:
-            continue
+    selected = registry.for_family(family) if family else registry.rules
+    for rule in selected:
         if rule.status != "active":
             continue
         payload[rule.id] = {
             "id": rule.id,
             "name": rule.name,
             "condition": rule.condition,
-            "applies_to": list(rule.applies_to),
+            "applies_to": sorted(set(rule.applies_to).union({family} if family else set())),
             "severity": rule.severity,
             "recommendation": rule.recommendation,
             "reasoning": rule.reasoning,

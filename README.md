@@ -4,7 +4,7 @@
 
 IntentForge is a deterministic CAD intent pipeline for turning simple engineering language into editable, explainable, validated parametric CAD models.
 
-Phase 27 adds full SHA-256 content addresses and optional predecessor linkage to the portable Phase 26 audit package. Every structural assurance, policy, evidence, provenance, decision, and report file receives an exact object address. Finalized packages can be stored under that address and linked into a deterministic chronological chain; changed, missing, or switched predecessors fail verification.
+Phase 32 adds a declarative topology registry and the first registry-native industrial component, `industrial_flange`. Family manifests define bounded parameters, supported features, closed adapter identifiers, evidence bindings, rule bindings, and safe arithmetic metric mappings. Geometry remains deterministic compiled Python selected through a closed adapter registry; manifests never execute code.
 
 ```bash
 intentforge assurance build --profile static
@@ -19,17 +19,22 @@ intentforge review verify-offline output/assurance/audit_package
 intentforge review cas-check output/assurance/audit_package
 intentforge review cas-store output/assurance/audit_package --store output/review-cas
 intentforge review chain-verify <head-package> --store output/review-cas
+intentforge topology list
+intentforge topology validate
+intentforge topology schema industrial_flange
+intentforge topology build-json flange-intent.json
 ```
 
 See [Engineering assurance cases](docs/assurance_cases.md), [Audit packages](docs/audit_packages.md), [Offline verification](docs/offline_verification.md), [Audit portability](docs/audit_portability.md), [Content-addressed audit](docs/content_addressed_audit.md), [Audit chains](docs/audit_chain.md), [Review policies](docs/review_policies.md), [Acceptance decisions](docs/acceptance_decisions.md), [Decision provenance](docs/decision_provenance.md), [Multi-variant differential audit](docs/multi_variant_audit.md), and [Policy checks](docs/policy_checks.md).
 
 It is not a general text-to-CAD generator. The goal is not to produce geometry that merely looks right once. The goal is to preserve the design intent behind the model so later edits can update named parameters and active features without losing the original assumptions, constraints, and feature history.
 
-The current implementation is intentionally narrow:
+The current implementation remains intentionally bounded:
 
 ```text
 wall_mounted_bracket / mounting plate
 l_bracket / right angle bracket
+industrial_flange / flat ring pipe flange foundation
 ```
 
 IntentForge currently uses Python, Pydantic schemas, CadQuery, pytest, deterministic regex parsing, optional MCP wrappers, and an optional LLM intent translator. The deterministic CAD core does not depend on an LLM.
@@ -68,13 +73,17 @@ IntentForge keeps the editable model state explicit:
 
 ## Supported Scope
 
-IntentForge currently supports two deterministic model families:
+IntentForge currently registers three deterministic model families:
 
 - `wall_mounted_bracket` / mounting plate
 - `l_bracket` / right angle bracket
+- `industrial_flange` / flat ring flange with a central bore and polar bolt-hole pattern
 
 Supported features:
 
+- registry-derived JSON schemas with typed parameters and conservative safe bounds
+- industrial flange outside diameter, bolt circle, bolt-hole diameter/count, thickness, and bore
+- deterministic flange STEP/STL generation, validation, knowledge evaluation, and audit packaging
 - L-bracket base leg and vertical leg parameters
 - L-bracket no holes or two holes per leg
 - optional L-bracket triangular gusset
@@ -98,6 +107,10 @@ Supported features:
 - frozen review-decision provenance with deterministic replay verification
 - structural pairwise and multi-variant review differential audits
 - standard-library-only offline audit-package verification
+
+The flange profile is ASME B16.5-oriented only. It does not certify pressure
+class, material, facing, hub, gasket, loads, manufacturing, or service fitness.
+External engineering review remains required for service use.
 - canonical platform-neutral package JSON, paths, runtime identifiers, and hashes
 - full SHA-256 package/object content addresses and immutable-by-address local storage
 - optional predecessor binding across assurance claims, decisions, provenance, and CAS envelopes

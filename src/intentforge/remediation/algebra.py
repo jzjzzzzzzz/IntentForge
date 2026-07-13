@@ -320,7 +320,16 @@ def extract_metric_to_parameter_map(
             "tool_clearance": "bracket_width_mm",
             "active_optional_feature_count": "feature_flags",
         }
-    raise RemediationAlgebraError(f"unsupported CAD family: {family}")
+    try:
+        from intentforge.topology.registry import get_topology_registry
+
+        manifest = get_topology_registry().get(family)
+    except (ImportError, ValueError) as exc:
+        raise RemediationAlgebraError(f"unsupported CAD family: {family}") from exc
+    return {
+        mapping.metric: mapping.remediation_parameter
+        for mapping in manifest.capability_evidence_binding.rule_variable_mapping
+    }
 
 
 def metric_to_parameter_transform(
@@ -395,7 +404,26 @@ def metric_to_parameter_transform(
             return target_metric_value
         if metric == "fastener_edge_clearance":
             return 2 * target_metric_value + spacing + hole_diameter
-    raise RemediationAlgebraError(f"unsupported metric-to-parameter transform: {family}.{metric}")
+    try:
+        from intentforge.topology.expressions import solve_parameter_for_metric
+        from intentforge.topology.registry import get_topology_registry
+
+        manifest = get_topology_registry().get(family)
+        mapping = manifest.metric_mapping(metric)
+        definition = manifest.parameter(mapping.remediation_parameter)
+        if definition.safe_bounds is None:
+            raise RemediationAlgebraError(
+                f"remediation parameter has no safe bounds: {mapping.remediation_parameter}"
+            )
+        return solve_parameter_for_metric(
+            mapping.expression,
+            target_metric_value=target_metric_value,
+            parameter_name=mapping.remediation_parameter,
+            parameters=parameters,
+            safe_bounds=definition.safe_bounds,
+        )
+    except (ImportError, KeyError, ValueError) as exc:
+        raise RemediationAlgebraError(f"unsupported metric-to-parameter transform: {family}.{metric}") from exc
 
 
 def _coerce_float(value: Any, default: float = 0.0) -> float:
@@ -581,7 +609,7 @@ def synthesize_remediation(
                 inequality,
                 metric=metric,
                 other_metrics=metrics,
-                parameter_value=current_value,
+                parameter_value=float(metrics.get(metric, current_value)),
             )
             target_value = metric_to_parameter_transform(
                 family=family,

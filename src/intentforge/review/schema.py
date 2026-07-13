@@ -22,7 +22,7 @@ from intentforge.review.provenance_schema import DecisionProvenance
 
 
 REVIEW_SCHEMA_VERSION = "1.0"
-SUPPORTED_POLICY_FAMILIES = ("wall_mounted_bracket", "l_bracket")
+SUPPORTED_POLICY_FAMILIES = ("wall_mounted_bracket", "l_bracket", "industrial_flange")
 SUPPORTED_POLICY_OPERATIONS = (
     "parse",
     "parse_build",

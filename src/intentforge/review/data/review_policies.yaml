@@ -6,7 +6,7 @@ policies:
     description: Reviews intent, scope, evidence references, and limitation disclosure without claiming CAD execution.
     policy_version: "1.0"
     policy_scope: assurance_case
-    applicable_families: [wall_mounted_bracket, l_bracket]
+    applicable_families: [wall_mounted_bracket, l_bracket, industrial_flange]
     applicable_operations: [parse]
     required_assurance_profiles: [static]
     subject_type: design_result
@@ -105,7 +105,7 @@ policies:
     description: Reviews a CAD-backed design result with geometry, topology, feature, knowledge, and reasoning observations.
     policy_version: "1.0"
     policy_scope: assurance_case
-    applicable_families: [wall_mounted_bracket, l_bracket]
+    applicable_families: [wall_mounted_bracket, l_bracket, industrial_flange]
     applicable_operations: [parse_build]
     required_assurance_profiles: [standard, full]
     subject_type: design_result
@@ -258,7 +258,7 @@ policies:
     description: Extends standard review with artifact integrity, audit-package validation, and reproducibility checks.
     policy_version: "1.0"
     policy_scope: assurance_case_and_audit_package
-    applicable_families: [wall_mounted_bracket, l_bracket]
+    applicable_families: [wall_mounted_bracket, l_bracket, industrial_flange]
     applicable_operations: [parse_build]
     required_assurance_profiles: [full]
     subject_type: design_result
@@ -431,7 +431,7 @@ policies:
     description: Reviews an edit result for traceability, preservation, regenerated geometry, and validation.
     policy_version: "1.0"
     policy_scope: assurance_case
-    applicable_families: [wall_mounted_bracket, l_bracket]
+    applicable_families: [wall_mounted_bracket, l_bracket, industrial_flange]
     applicable_operations: [edit_parse_apply]
     required_assurance_profiles: [standard, full]
     subject_type: edit_result
@@ -552,7 +552,7 @@ policies:
     description: Reviews whether an unsupported or invalid request was rejected clearly without CAD export.
     policy_version: "1.0"
     policy_scope: assurance_case
-    applicable_families: [wall_mounted_bracket, l_bracket]
+    applicable_families: [wall_mounted_bracket, l_bracket, industrial_flange]
     applicable_operations: [parse, parse_build, edit_parse, edit_parse_apply]
     required_assurance_profiles: [static, standard, full]
     subject_type: safe_rejection

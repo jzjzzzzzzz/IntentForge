@@ -1,10 +1,12 @@
 """Intent-level schema for a CAD request."""
 
-from typing import Any, Literal
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-SupportedFamily = Literal["wall_mounted_bracket", "l_bracket"]
+from intentforge.schemas.family import validate_registered_family
+
+SupportedFamily = str
 
 
 class IntentSpec(BaseModel):
@@ -42,3 +44,5 @@ class IntentSpec(BaseModel):
         default_factory=dict,
         description="Intent metadata to carry into generated models and reports.",
     )
+
+    _registered_family = field_validator("family")(validate_registered_family)

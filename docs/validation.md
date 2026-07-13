@@ -71,7 +71,11 @@ Intent validation checks whether the structured design state is internally consi
 
 ## Current Limits
 
-IntentForge does not yet perform full industrial CAD feature recognition from arbitrary solids. Phase 18 recognition is topology-informed, parameter-aware, and limited to generated `wall_mounted_bracket` and `l_bracket` models.
+IntentForge does not perform full industrial CAD feature recognition from
+arbitrary solids. Bracket recognition remains the detailed Phase 18 path. The
+registered flange validator reports conservative topology-informed observations
+for a single connected ring solid, central bore, and polar through-hole pattern;
+it does not infer pressure-class or standards compliance.
 
 For L-brackets, inside fillet intent is represented in parameters and validation, but robust geometric inside-corner filleting is future work.
 

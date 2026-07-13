@@ -1,13 +1,20 @@
 # Project Status
 
-Current development target: Phase 27 immutable content-addressed audit storage and chained lineage verification on `main`
+Current development target: Phase 32 declarative topology registry and industrial flange foundation on `main`
 
-Phase 27 addresses every finalized reviewed package and structural payload with full SHA-256 identities. Optional predecessor pointers are bound into assurance claims, decisions, provenance, and the CAS envelope. A local immutable-by-address store and deterministic chain verifier detect modified, deleted, switched, mismatched, or cyclic predecessors without network access. No CAD family, CAD generation, policy outcome, capability count, or evidence definition changed.
+Phase 32 replaces the core family-selection boundary with schema-validated
+topology manifests and a closed adapter registry. The registry currently
+discovers three packaged families. The new `industrial_flange` adapter builds
+a deterministic flat ring flange and binds manifest formulas into knowledge
+evaluation and remediation. Existing 28 capability declarations and 65
+evidence definitions remain unchanged; the flange manifest exposes that catalog
+for traceability but does not misclassify bracket verification as flange proof.
 
 Current supported model families:
 
 - `wall_mounted_bracket` / mounting plate
 - `l_bracket` / right angle bracket
+- `industrial_flange` / flat ring flange foundation
 
 ## Completed Phases
 
@@ -52,8 +59,20 @@ Current supported model families:
 - Phase 25: deterministic decision provenance and multi-variant differential audit
 - Phase 26: offline audit-package static verification and multi-platform portability hardening
 - Phase 27: immutable content-addressed audit storage and chained lineage verification
+- Phase 28: privacy-preserving redacted audit export
+- Phase 29: Merkle-rooted multi-component release dossiers
+- Phase 30: deterministic algebraic auto-remediation
+- Phase 31: controlled review exemptions
+- Phase 32: declarative topology registry and industrial flange foundation
 
 ## Current Capabilities
+
+- discover schema-validated topology manifests from installed package resources
+- generate per-family JSON intent schemas from controlled parameter declarations
+- dispatch parsers, geometry factories, and validators through closed adapter IDs
+- build and validate a flat-ring `industrial_flange` with a central bore and polar bolt-hole pattern
+- apply manifest metric formulas to deterministic knowledge evaluation and AST remediation
+- return content-addressed safe-rejection envelopes for unregistered topology families
 
 - parse simple wall-mounted bracket and mounting plate prompts
 - parse simple L-bracket and right-angle bracket prompts

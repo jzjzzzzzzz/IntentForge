@@ -1,5 +1,28 @@
 # Architecture
 
+## Declarative Topology Registry
+
+Phase 32 separates topology metadata from runtime adapters:
+
+```text
+packaged manifest
+-> TopologyManifest validation
+-> RegistryManager
+-> registry-derived intent schema
+-> closed parser/factory/validator adapter
+-> existing validation, knowledge, assurance, CAS, and dossier pipeline
+```
+
+Manifests are declarative data. They cannot name arbitrary Python modules or
+callables. Adapter identifiers must exist in closed code-side registries. Safe
+arithmetic formulas use a restricted AST containing names, numeric constants,
+addition, subtraction, multiplication, division, and unary signs only.
+
+The authoritative manifests live under
+`intentforge/knowledge/topology/families/<family>/manifest.yaml`. Runtime
+registry code lives under `intentforge/topology/` so parser startup does not
+eagerly initialize benchmark and reporting modules.
+
 IntentForge is organized as a deterministic CAD intent pipeline. Each module owns one part of the path from prompt to validated CAD.
 
 The per-design assurance layer adapts existing workflow responses into structured claims, arguments, validation observations, capability/evidence references, limitations, and safe artifact records. It does not execute a second CAD pipeline. Deterministic renderers and audit-package validation operate on the authoritative structured assurance case.

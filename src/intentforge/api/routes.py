@@ -54,7 +54,13 @@ def register_routes(app: "fastapi.FastAPI") -> None:
     @app.get("/health", tags=["system"])
     async def health_check():
         """Return API health status."""
-        return {"status": "ok", "service": "IntentForge API"}
+        from intentforge.topology.registry import registered_family_ids
+
+        return {
+            "status": "ok",
+            "service": "IntentForge API",
+            "supported_families": list(registered_family_ids()),
+        }
 
     # ── Deterministic CAD endpoints ───────────────────────────────
 

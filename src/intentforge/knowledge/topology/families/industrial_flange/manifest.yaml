@@ -1,0 +1,109 @@
+topology_family: industrial_flange
+manifest_version: "1.0"
+title: Industrial pipe flange
+description: Deterministic ASME B16.5-oriented flange profile foundation; dimensions are explicit inputs and are not a certification claim.
+status: active
+aliases: [industrial flange, pipe flange, flange]
+parser_id: manifest_parameter_parser_v1
+geometry_factory_id: industrial_flange_factory_v1
+validator_id: industrial_flange_validator_v1
+controlled_parameters:
+  - {name: flange_outer_diameter, parameter_type: float, default: 150.0, unit: mm, safe_bounds: [40.0, 1500.0], description: Overall flange outside diameter.}
+  - {name: bolt_circle_diameter, parameter_type: float, default: 110.0, unit: mm, safe_bounds: [20.0, 1400.0], description: Diameter of the bolt-hole center circle.}
+  - {name: bolt_hole_diameter, parameter_type: float, default: 14.0, unit: mm, safe_bounds: [2.0, 120.0], description: Diameter of each through bolt hole.}
+  - {name: hole_count, parameter_type: integer, default: 4, safe_bounds: [3.0, 64.0], description: Number of equally spaced bolt holes.}
+  - {name: flange_thickness, parameter_type: float, default: 18.0, unit: mm, safe_bounds: [2.0, 200.0], description: Axial flange thickness.}
+  - {name: bore_diameter, parameter_type: float, default: 60.0, unit: mm, safe_bounds: [5.0, 1000.0], description: Diameter of the central through bore.}
+supported_features:
+  - {feature_id: flange_body, operation: revolve_cylinder, description: Required cylindrical flange body., parameter_names: [flange_outer_diameter, flange_thickness]}
+  - {feature_id: central_bore, operation: cut_central_bore, description: Required central through bore., parameter_names: [bore_diameter]}
+  - {feature_id: bolt_hole_pattern, operation: cut_polar_hole_pattern, description: Equally spaced through-hole bolt circle., parameter_names: [bolt_circle_diameter, bolt_hole_diameter, hole_count]}
+capability_evidence_binding:
+  evidence_catalog_ids:
+    - ev_rule_hole_edge_margin_001
+    - ev_rule_hole_spacing_001
+    - ev_rule_gusset_recommendation_001
+    - ev_rule_corner_radius_001
+    - ev_rule_tool_clearance_001
+    - ev_rule_manufacturing_simplicity_001
+    - ev_rule_fastener_accessibility_001
+    - ev_rule_installation_difficulty_001
+    - ev_rule_cutout_stiffness_tradeoff_001
+    - ev_rule_thin_section_warning_001
+    - ev_pack_bracket_mechanical
+    - ev_pack_bracket_manufacturing
+    - ev_pack_bracket_assembly
+    - ev_pack_bracket_structural
+    - ev_impl_wall_parser_support
+    - ev_impl_wall_generator_support
+    - ev_impl_wall_validation_support
+    - ev_impl_wall_topology_support
+    - ev_impl_wall_feature_recognition_support
+    - ev_impl_wall_knowledge_support
+    - ev_impl_wall_reasoning_support
+    - ev_verify_wall_basic_benchmark
+    - ev_verify_wall_two_hole_benchmark
+    - ev_verify_wall_four_hole_benchmark
+    - ev_verify_wall_cutout_benchmark
+    - ev_verify_wall_rounded_benchmark
+    - ev_verify_wall_edge_fillets_test
+    - ev_verify_wall_geometry_validation_test
+    - ev_verify_wall_topology_harness
+    - ev_verify_wall_feature_recognition_harness
+    - ev_verify_wall_knowledge_tests
+    - ev_verify_wall_reasoning_golden
+    - ev_limit_wall_rounded_corners
+    - ev_limit_wall_edge_fillets
+    - ev_limit_wall_feature_recognition
+    - ev_boundary_wall_freeform_holes
+    - ev_boundary_wall_unsupported_holes
+    - ev_boundary_wall_arbitrary_cad
+    - ev_impl_l_parser_support
+    - ev_impl_l_generator_support
+    - ev_impl_l_validation_support
+    - ev_impl_l_topology_support
+    - ev_impl_l_feature_recognition_support
+    - ev_impl_l_knowledge_support
+    - ev_impl_l_reasoning_support
+    - ev_verify_l_basic_benchmark
+    - ev_verify_l_zero_hole_benchmark
+    - ev_verify_l_base_holes_benchmark
+    - ev_verify_l_vertical_holes_benchmark
+    - ev_verify_l_gusset_benchmark
+    - ev_verify_l_inside_fillet_benchmark
+    - ev_verify_l_geometry_validation_test
+    - ev_verify_l_topology_harness
+    - ev_verify_l_feature_recognition_harness
+    - ev_verify_l_knowledge_tests
+    - ev_verify_l_reasoning_golden
+    - ev_limit_l_inside_fillet
+    - ev_limit_l_feature_recognition
+    - ev_boundary_l_four_hole_pattern
+    - ev_boundary_l_curved_bracket
+    - ev_boundary_l_adjustable_bracket
+    - ev_boundary_l_sheet_metal_flat_pattern
+    - ev_package_capability_manifest
+    - ev_package_evidence_manifest
+    - ev_package_rule_pack_mechanical
+  applicable_evidence_ids: [ev_rule_hole_edge_margin_001, ev_rule_hole_spacing_001, ev_rule_tool_clearance_001, ev_rule_manufacturing_simplicity_001, ev_rule_fastener_accessibility_001, ev_rule_installation_difficulty_001, ev_rule_thin_section_warning_001, ev_package_rule_pack_mechanical]
+  rule_ids: [hole_edge_margin_001, hole_spacing_001, gusset_recommendation_001, corner_radius_001, tool_clearance_001, manufacturing_simplicity_001, fastener_accessibility_001, installation_difficulty_001, cutout_stiffness_tradeoff_001, thin_section_warning_001]
+  rule_variable_mapping:
+    - metric: hole_edge_distance
+      expression: "(flange_outer_diameter - bolt_circle_diameter) / 2.0 - (bolt_hole_diameter / 2.0)"
+      remediation_parameter: flange_outer_diameter
+      rule_ids: [hole_edge_margin_001, fastener_accessibility_001]
+    - metric: hole_spacing
+      expression: "bolt_circle_diameter * 3.141592653589793 / hole_count"
+      remediation_parameter: bolt_circle_diameter
+      rule_ids: [hole_spacing_001]
+    - metric: thickness
+      expression: "flange_thickness"
+      remediation_parameter: flange_thickness
+      rule_ids: [thin_section_warning_001]
+  scope_note: The 65-item catalog is visible for audit mapping; bracket-specific evidence is not treated as flange verification. Only applicable_evidence_ids contribute engineering context.
+limitations:
+  - This profile does not certify ASME B16.5 pressure class, material, facing, hub, gasket, or load compliance.
+  - The profile generates a flat ring flange only and requires external engineering review for service use.
+metadata:
+  adapter_kind: manifest
+  standard_orientation: ASME B16.5-oriented, not certified

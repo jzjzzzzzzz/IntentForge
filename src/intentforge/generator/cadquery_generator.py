@@ -524,8 +524,6 @@ def export_model(model: Any, step_path: str | Path, stl_path: str | Path) -> tup
 def generate_cadquery_model(feature_plan: FeaturePlan, parameters: ParameterTable):
     """Backward-compatible wrapper for building a supported bracket model."""
 
-    if feature_plan.family == SUPPORTED_FAMILY:
-        return build_wall_bracket(parameters)
-    if feature_plan.family == L_BRACKET_FAMILY:
-        return build_l_bracket(parameters, feature_plan)
-    raise ValueError(f"unsupported model family: {feature_plan.family}")
+    from intentforge.topology import build_registered_model
+
+    return build_registered_model(parameters, feature_plan)

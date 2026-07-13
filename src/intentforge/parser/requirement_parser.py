@@ -1317,8 +1317,16 @@ def parse_l_bracket_prompt(prompt: str) -> ParsedPrompt:
 def parse_prompt(prompt: str) -> ParsedPrompt:
     """Parse a supported prompt into structured IntentForge artifacts."""
 
-    if _has_l_bracket_object(_normalise(prompt)):
+    text = _normalise(prompt)
+    from intentforge.topology.registry import get_topology_registry
+
+    detected = get_topology_registry().detect_family(text)
+    if detected == L_BRACKET_FAMILY or _has_l_bracket_object(text):
         return parse_l_bracket_prompt(prompt)
+    if detected and detected not in {SUPPORTED_FAMILY, L_BRACKET_FAMILY}:
+        from intentforge.parser.registered_parser import parse_registered_prompt
+
+        return parse_registered_prompt(prompt, detected)
     return parse_bracket_prompt(prompt)
 
 

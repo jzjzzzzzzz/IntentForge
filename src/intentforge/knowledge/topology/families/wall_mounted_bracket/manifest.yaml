@@ -1,0 +1,32 @@
+topology_family: wall_mounted_bracket
+manifest_version: "1.0"
+title: Wall-mounted bracket
+description: Legacy deterministic wall-mounted bracket topology adapter.
+status: active
+aliases: [wall-mounted bracket, wall mounted bracket, mounting plate, mounting bracket]
+parser_id: legacy_wall_bracket_v1
+geometry_factory_id: wall_bracket_factory_v1
+validator_id: wall_bracket_validator_v1
+controlled_parameters:
+  - {name: back_plate_width_mm, parameter_type: float, default: 120.0, unit: mm, safe_bounds: [20.0, 1000.0], description: Back plate width.}
+  - {name: back_plate_height_mm, parameter_type: float, default: 60.0, unit: mm, safe_bounds: [20.0, 1000.0], description: Back plate height.}
+  - {name: back_plate_thickness_mm, parameter_type: float, default: 8.0, unit: mm, safe_bounds: [1.0, 100.0], description: Back plate thickness.}
+  - {name: mounting_hole_diameter_mm, parameter_type: float, default: 5.0, unit: mm, safe_bounds: [1.0, 100.0], description: Mounting-hole diameter.}
+  - {name: mounting_hole_spacing_x_mm, parameter_type: float, default: 80.0, unit: mm, safe_bounds: [3.0, 900.0], description: Horizontal hole spacing.}
+  - {name: mounting_hole_spacing_y_mm, parameter_type: float, default: 30.0, unit: mm, safe_bounds: [3.0, 900.0], description: Vertical hole spacing.}
+  - {name: corner_radius_mm, parameter_type: float, default: 4.0, unit: mm, safe_bounds: [0.0, 100.0], description: Outside corner radius.}
+supported_features:
+  - {feature_id: back_plate, operation: extrude_profile, description: Required back plate., parameter_names: [back_plate_width_mm, back_plate_height_mm, back_plate_thickness_mm]}
+  - {feature_id: mounting_holes, operation: cut_hole_pattern, description: Symmetric mounting-hole pattern., parameter_names: [mounting_hole_diameter_mm, mounting_hole_spacing_x_mm, mounting_hole_spacing_y_mm]}
+  - {feature_id: rounded_corners, operation: round_profile, description: Optional rounded corners., default_enabled: false, parameter_names: [corner_radius_mm]}
+capability_evidence_binding:
+  evidence_catalog_ids: []
+  applicable_evidence_ids: [ev_impl_wall_parser_support, ev_impl_wall_generator_support, ev_impl_wall_validation_support, ev_impl_wall_topology_support, ev_impl_wall_feature_recognition_support, ev_impl_wall_knowledge_support, ev_impl_wall_reasoning_support]
+  rule_ids: [hole_edge_margin_001, hole_spacing_001, gusset_recommendation_001, corner_radius_001, tool_clearance_001, manufacturing_simplicity_001, fastener_accessibility_001, installation_difficulty_001, cutout_stiffness_tradeoff_001, thin_section_warning_001]
+  rule_variable_mapping:
+    - {metric: hole_edge_distance, expression: "back_plate_width_mm / 2.0 - mounting_hole_spacing_x_mm / 2.0 - mounting_hole_diameter_mm / 2.0", remediation_parameter: back_plate_width_mm, rule_ids: [hole_edge_margin_001, fastener_accessibility_001]}
+    - {metric: hole_spacing, expression: "mounting_hole_spacing_x_mm", remediation_parameter: mounting_hole_spacing_x_mm, rule_ids: [hole_spacing_001]}
+  scope_note: Applicable evidence is limited to the existing wall-bracket capability declaration.
+limitations:
+  - Free-form hole placement and arbitrary CAD geometry remain unsupported.
+metadata: {adapter_kind: legacy}
