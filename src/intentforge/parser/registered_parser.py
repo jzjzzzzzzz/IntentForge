@@ -163,21 +163,30 @@ def parse_registered_intent(payload: dict[str, Any]):
                 Constraint(
                     id="flange_inner_material",
                     kind="geometric",
-                    expression="bore_diameter + bolt_hole_diameter < bolt_circle_diameter",
-                    parameters=["bore_diameter", "bolt_hole_diameter", "bolt_circle_diameter"],
+                    expression="bore_diameter + bore_clearance + bolt_hole_diameter < bolt_circle_diameter",
+                    parameters=["bore_diameter", "bore_clearance", "bolt_hole_diameter", "bolt_circle_diameter"],
                     reason="Bolt holes must remain outside the central bore.",
                 ),
             ]
         )
     elif family == "spur_gear":
-        constraints.append(
-            Constraint(
-                id="gear_bore_root_material",
-                kind="geometric",
-                expression="bore_diameter + 2 * module < (teeth_count - 2.5) * module",
-                parameters=["bore_diameter", "module", "teeth_count"],
-                reason="The shaft bore must retain at least one module of radial material inside the root circle.",
-            )
+        constraints.extend(
+            [
+                Constraint(
+                    id="gear_zero_shift_undercut_limit",
+                    kind="geometric",
+                    expression="teeth_count >= 17",
+                    parameters=["teeth_count"],
+                    reason="The supported zero-shift 20-degree spur-gear approximation requires at least 17 teeth to avoid undercut.",
+                ),
+                Constraint(
+                    id="gear_bore_root_material",
+                    kind="geometric",
+                    expression="bore_diameter + bore_clearance + 2 * module < (teeth_count - 2.5) * module",
+                    parameters=["bore_diameter", "bore_clearance", "module", "teeth_count"],
+                    reason="The effective shaft bore must retain at least one module of radial material inside the root circle.",
+                ),
+            ]
         )
     elif family == "standard_bolt":
         constraints.extend(

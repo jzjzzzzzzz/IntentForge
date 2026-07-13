@@ -35,13 +35,16 @@ def validate_industrial_flange(model: Any, table: ParameterTable, **_: Any) -> V
     bolt_circle = float(table.get("bolt_circle_diameter").value)
     bolt_hole = float(table.get("bolt_hole_diameter").value)
     bore = float(table.get("bore_diameter").value)
+    bore_clearance = float(table.get("bore_clearance").value)
+    effective_bore = bore + bore_clearance
     solids = shape.Solids() if hasattr(shape, "Solids") else []
     checks = [
         _check("flange_shape_valid", "OpenCASCADE shape is valid.", bool(shape.isValid())),
         _check("flange_single_solid", "Flange is one connected solid.", len(solids) == 1, expected=1, actual=len(solids)),
         _check("flange_outer_diameter", "Outside diameter matches the parameter.", abs(box.xlen - outer) <= 0.1, expected=outer, actual=box.xlen),
         _check("flange_thickness", "Axial thickness matches the parameter.", abs(box.zlen - thickness) <= 0.1, expected=thickness, actual=box.zlen),
-        _check("flange_radial_material", "Bore and bolt holes retain radial material.", bore < bolt_circle - bolt_hole and bolt_circle + bolt_hole < outer),
+        _check("flange_bore_clearance", "Central bore includes the declared diametral assembly clearance.", bore_clearance >= 0.0, expected=">=0", actual=bore_clearance),
+        _check("flange_radial_material", "Effective bore and bolt holes retain radial material.", effective_bore < bolt_circle - bolt_hole and bolt_circle + bolt_hole < outer),
         _check("flange_positive_volume", "Generated flange has positive volume.", float(shape.Volume()) > 0.0),
     ]
     passed = all(item.status == "pass" for item in checks)
@@ -131,15 +134,19 @@ def validate_spur_gear(model: Any, table: ParameterTable, **_: Any) -> Validatio
     teeth = int(table.get("teeth_count").value)
     width = float(table.get("face_width").value)
     bore = float(table.get("bore_diameter").value)
+    bore_clearance = float(table.get("bore_clearance").value)
+    effective_bore = bore + bore_clearance
     pitch = module * teeth
     root = module * (teeth - 2.5)
     outside = module * (teeth + 2.0)
-    margin = (root - bore) / 2.0
+    margin = (root - effective_bore) / 2.0
     margin_modules = float(get_topology_registry().get("spur_gear").metadata["minimum_radial_bore_margin_modules"])
     required_margin = margin_modules * module
     checks = [
         _check("gear_pitch_formula", "Pitch-circle diameter follows module times tooth count.", abs(pitch - module * teeth) <= 1e-9),
-        _check("gear_root_formula", "Root-circle diameter follows the registered full-depth approximation.", root > bore),
+        _check("gear_undercut_limit", "Zero-shift tooth count meets the supported undercut limit.", teeth >= 17, expected=">=17", actual=teeth),
+        _check("gear_root_formula", "Root-circle diameter follows the registered full-depth approximation.", root > effective_bore),
+        _check("gear_bore_clearance", "Central bore includes the declared diametral assembly clearance.", bore_clearance >= 0.0, expected=">=0", actual=bore_clearance),
         _check("gear_bore_material", "Central bore retains the declared radial material margin.", margin >= required_margin, expected=f">={required_margin}", actual=margin),
         _check("gear_outside_diameter", "Generated outside diameter matches the addendum envelope.", abs(max(box.xlen, box.ylen) - outside) <= max(0.2, module * 0.08), expected=outside, actual=max(box.xlen, box.ylen)),
         _check("gear_face_width", "Generated face width matches the parameter.", abs(box.zlen - width) <= 0.1, expected=width, actual=box.zlen),

@@ -9,14 +9,15 @@ geometry_factory_id: spur_gear_factory_v1
 validator_id: spur_gear_validator_v1
 controlled_parameters:
   - {name: module, parameter_type: float, default: 2.0, unit: mm, safe_bounds: [0.5, 20.0], description: Metric gear module.}
-  - {name: teeth_count, parameter_type: integer, default: 20, safe_bounds: [8.0, 240.0], description: Number of external gear teeth.}
+  - {name: teeth_count, parameter_type: integer, default: 20, safe_bounds: [17.0, 240.0], description: Number of external gear teeth; zero-shift gears require at least 17 teeth to avoid undercut at the supported standard pressure angle.}
   - {name: pressure_angle, parameter_type: float, default: 20.0, unit: deg, safe_bounds: [14.5, 30.0], description: Transverse pressure angle used by the involute approximation.}
   - {name: face_width, parameter_type: float, default: 16.0, unit: mm, safe_bounds: [2.0, 300.0], description: Axial gear face width.}
   - {name: bore_diameter, parameter_type: float, default: 12.0, unit: mm, safe_bounds: [1.0, 1000.0], description: Diameter of the central shaft bore.}
+  - {name: bore_clearance, parameter_type: float, default: 0.5, unit: mm, safe_bounds: [0.0, 5.0], description: Diametral assembly clearance added to the nominal shaft bore.}
 supported_features:
   - {feature_id: root_body, operation: extrude_root_body, description: Required root-circle gear body., parameter_names: [module, teeth_count, face_width]}
   - {feature_id: involute_teeth, operation: extrude_involute_approximation, description: Deterministic external tooth profile approximating an involute., parameter_names: [module, teeth_count, pressure_angle, face_width]}
-  - {feature_id: central_bore, operation: cut_central_bore, description: Required central through bore., parameter_names: [bore_diameter]}
+  - {feature_id: central_bore, operation: cut_central_bore, description: Required central through bore sized from nominal diameter plus diametral clearance., parameter_names: [bore_diameter, bore_clearance]}
 capability_evidence_binding:
   evidence_catalog_ids: &evidence_catalog
     [ev_rule_hole_edge_margin_001, ev_rule_hole_spacing_001, ev_rule_gusset_recommendation_001, ev_rule_corner_radius_001, ev_rule_tool_clearance_001, ev_rule_manufacturing_simplicity_001, ev_rule_fastener_accessibility_001, ev_rule_installation_difficulty_001, ev_rule_cutout_stiffness_tradeoff_001, ev_rule_thin_section_warning_001, ev_pack_bracket_mechanical, ev_pack_bracket_manufacturing, ev_pack_bracket_assembly, ev_pack_bracket_structural, ev_impl_wall_parser_support, ev_impl_wall_generator_support, ev_impl_wall_validation_support, ev_impl_wall_topology_support, ev_impl_wall_feature_recognition_support, ev_impl_wall_knowledge_support, ev_impl_wall_reasoning_support, ev_verify_wall_basic_benchmark, ev_verify_wall_two_hole_benchmark, ev_verify_wall_four_hole_benchmark, ev_verify_wall_cutout_benchmark, ev_verify_wall_rounded_benchmark, ev_verify_wall_edge_fillets_test, ev_verify_wall_geometry_validation_test, ev_verify_wall_topology_harness, ev_verify_wall_feature_recognition_harness, ev_verify_wall_knowledge_tests, ev_verify_wall_reasoning_golden, ev_limit_wall_rounded_corners, ev_limit_wall_edge_fillets, ev_limit_wall_feature_recognition, ev_boundary_wall_freeform_holes, ev_boundary_wall_unsupported_holes, ev_boundary_wall_arbitrary_cad, ev_impl_l_parser_support, ev_impl_l_generator_support, ev_impl_l_validation_support, ev_impl_l_topology_support, ev_impl_l_feature_recognition_support, ev_impl_l_knowledge_support, ev_impl_l_reasoning_support, ev_verify_l_basic_benchmark, ev_verify_l_zero_hole_benchmark, ev_verify_l_base_holes_benchmark, ev_verify_l_vertical_holes_benchmark, ev_verify_l_gusset_benchmark, ev_verify_l_inside_fillet_benchmark, ev_verify_l_geometry_validation_test, ev_verify_l_topology_harness, ev_verify_l_feature_recognition_harness, ev_verify_l_knowledge_tests, ev_verify_l_reasoning_golden, ev_limit_l_inside_fillet, ev_limit_l_feature_recognition, ev_boundary_l_four_hole_pattern, ev_boundary_l_curved_bracket, ev_boundary_l_adjustable_bracket, ev_boundary_l_sheet_metal_flat_pattern, ev_package_capability_manifest, ev_package_evidence_manifest, ev_package_rule_pack_mechanical]
@@ -25,14 +26,16 @@ capability_evidence_binding:
   rule_variable_mapping:
     - {metric: pitch_circle_diameter, expression: "module * teeth_count", remediation_parameter: module, rule_ids: [manufacturing_simplicity_001]}
     - {metric: root_circle_diameter, expression: "(teeth_count - 2.5) * module", remediation_parameter: module, rule_ids: [thin_section_warning_001]}
-    - {metric: bore_material_margin, expression: "((teeth_count - 2.5) * module - bore_diameter) / 2.0", remediation_parameter: bore_diameter, rule_ids: [hole_edge_margin_001, thin_section_warning_001]}
-    - {metric: hole_edge_distance, expression: "((teeth_count - 2.5) * module - bore_diameter) / 2.0", remediation_parameter: bore_diameter, rule_ids: [hole_edge_margin_001]}
-    - {metric: minimum_section_thickness, expression: "((teeth_count - 2.5) * module - bore_diameter) / 2.0", remediation_parameter: bore_diameter, rule_ids: [thin_section_warning_001]}
+    - {metric: undercut_margin, expression: "teeth_count - 17", remediation_parameter: teeth_count, rule_ids: [manufacturing_simplicity_001]}
+    - {metric: effective_bore_diameter, expression: "bore_diameter + bore_clearance", remediation_parameter: bore_diameter, rule_ids: [hole_edge_margin_001]}
+    - {metric: bore_material_margin, expression: "((teeth_count - 2.5) * module - (bore_diameter + bore_clearance)) / 2.0", remediation_parameter: bore_diameter, rule_ids: [hole_edge_margin_001, thin_section_warning_001]}
+    - {metric: hole_edge_distance, expression: "((teeth_count - 2.5) * module - (bore_diameter + bore_clearance)) / 2.0", remediation_parameter: bore_diameter, rule_ids: [hole_edge_margin_001]}
+    - {metric: minimum_section_thickness, expression: "((teeth_count - 2.5) * module - (bore_diameter + bore_clearance)) / 2.0", remediation_parameter: bore_diameter, rule_ids: [thin_section_warning_001]}
     - {metric: thickness, expression: "face_width", remediation_parameter: face_width, rule_ids: [thin_section_warning_001]}
     - {metric: tool_clearance, expression: "module", remediation_parameter: module, rule_ids: [tool_clearance_001]}
   scope_note: The full 65-item Phase 22 catalog is visible for audit mapping; bracket-specific evidence is not gear verification. Only applicable_evidence_ids provide inherited heuristic context.
 limitations:
-  - Tooth geometry is a deterministic involute approximation and does not include profile shift, backlash, tip relief, undercut correction, or gear-pair contact analysis.
+  - Tooth geometry is a deterministic involute approximation and does not include profile shift, backlash, tip relief, undercut correction, or gear-pair contact analysis; zero-shift gears below 17 teeth are rejected.
   - The profile is not a certification of ISO gear accuracy, strength, noise, wear, or service suitability.
 metadata:
   adapter_kind: manifest

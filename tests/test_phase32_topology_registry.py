@@ -33,6 +33,7 @@ FLANGE_PARAMETERS = {
     "hole_count": 4,
     "flange_thickness": 20.0,
     "bore_diameter": 65.0,
+    "bore_clearance": 0.5,
 }
 
 
@@ -64,7 +65,7 @@ def test_flange_manifest_binds_catalog_rules_and_formula() -> None:
 def test_registered_parser_schema_and_bounds() -> None:
     parsed = parse_registered_intent({"family": "industrial_flange", "parameters": FLANGE_PARAMETERS})
     assert parsed.intent.family == "industrial_flange"
-    assert len(parsed.parameter_table.parameters) == 6
+    assert len(parsed.parameter_table.parameters) == 7
     assert len(parsed.feature_plan.steps) == 3
     schema = build_registered_intent_json_schema("industrial_flange")
     assert schema["properties"]["family"]["const"] == "industrial_flange"

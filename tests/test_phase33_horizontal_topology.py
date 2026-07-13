@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from importlib.resources import files
+import inspect
 from pathlib import Path
 
 import pytest
@@ -17,7 +18,7 @@ from intentforge.topology.registry import RegistryManager, get_topology_registry
 from intentforge.workflows import parse_build_intent_workflow
 
 
-GEAR = {"module": 2.0, "teeth_count": 20, "pressure_angle": 20.0, "face_width": 16.0, "bore_diameter": 12.0}
+GEAR = {"module": 2.0, "teeth_count": 20, "pressure_angle": 20.0, "face_width": 16.0, "bore_diameter": 12.0, "bore_clearance": 0.5}
 BOLT = {"nominal_diameter": 8.0, "thread_pitch": 1.25, "shank_length": 20.0, "thread_length": 25.0, "head_type": "hexagonal"}
 
 
@@ -36,7 +37,7 @@ def test_spur_gear_manifest_formulas_and_closed_solver() -> None:
     assert evaluate_numeric_expression(manifest.metric_mapping("pitch_circle_diameter").expression, GEAR) == 40.0
     assert evaluate_numeric_expression(manifest.metric_mapping("root_circle_diameter").expression, GEAR) == 35.0
     margin_mapping = manifest.metric_mapping("bore_material_margin")
-    assert evaluate_numeric_expression(margin_mapping.expression, GEAR) == 11.5
+    assert evaluate_numeric_expression(margin_mapping.expression, GEAR) == 11.25
     solved = solve_parameter_for_metric(
         margin_mapping.expression,
         target_metric_value=4.0,
@@ -44,11 +45,34 @@ def test_spur_gear_manifest_formulas_and_closed_solver() -> None:
         parameters={**GEAR, "bore_diameter": 30.0},
         safe_bounds=manifest.parameter("bore_diameter").safe_bounds,
     )
-    assert solved == pytest.approx(27.0)
+    assert solved == pytest.approx(26.5)
     assert metric_to_parameter_transform(
         family="spur_gear", metric="hole_edge_distance", target_metric_value=4.0,
         parameters={**GEAR, "bore_diameter": 30.0},
-    ) == pytest.approx(27.0)
+    ) == pytest.approx(26.5)
+
+
+def test_spur_gear_undercut_constraint_rejects_and_remediates() -> None:
+    manifest = get_topology_registry().get("spur_gear")
+    with pytest.raises(ValueError, match="outside safe bounds"):
+        parse_registered_intent({"family": "spur_gear", "parameters": {**GEAR, "teeth_count": 12}})
+    mapping = manifest.metric_mapping("undercut_margin")
+    solved = solve_parameter_for_metric(
+        mapping.expression,
+        target_metric_value=0.0,
+        parameter_name="teeth_count",
+        parameters={**GEAR, "teeth_count": 12},
+        safe_bounds=manifest.parameter("teeth_count").safe_bounds,
+    )
+    assert solved == pytest.approx(17.0)
+
+
+def test_spur_gear_builder_uses_one_profile_extrusion_without_boolean_cut_loop() -> None:
+    from intentforge.topology.families.spur_gear.builder import build_spur_gear
+
+    source = inspect.getsource(build_spur_gear)
+    assert source.count(".extrude(") == 1
+    assert ".cut(" not in source
 
 
 def test_standard_bolt_manifest_stress_area_and_enum_schema() -> None:

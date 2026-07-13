@@ -14,9 +14,10 @@ controlled_parameters:
   - {name: hole_count, parameter_type: integer, default: 4, safe_bounds: [3.0, 64.0], description: Number of equally spaced bolt holes.}
   - {name: flange_thickness, parameter_type: float, default: 18.0, unit: mm, safe_bounds: [2.0, 200.0], description: Axial flange thickness.}
   - {name: bore_diameter, parameter_type: float, default: 60.0, unit: mm, safe_bounds: [5.0, 1000.0], description: Diameter of the central through bore.}
+  - {name: bore_clearance, parameter_type: float, default: 0.5, unit: mm, safe_bounds: [0.0, 5.0], description: Diametral assembly clearance added to the nominal central bore.}
 supported_features:
   - {feature_id: flange_body, operation: revolve_cylinder, description: Required cylindrical flange body., parameter_names: [flange_outer_diameter, flange_thickness]}
-  - {feature_id: central_bore, operation: cut_central_bore, description: Required central through bore., parameter_names: [bore_diameter]}
+  - {feature_id: central_bore, operation: cut_central_bore, description: Required central through bore sized from nominal diameter plus diametral clearance., parameter_names: [bore_diameter, bore_clearance]}
   - {feature_id: bolt_hole_pattern, operation: cut_polar_hole_pattern, description: Equally spaced through-hole bolt circle., parameter_names: [bolt_circle_diameter, bolt_hole_diameter, hole_count]}
 capability_evidence_binding:
   evidence_catalog_ids:

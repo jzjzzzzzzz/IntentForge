@@ -65,6 +65,8 @@ def build_spur_gear(table: ParameterTable, feature_plan: FeaturePlan | None = No
     pressure_angle = _numeric(table, "pressure_angle")
     face_width = _numeric(table, "face_width")
     bore = _numeric(table, "bore_diameter")
+    bore_clearance = _numeric(table, "bore_clearance")
+    effective_bore = bore + bore_clearance
     raw_teeth = table.get("teeth_count").value
     if isinstance(raw_teeth, bool) or not isinstance(raw_teeth, int):
         raise ValueError("teeth_count must be an integer")
@@ -74,10 +76,20 @@ def build_spur_gear(table: ParameterTable, feature_plan: FeaturePlan | None = No
     margin_modules = float(
         get_topology_registry().get("spur_gear").metadata["minimum_radial_bore_margin_modules"]
     )
-    if raw_teeth < 8 or bore <= 0 or bore + 2.0 * margin_modules * module >= root_diameter:
+    if raw_teeth < 17:
+        raise ValueError("zero-shift spur gears require at least 17 teeth to avoid undercut")
+    if bore <= 0 or bore_clearance < 0 or effective_bore + 2.0 * margin_modules * module >= root_diameter:
         raise ValueError("gear parameters do not retain the required bore-to-root material margin")
     if not 14.5 <= pressure_angle <= 30.0:
         raise ValueError("pressure_angle is outside the supported approximation range")
 
     profile = _involute_profile(module, raw_teeth, pressure_angle)
-    return cq.Workplane("XY").polyline(profile).close().extrude(face_width).faces(">Z").workplane().hole(bore)
+    return (
+        cq.Workplane("XY")
+        .polyline(profile)
+        .close()
+        .extrude(face_width)
+        .faces(">Z")
+        .workplane()
+        .hole(effective_bore)
+    )
