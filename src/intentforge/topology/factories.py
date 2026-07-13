@@ -26,10 +26,24 @@ def _flange(table: ParameterTable, plan: FeaturePlan | None) -> Any:
     return build_industrial_flange(table, plan)
 
 
+def _spur_gear(table: ParameterTable, plan: FeaturePlan | None) -> Any:
+    from intentforge.topology.families.spur_gear.builder import build_spur_gear
+
+    return build_spur_gear(table, plan)
+
+
+def _standard_bolt(table: ParameterTable, plan: FeaturePlan | None) -> Any:
+    from intentforge.topology.families.standard_bolt.builder import build_standard_bolt
+
+    return build_standard_bolt(table, plan)
+
+
 _FACTORIES: dict[str, Callable[[ParameterTable, FeaturePlan | None], Any]] = {
     "wall_bracket_factory_v1": _wall,
     "l_bracket_factory_v1": _l_bracket,
     "industrial_flange_factory_v1": _flange,
+    "spur_gear_factory_v1": _spur_gear,
+    "standard_bolt_factory_v1": _standard_bolt,
 }
 
 

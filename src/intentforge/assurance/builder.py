@@ -24,6 +24,8 @@ DEFAULT_PROMPTS = {
     "wall_mounted_bracket": "Make a wall-mounted bracket 120 mm wide, 60 mm tall, 8 mm thick, with two screw holes.",
     "l_bracket": "Make an L-bracket 80 mm wide with 60 mm legs, 8 mm thick, and two holes on each leg.",
     "industrial_flange": "Create an industrial flange with manifest default dimensions.",
+    "spur_gear": "Create a spur gear with manifest default dimensions.",
+    "standard_bolt": "Create a standard bolt with manifest default dimensions.",
 }
 
 

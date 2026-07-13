@@ -21,7 +21,9 @@ from intentforge.knowledge.reasoning.schema import (
 from intentforge.knowledge.reasoning.tradeoffs import generate_tradeoffs
 
 
-SUPPORTED_REASONING_FAMILIES = ("wall_mounted_bracket", "l_bracket", "industrial_flange")
+SUPPORTED_REASONING_FAMILIES = (
+    "wall_mounted_bracket", "l_bracket", "industrial_flange", "spur_gear", "standard_bolt",
+)
 
 DEFAULT_REASONING_LIMITATIONS = [
     "This report uses deterministic engineering heuristics.",

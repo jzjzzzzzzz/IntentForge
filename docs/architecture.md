@@ -23,6 +23,12 @@ The authoritative manifests live under
 registry code lives under `intentforge/topology/` so parser startup does not
 eagerly initialize benchmark and reporting modules.
 
+Phase 33 adds registry-native transmission and fastener adapters. `spur_gear`
+uses a deterministic bounded involute approximation, while `standard_bolt`
+uses macro-geometry with a cylindrical thread envelope and explicit stress-area
+metadata. Both reuse the manifest parser, AST metric evaluator, bounded
+remediation inversion, assurance, CAS, and dossier pipeline.
+
 IntentForge is organized as a deterministic CAD intent pipeline. Each module owns one part of the path from prompt to validated CAD.
 
 The per-design assurance layer adapts existing workflow responses into structured claims, arguments, validation observations, capability/evidence references, limitations, and safe artifact records. It does not execute a second CAD pipeline. Deterministic renderers and audit-package validation operate on the authoritative structured assurance case.

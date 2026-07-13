@@ -19,6 +19,7 @@ class ControlledParameter(BaseModel):
     default: float | int | bool | str
     unit: str | None = None
     safe_bounds: tuple[float, float] | None = None
+    allowed_values: tuple[str, ...] | None = None
     description: str = Field(min_length=1)
     required: bool = True
 
@@ -42,6 +43,13 @@ class ControlledParameter(BaseModel):
                 raise ValueError(f"{self.name} non-numeric parameter cannot define safe_bounds")
             if not low <= float(self.default) <= high:
                 raise ValueError(f"{self.name} default is outside safe_bounds")
+        if self.allowed_values is not None:
+            if self.parameter_type != "string":
+                raise ValueError(f"{self.name} allowed_values require a string parameter")
+            if not self.allowed_values or len(self.allowed_values) != len(set(self.allowed_values)):
+                raise ValueError(f"{self.name} allowed_values must be non-empty and unique")
+            if self.default not in self.allowed_values:
+                raise ValueError(f"{self.name} default is outside allowed_values")
         return self
 
 

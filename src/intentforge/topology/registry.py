@@ -13,8 +13,14 @@ from intentforge.topology.schema import TopologyManifest
 
 
 KNOWN_PARSER_IDS = {"legacy_wall_bracket_v1", "legacy_l_bracket_v1", "manifest_parameter_parser_v1"}
-KNOWN_FACTORY_IDS = {"wall_bracket_factory_v1", "l_bracket_factory_v1", "industrial_flange_factory_v1"}
-KNOWN_VALIDATOR_IDS = {"wall_bracket_validator_v1", "l_bracket_validator_v1", "industrial_flange_validator_v1"}
+KNOWN_FACTORY_IDS = {
+    "wall_bracket_factory_v1", "l_bracket_factory_v1", "industrial_flange_factory_v1",
+    "spur_gear_factory_v1", "standard_bolt_factory_v1",
+}
+KNOWN_VALIDATOR_IDS = {
+    "wall_bracket_validator_v1", "l_bracket_validator_v1", "industrial_flange_validator_v1",
+    "spur_gear_validator_v1", "standard_bolt_validator_v1",
+}
 
 
 class TopologyRegistryError(ValueError):

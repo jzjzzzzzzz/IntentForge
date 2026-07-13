@@ -36,11 +36,11 @@ FLANGE_PARAMETERS = {
 }
 
 
-def test_registry_loads_three_manifests_deterministically() -> None:
+def test_registry_loads_manifests_deterministically() -> None:
     first = RegistryManager.load()
     second = RegistryManager.load()
     assert [item.topology_family for item in first.all(active_only=True)] == [
-        "industrial_flange", "l_bracket", "wall_mounted_bracket",
+        "industrial_flange", "l_bracket", "spur_gear", "standard_bolt", "wall_mounted_bracket",
     ]
     assert first.snapshot() == second.snapshot()
     assert first.get("pipe flange").topology_family == "industrial_flange"
@@ -165,7 +165,7 @@ def test_topology_cli_and_packaged_manifests(tmp_path: Path) -> None:
         env={"PYTHONPATH": "./src", "PATH": "/usr/bin:/bin"},
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert "Families checked: 3" in proc.stdout
+    assert "Families checked: 5" in proc.stdout
     intent_path = tmp_path / "flange.json"
     intent_path.write_text(
         json.dumps({"family": "industrial_flange", "parameters": FLANGE_PARAMETERS}),

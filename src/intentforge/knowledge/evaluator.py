@@ -149,11 +149,11 @@ def build_design_metrics(parameter_table: ParameterTable, feature_plan: FeatureP
         values = {item.name: item.value for item in parameter_table.parameters}
         for mapping in manifest.capability_evidence_binding.rule_variable_mapping:
             metrics[mapping.metric] = evaluate_numeric_expression(mapping.expression, values)
-        hole_diameter = _numeric(values.get("bolt_hole_diameter", values.get("hole_diameter", 0.0)))
-        hole_count = _numeric(values.get("hole_count", 0.0))
-        outer = _numeric(values.get("flange_outer_diameter", values.get("width", 0.0)))
+        hole_diameter = _numeric(values.get("bolt_hole_diameter", values.get("bore_diameter", values.get("hole_diameter", 0.0))))
+        hole_count = _numeric(values.get("hole_count", 1.0 if family == "spur_gear" else 0.0))
+        outer = _numeric(values.get("flange_outer_diameter", values.get("width", metrics.get("pitch_circle_diameter", values.get("nominal_diameter", 0.0)))))
         bore = _numeric(values.get("bore_diameter", 0.0))
-        thickness = _numeric(values.get("flange_thickness", values.get("thickness", 0.0)))
+        thickness = _numeric(values.get("flange_thickness", values.get("face_width", values.get("thread_pitch", values.get("thickness", 0.0)))))
         metrics.update(
             {
                 "width": outer,
@@ -164,8 +164,8 @@ def build_design_metrics(parameter_table: ParameterTable, feature_plan: FeatureP
                 "hole_diameter": hole_diameter,
                 "mounting_holes_active": hole_count > 0,
                 "fastener_edge_clearance": metrics.get("hole_edge_distance", 0.0),
-                "tool_clearance": min(value for value in (hole_diameter, thickness) if value > 0),
-                "minimum_section_thickness": max(0.0, (outer - bore) / 2.0),
+                "tool_clearance": metrics.get("tool_clearance", _min_positive([hole_diameter, thickness])),
+                "minimum_section_thickness": metrics.get("minimum_section_thickness", max(0.0, (outer - bore) / 2.0)),
                 "corner_radius": 0.0,
                 "rounded_corners_active": False,
                 "center_cutout_active": False,

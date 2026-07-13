@@ -33,7 +33,9 @@ LimitationSignificance = Literal[
 ]
 
 SCHEMA_VERSION = "1.0"
-SUPPORTED_FAMILIES = {"wall_mounted_bracket", "l_bracket", "industrial_flange"}
+SUPPORTED_FAMILIES = {
+    "wall_mounted_bracket", "l_bracket", "industrial_flange", "spur_gear", "standard_bolt",
+}
 FORBIDDEN_PATH_PARTS = {".git", ".claude", "CLAUDE.md"}
 CONTENT_ADDRESS_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 

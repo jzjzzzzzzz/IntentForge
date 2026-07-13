@@ -22,7 +22,7 @@ Edit assurance now carries changed and preserved parameter trace summaries when 
 
 ## Determinism and limits
 
-Content IDs use canonical JSON hashing. Runtime timestamps, run IDs, and request IDs do not change logical content identity. Assurance remains limited to the two supported bracket families and the checks actually executed. External engineering review remains required for load-specific, manufacturing, regulatory, or safety decisions.
+Content IDs use canonical JSON hashing. Runtime timestamps, run IDs, and request IDs do not change logical content identity. Assurance remains limited to registered families and the checks actually executed. External engineering review remains required for load-specific, manufacturing, regulatory, or safety decisions.
 
 ```bash
 intentforge assurance build --profile static

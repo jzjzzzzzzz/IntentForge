@@ -14,6 +14,13 @@ Phase 27 CAS validation checks every structural object address, the canonical en
 
 Phase 21 adds capability coverage validation. This is not geometry validation. It validates product support declarations: known families, valid stages, rule-to-capability mapping, evidence references, unsupported boundaries, and orphan active rules.
 
+Phase 33 adds family-specific registry validators for spur gears and standard
+bolts. Gear checks cover shape validity, solid connectivity, pitch/root formulas,
+bore material margin, outside diameter, and face width. Bolt checks cover shape
+validity, solid connectivity, total macro length, positive stress-area metadata,
+closed head selection, and nominal shaft envelope. These checks do not certify
+gear contact performance, fastener strength grade, or service suitability.
+
 ## Geometry Validation
 
 Geometry validation checks the generated CadQuery model against the parameter table. Current checks include:

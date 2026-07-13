@@ -184,8 +184,8 @@ QUALITY_GATES: dict[str, float | int] = {
     "review_chain_pointer_mismatch_count_max": 0,
     "review_chain_missing_predecessor_count_max": 0,
     "topology_registry_valid_min": 1,
-    "topology_active_family_count_min": 3,
-    "topology_active_family_count_max": 3,
+    "topology_active_family_count_min": 5,
+    "topology_active_family_count_max": 5,
     "topology_evidence_catalog_count_min": 65,
     "topology_bound_rule_count_min": 10,
     "topology_deterministic_mismatch_count_max": 0,
@@ -627,7 +627,7 @@ def _capability_coverage_section(run_dir: Path) -> dict[str, Any]:
 
 
 def _topology_registry_section(run_dir: Path) -> dict[str, Any]:
-    """Validate manifest discovery, formula determinism, rejection, and flange CAD."""
+    """Validate manifest discovery, formula determinism, rejection, and industrial CAD."""
 
     from intentforge.topology.expressions import evaluate_numeric_expression
     from intentforge.topology.registry import RegistryManager, get_topology_registry
@@ -655,6 +655,16 @@ def _topology_registry_section(run_dir: Path) -> dict[str, Any]:
         run_dir / "topology_registry" / "flange",
         request_id="topology_registry_flange",
     )
+    gear_result = parse_build_intent_workflow(
+        {"family": "spur_gear", "parameters": {"module": 2.0, "teeth_count": 20, "pressure_angle": 20.0, "face_width": 16.0, "bore_diameter": 12.0}},
+        run_dir / "topology_registry" / "gear",
+        request_id="topology_registry_gear",
+    )
+    bolt_result = parse_build_intent_workflow(
+        {"family": "standard_bolt", "parameters": {"nominal_diameter": 8.0, "thread_pitch": 1.25, "shank_length": 20.0, "thread_length": 25.0, "head_type": "hexagonal"}},
+        run_dir / "topology_registry" / "bolt",
+        request_id="topology_registry_bolt",
+    )
     rejection = parse_build_intent_workflow(
         {"family": "unregistered_gear", "parameters": {}},
         run_dir / "topology_registry" / "rejection",
@@ -667,6 +677,7 @@ def _topology_registry_section(run_dir: Path) -> dict[str, Any]:
     result = {
         "topology_registry_valid": True,
         "active_family_count": len(manifests),
+        "industrial_family_count": len([item for item in manifests if item.topology_family in {"industrial_flange", "spur_gear", "standard_bolt"}]),
         "active_families": [item.topology_family for item in manifests],
         "evidence_catalog_count": evidence_catalog_count,
         "bound_rule_count": bound_rule_count,
@@ -681,15 +692,20 @@ def _topology_registry_section(run_dir: Path) -> dict[str, Any]:
             and build_result.get("cad_exported")
             and (build_result.get("validation") or {}).get("valid")
         ),
+        "gear_validation_passed": bool(gear_result.get("ok") and gear_result.get("cad_exported") and (gear_result.get("validation") or {}).get("valid")),
+        "bolt_validation_passed": bool(bolt_result.get("ok") and bolt_result.get("cad_exported") and (bolt_result.get("validation") or {}).get("valid")),
         "hole_edge_distance": edge_first,
     }
     result["passed"] = bool(
-        result["active_family_count"] == 3
+        result["active_family_count"] == 5
+        and result["industrial_family_count"] == 3
         and evidence_catalog_count == 65
         and bound_rule_count == 10
         and deterministic_mismatch_count == 0
         and result["safe_rejection_passed"]
         and result["flange_validation_passed"]
+        and result["gear_validation_passed"]
+        and result["bolt_validation_passed"]
     )
     _write_json(result, run_dir / "topology_registry" / "topology_registry_report.json")
     return result

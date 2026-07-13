@@ -253,11 +253,11 @@ def build_metrics(parameters: dict[str, Any], *, family: str) -> dict[str, float
         manifest = get_topology_registry().get(family)
         for mapping in manifest.capability_evidence_binding.rule_variable_mapping:
             metrics[mapping.metric] = evaluate_numeric_expression(mapping.expression, parameters)
-        outer = _numeric(parameters.get("flange_outer_diameter"))
+        outer = _numeric(parameters.get("flange_outer_diameter", metrics.get("pitch_circle_diameter", parameters.get("nominal_diameter"))))
         bore = _numeric(parameters.get("bore_diameter"))
-        hole_diameter = _numeric(parameters.get("bolt_hole_diameter"))
-        thickness = _numeric(parameters.get("flange_thickness"))
-        hole_count = _numeric(parameters.get("hole_count"))
+        hole_diameter = _numeric(parameters.get("bolt_hole_diameter", parameters.get("bore_diameter")))
+        thickness = _numeric(parameters.get("flange_thickness", parameters.get("face_width", parameters.get("thread_pitch"))))
+        hole_count = _numeric(parameters.get("hole_count", 1.0 if family == "spur_gear" else 0.0))
         metrics.update({
             "object_type": family,
             "width": outer,
@@ -268,8 +268,8 @@ def build_metrics(parameters: dict[str, Any], *, family: str) -> dict[str, float
             "hole_count": hole_count,
             "mounting_holes_active": hole_count > 0,
             "fastener_edge_clearance": metrics.get("hole_edge_distance", 0.0),
-            "tool_clearance": _min_positive([hole_diameter, thickness]),
-            "minimum_section_thickness": max(0.0, (outer - bore) / 2.0),
+            "tool_clearance": metrics.get("tool_clearance", _min_positive([hole_diameter, thickness])),
+            "minimum_section_thickness": metrics.get("minimum_section_thickness", max(0.0, (outer - bore) / 2.0)),
             "corner_radius": 0.0,
             "rounded_corners_active": False,
             "center_cutout_active": False,

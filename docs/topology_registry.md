@@ -1,7 +1,8 @@
 # Declarative Topology Registry
 
-Phase 32 makes CAD family metadata modular while keeping execution closed and
-deterministic.
+Phase 32 made CAD family metadata modular. Phase 33 proves horizontal registry
+expansion with transmission and fastener components while keeping execution
+closed and deterministic.
 
 ## Manifest Contract
 
@@ -33,6 +34,8 @@ arithmetic AST and never uses `eval()` or `exec()`.
 intentforge topology list
 intentforge topology validate
 intentforge topology schema industrial_flange
+intentforge topology schema spur_gear
+intentforge topology schema standard_bolt
 intentforge topology build-json flange-intent.json --output-root output
 ```
 
@@ -44,6 +47,8 @@ IntentForge does not manage identity keys.
 ## Compatibility
 
 The two bracket families use registry manifests that point to their established
-parser, geometry, and validator adapters. Existing rule IDs, evidence IDs,
-capability counts, benchmark cases, artifacts, APIs, and audit contracts remain
-unchanged.
+adapters. Registry-native adapters cover `industrial_flange`, `spur_gear`, and
+`standard_bolt`. The gear exposes pitch/root circle formulas and bore margin;
+the bolt exposes total-length and tensile stress-area approximations through the
+same closed arithmetic grammar. Existing rule IDs, evidence IDs, capability
+counts, benchmark cases, artifacts, APIs, and audit contracts remain unchanged.

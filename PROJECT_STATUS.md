@@ -1,20 +1,22 @@
 # Project Status
 
-Current development target: Phase 32 declarative topology registry and industrial flange foundation on `main`
+Current development target: Phase 33 horizontal topology expansion on `main`
 
-Phase 32 replaces the core family-selection boundary with schema-validated
-topology manifests and a closed adapter registry. The registry currently
-discovers three packaged families. The new `industrial_flange` adapter builds
-a deterministic flat ring flange and binds manifest formulas into knowledge
-evaluation and remediation. Existing 28 capability declarations and 65
-evidence definitions remain unchanged; the flange manifest exposes that catalog
-for traceability but does not misclassify bracket verification as flange proof.
+Phase 32 replaced the core family-selection boundary with schema-validated
+topology manifests and a closed adapter registry. Phase 33 adds deterministic
+`spur_gear` and `standard_bolt` adapters beside `industrial_flange`; the registry
+now loads five total families and three registry-native industrial families.
+Existing 28 capability declarations and 65 evidence definitions remain
+unchanged; each industrial manifest exposes that catalog for traceability but
+does not misclassify bracket verification as industrial-component proof.
 
 Current supported model families:
 
 - `wall_mounted_bracket` / mounting plate
 - `l_bracket` / right angle bracket
 - `industrial_flange` / flat ring flange foundation
+- `spur_gear` / involute-approximated external transmission gear
+- `standard_bolt` / metric fastener macro-geometry
 
 ## Completed Phases
 
@@ -64,6 +66,7 @@ Current supported model families:
 - Phase 30: deterministic algebraic auto-remediation
 - Phase 31: controlled review exemptions
 - Phase 32: declarative topology registry and industrial flange foundation
+- Phase 33: horizontal topology expansion for spur gears and standard bolts
 
 ## Current Capabilities
 
@@ -71,6 +74,8 @@ Current supported model families:
 - generate per-family JSON intent schemas from controlled parameter declarations
 - dispatch parsers, geometry factories, and validators through closed adapter IDs
 - build and validate a flat-ring `industrial_flange` with a central bore and polar bolt-hole pattern
+- build and validate an external `spur_gear` from module, tooth count, pressure angle, face width, and bore
+- build and validate a `standard_bolt` macro-model with closed head selection and a simplified thread envelope
 - apply manifest metric formulas to deterministic knowledge evaluation and AST remediation
 - return content-addressed safe-rejection envelopes for unregistered topology families
 

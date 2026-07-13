@@ -4,7 +4,7 @@
 
 IntentForge is a deterministic CAD intent pipeline for turning simple engineering language into editable, explainable, validated parametric CAD models.
 
-Phase 32 adds a declarative topology registry and the first registry-native industrial component, `industrial_flange`. Family manifests define bounded parameters, supported features, closed adapter identifiers, evidence bindings, rule bindings, and safe arithmetic metric mappings. Geometry remains deterministic compiled Python selected through a closed adapter registry; manifests never execute code.
+Phase 33 expands the declarative topology registry with `spur_gear` and `standard_bolt` alongside the Phase 32 `industrial_flange`. Family manifests define bounded parameters, supported features, closed adapter identifiers, evidence bindings, rule bindings, and safe arithmetic metric mappings. Geometry remains deterministic compiled Python selected through a closed adapter registry; manifests never execute code.
 
 ```bash
 intentforge assurance build --profile static
@@ -22,6 +22,8 @@ intentforge review chain-verify <head-package> --store output/review-cas
 intentforge topology list
 intentforge topology validate
 intentforge topology schema industrial_flange
+intentforge topology schema spur_gear
+intentforge topology schema standard_bolt
 intentforge topology build-json flange-intent.json
 ```
 
@@ -35,6 +37,8 @@ The current implementation remains intentionally bounded:
 wall_mounted_bracket / mounting plate
 l_bracket / right angle bracket
 industrial_flange / flat ring pipe flange foundation
+spur_gear / involute-approximated external transmission gear
+standard_bolt / metric fastener macro-geometry
 ```
 
 IntentForge currently uses Python, Pydantic schemas, CadQuery, pytest, deterministic regex parsing, optional MCP wrappers, and an optional LLM intent translator. The deterministic CAD core does not depend on an LLM.
@@ -73,17 +77,21 @@ IntentForge keeps the editable model state explicit:
 
 ## Supported Scope
 
-IntentForge currently registers three deterministic model families:
+IntentForge currently registers five deterministic model families:
 
 - `wall_mounted_bracket` / mounting plate
 - `l_bracket` / right angle bracket
 - `industrial_flange` / flat ring flange with a central bore and polar bolt-hole pattern
+- `spur_gear` / external spur gear with a deterministic involute approximation
+- `standard_bolt` / metric bolt macro-geometry with hexagonal or socket-cap head
 
 Supported features:
 
 - registry-derived JSON schemas with typed parameters and conservative safe bounds
 - industrial flange outside diameter, bolt circle, bolt-hole diameter/count, thickness, and bore
 - deterministic flange STEP/STL generation, validation, knowledge evaluation, and audit packaging
+- spur-gear module, tooth count, pressure angle, face width, bore, derived pitch/root circles, and deterministic STEP/STL generation
+- bolt nominal diameter, pitch, shank/thread lengths, closed head selection, stress-area metadata, and deterministic STEP/STL generation
 - L-bracket base leg and vertical leg parameters
 - L-bracket no holes or two holes per leg
 - optional L-bracket triangular gusset
@@ -108,9 +116,6 @@ Supported features:
 - structural pairwise and multi-variant review differential audits
 - standard-library-only offline audit-package verification
 
-The flange profile is ASME B16.5-oriented only. It does not certify pressure
-class, material, facing, hub, gasket, loads, manufacturing, or service fitness.
-External engineering review remains required for service use.
 - canonical platform-neutral package JSON, paths, runtime identifiers, and hashes
 - full SHA-256 package/object content addresses and immutable-by-address local storage
 - optional predecessor binding across assurance claims, decisions, provenance, and CAS envelopes
@@ -120,10 +125,17 @@ External engineering review remains required for service use.
 - topology-informed feature recognition for supported generated models
 - design review reports that summarize intent, parameters, validation, topology, recognized features, warnings, and artifacts
 
+The flange profile is ASME B16.5-oriented only. It does not certify pressure
+class, material, facing, hub, gasket, loads, manufacturing, or service fitness.
+The spur-gear tooth profile is an involute approximation and does not certify
+ISO accuracy, contact, strength, wear, or noise. The bolt thread is represented
+by a cylindrical major-diameter envelope; no helical flank or strength-grade
+certification is claimed. External engineering review remains required.
+
 Unsupported by design in this phase:
 
 - arbitrary CAD objects
-- new model families
+- unregistered or undeclared model families
 - four-hole L-bracket patterns
 - freeform L-bracket hole placement
 - curved or adjustable L-brackets

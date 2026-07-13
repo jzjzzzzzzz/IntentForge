@@ -35,6 +35,9 @@ def _coerce(definition: Any, value: Any) -> float | int | bool | str:
         if not isinstance(value, str):
             raise ValueError(f"{definition.name} must be a string")
         result = value
+    if definition.allowed_values is not None and result not in definition.allowed_values:
+        choices = ", ".join(definition.allowed_values)
+        raise ValueError(f"{definition.name} must be one of: {choices}")
     if definition.safe_bounds is not None:
         low, high = definition.safe_bounds
         if not low <= float(result) <= high:
@@ -166,6 +169,35 @@ def parse_registered_intent(payload: dict[str, Any]):
                 ),
             ]
         )
+    elif family == "spur_gear":
+        constraints.append(
+            Constraint(
+                id="gear_bore_root_material",
+                kind="geometric",
+                expression="bore_diameter + 2 * module < (teeth_count - 2.5) * module",
+                parameters=["bore_diameter", "module", "teeth_count"],
+                reason="The shaft bore must retain at least one module of radial material inside the root circle.",
+            )
+        )
+    elif family == "standard_bolt":
+        constraints.extend(
+            [
+                Constraint(
+                    id="bolt_total_body_length",
+                    kind="dimensional",
+                    expression="total_length = shank_length + thread_length",
+                    parameters=["shank_length", "thread_length"],
+                    reason="Bolt body length is the deterministic sum of shank and thread regions.",
+                ),
+                Constraint(
+                    id="bolt_positive_stress_area",
+                    kind="geometric",
+                    expression="nominal_diameter - 0.9382 * thread_pitch > 0",
+                    parameters=["nominal_diameter", "thread_pitch"],
+                    reason="The registered tensile stress-area diameter approximation must remain positive.",
+                ),
+            ]
+        )
     graph = ConstraintGraph(
         family=family,
         nodes=[item.name for item in parameters],
@@ -225,6 +257,8 @@ def build_registered_intent_json_schema(family: str) -> dict[str, Any]:
         }
         if item.safe_bounds:
             field.update({"minimum": item.safe_bounds[0], "maximum": item.safe_bounds[1]})
+        if item.allowed_values:
+            field["enum"] = list(item.allowed_values)
         parameter_properties[item.name] = field
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",

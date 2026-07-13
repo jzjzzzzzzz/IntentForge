@@ -1,0 +1,39 @@
+topology_family: standard_bolt
+manifest_version: "1.0"
+title: Standard metric bolt macro-geometry
+description: Deterministic metric bolt macro-geometry with explicit shank, simplified thread region, and closed head selection.
+status: active
+aliases: [standard bolt, metric bolt]
+parser_id: manifest_parameter_parser_v1
+geometry_factory_id: standard_bolt_factory_v1
+validator_id: standard_bolt_validator_v1
+controlled_parameters:
+  - {name: nominal_diameter, parameter_type: float, default: 8.0, unit: mm, safe_bounds: [2.0, 100.0], description: Metric nominal thread diameter.}
+  - {name: thread_pitch, parameter_type: float, default: 1.25, unit: mm, safe_bounds: [0.25, 12.0], description: Axial thread pitch used for stress-area metadata.}
+  - {name: shank_length, parameter_type: float, default: 20.0, unit: mm, safe_bounds: [0.0, 500.0], description: Unthreaded cylindrical shank length.}
+  - {name: thread_length, parameter_type: float, default: 25.0, unit: mm, safe_bounds: [2.0, 500.0], description: Simplified threaded-region length.}
+  - {name: head_type, parameter_type: string, default: hexagonal, allowed_values: [hexagonal, socket_cap], description: Closed macro head geometry selection.}
+supported_features:
+  - {feature_id: shank, operation: extrude_shank, description: Cylindrical unthreaded shank region., parameter_names: [nominal_diameter, shank_length]}
+  - {feature_id: simplified_thread_region, operation: extrude_thread_envelope, description: Cylindrical thread major-diameter envelope with thread metadata., parameter_names: [nominal_diameter, thread_pitch, thread_length]}
+  - {feature_id: bolt_head, operation: extrude_selected_head, description: Hexagonal or socket-cap macro head., parameter_names: [nominal_diameter, head_type]}
+capability_evidence_binding:
+  evidence_catalog_ids:
+    [ev_rule_hole_edge_margin_001, ev_rule_hole_spacing_001, ev_rule_gusset_recommendation_001, ev_rule_corner_radius_001, ev_rule_tool_clearance_001, ev_rule_manufacturing_simplicity_001, ev_rule_fastener_accessibility_001, ev_rule_installation_difficulty_001, ev_rule_cutout_stiffness_tradeoff_001, ev_rule_thin_section_warning_001, ev_pack_bracket_mechanical, ev_pack_bracket_manufacturing, ev_pack_bracket_assembly, ev_pack_bracket_structural, ev_impl_wall_parser_support, ev_impl_wall_generator_support, ev_impl_wall_validation_support, ev_impl_wall_topology_support, ev_impl_wall_feature_recognition_support, ev_impl_wall_knowledge_support, ev_impl_wall_reasoning_support, ev_verify_wall_basic_benchmark, ev_verify_wall_two_hole_benchmark, ev_verify_wall_four_hole_benchmark, ev_verify_wall_cutout_benchmark, ev_verify_wall_rounded_benchmark, ev_verify_wall_edge_fillets_test, ev_verify_wall_geometry_validation_test, ev_verify_wall_topology_harness, ev_verify_wall_feature_recognition_harness, ev_verify_wall_knowledge_tests, ev_verify_wall_reasoning_golden, ev_limit_wall_rounded_corners, ev_limit_wall_edge_fillets, ev_limit_wall_feature_recognition, ev_boundary_wall_freeform_holes, ev_boundary_wall_unsupported_holes, ev_boundary_wall_arbitrary_cad, ev_impl_l_parser_support, ev_impl_l_generator_support, ev_impl_l_validation_support, ev_impl_l_topology_support, ev_impl_l_feature_recognition_support, ev_impl_l_knowledge_support, ev_impl_l_reasoning_support, ev_verify_l_basic_benchmark, ev_verify_l_zero_hole_benchmark, ev_verify_l_base_holes_benchmark, ev_verify_l_vertical_holes_benchmark, ev_verify_l_gusset_benchmark, ev_verify_l_inside_fillet_benchmark, ev_verify_l_geometry_validation_test, ev_verify_l_topology_harness, ev_verify_l_feature_recognition_harness, ev_verify_l_knowledge_tests, ev_verify_l_reasoning_golden, ev_limit_l_inside_fillet, ev_limit_l_feature_recognition, ev_boundary_l_four_hole_pattern, ev_boundary_l_curved_bracket, ev_boundary_l_adjustable_bracket, ev_boundary_l_sheet_metal_flat_pattern, ev_package_capability_manifest, ev_package_evidence_manifest, ev_package_rule_pack_mechanical]
+  applicable_evidence_ids: [ev_rule_tool_clearance_001, ev_rule_manufacturing_simplicity_001, ev_rule_thin_section_warning_001, ev_package_rule_pack_mechanical]
+  rule_ids: [tool_clearance_001, manufacturing_simplicity_001, thin_section_warning_001]
+  rule_variable_mapping:
+    - {metric: total_length, expression: "shank_length + thread_length", remediation_parameter: thread_length, rule_ids: [manufacturing_simplicity_001]}
+    - {metric: stress_area_diameter, expression: "nominal_diameter - 0.9382 * thread_pitch", remediation_parameter: nominal_diameter, rule_ids: [thin_section_warning_001]}
+    - {metric: tensile_stress_area, expression: "0.7853981633974483 * (nominal_diameter - 0.9382 * thread_pitch) * (nominal_diameter - 0.9382 * thread_pitch)", remediation_parameter: nominal_diameter, rule_ids: [thin_section_warning_001]}
+    - {metric: minimum_section_thickness, expression: "(nominal_diameter - 0.9382 * thread_pitch) / 2.0", remediation_parameter: nominal_diameter, rule_ids: [thin_section_warning_001]}
+    - {metric: thickness, expression: "thread_pitch", remediation_parameter: thread_pitch, rule_ids: [thin_section_warning_001]}
+    - {metric: tool_clearance, expression: "thread_pitch", remediation_parameter: thread_pitch, rule_ids: [tool_clearance_001]}
+  scope_note: The full 65-item Phase 22 catalog is visible for audit mapping; bracket-specific evidence is not bolt verification. Only applicable_evidence_ids provide inherited heuristic context.
+limitations:
+  - Threads are represented by a cylindrical major-diameter envelope with deterministic pitch and stress-area metadata; no helical thread flank is generated.
+  - Head geometry is macro-scale only and does not certify ISO or ASME dimensional class, material, strength grade, torque, preload, or service suitability.
+metadata:
+  adapter_kind: manifest
+  domain: fastener
+  thread_representation: cylindrical envelope with metadata
