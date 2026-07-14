@@ -15,6 +15,7 @@ ConstraintOperator = Literal["lt", "le", "eq", "ge", "gt"]
 ConstraintStatus = Literal["pass", "fail", "not_run"]
 RemediationDirection = Literal["increase", "decrease", "either"]
 RemediationStatus = Literal["applied", "impossible"]
+RemediationActionKind = Literal["child_rule", "assembly_constraint"]
 
 
 def canonical_sha256(payload: Any) -> str:
@@ -136,7 +137,9 @@ class AssemblyRemediationAction(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     constraint_id: str
+    action_kind: RemediationActionKind = "assembly_constraint"
     status: RemediationStatus
+    rule_ids: list[str] = Field(default_factory=list)
     component_id: str | None = None
     parameter_name: str | None = None
     previous_value: float | None = None

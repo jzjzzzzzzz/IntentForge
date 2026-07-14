@@ -1,7 +1,11 @@
 """Deterministic spatial assemblies built from registered topology families."""
 
 from intentforge.assemblies.audit import build_assembly_audit_package, validate_assembly_audit_package
-from intentforge.assemblies.evaluator import evaluate_assembly, remediate_assembly_constraints
+from intentforge.assemblies.evaluator import (
+    evaluate_assembly,
+    remediate_assembly_constraints,
+    remediate_invalid_children,
+)
 from intentforge.assemblies.registry import (
     AssemblyRegistry,
     AssemblyRegistryError,
@@ -24,6 +28,7 @@ __all__ = [
     "build_assembly_intent_workflow",
     "evaluate_assembly",
     "remediate_assembly_constraints",
+    "remediate_invalid_children",
     "get_assembly_registry",
     "validate_assembly_audit_package",
 ]

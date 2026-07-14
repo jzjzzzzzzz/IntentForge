@@ -95,6 +95,26 @@ def test_length_conflict_remediates_child_bolt_and_revalidates(tmp_path: Path) -
     assert length["status"] == "pass" and length["left_value"] == pytest.approx(18.5)
 
 
+def test_invalid_child_is_remediated_before_assembly_constraints(tmp_path: Path) -> None:
+    pytest.importorskip("cadquery")
+    payload = _payload()
+    payload["components"]["flange"].update({
+        "flange_outer_diameter": 150.0,
+        "bolt_circle_diameter": 130.0,
+        "bolt_hole_diameter": 20.0,
+    })
+    result = build_assembly_intent_workflow(payload, tmp_path, dry_run=True)
+    assert result["initial_evaluation"]["nested_validation_passed"] is False
+    assert result["ok"] and result["evaluation"]["nested_validation_passed"]
+    assert _parameter_value(result, "flange", "flange_outer_diameter", requested=True) == 150.0
+    assert _parameter_value(result, "flange", "flange_outer_diameter") == pytest.approx(210.0)
+    action = result["remediation_actions"][0]
+    assert action["action_kind"] == "child_rule"
+    assert action["rule_ids"] == ["hole_edge_margin_001"]
+    assert action["component_id"] == "flange"
+    assert all(item["status"] == "pass" for item in result["evaluation"]["constraint_observations"])
+
+
 def test_remediation_is_opt_in_to_preserve_blocking_contract(tmp_path: Path) -> None:
     pytest.importorskip("cadquery")
     payload = _payload(diameter=13.5)

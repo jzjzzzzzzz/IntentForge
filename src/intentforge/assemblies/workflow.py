@@ -9,6 +9,7 @@ from typing import Any
 from intentforge.assemblies.audit import build_assembly_audit_package
 from intentforge.assemblies.evaluator import (
     evaluate_assembly,
+    remediate_invalid_children,
     remediate_assembly_constraints,
     resolve_component_quantities,
 )
@@ -16,7 +17,7 @@ from intentforge.assemblies.factories import build_registered_assembly
 from intentforge.assemblies.registry import get_assembly_registry
 from intentforge.parser.registered_parser import parse_registered_intent
 from intentforge.review.portability import canonical_json_bytes
-from intentforge.schemas import ParameterTable, ValidationReport
+from intentforge.schemas import ParameterTable, ValidationCheck, ValidationReport
 from intentforge.topology import build_registered_model, validate_registered_geometry
 from intentforge.manufacturing.orders import build_assembly_manufacturing_order, write_manufacturing_order
 
@@ -59,10 +60,33 @@ def build_assembly_intent_workflow(
         built_models: dict[str, Any] = {}
         validations: dict[str, list[ValidationReport]] = {}
         for definition in manifest.components:
-            model = build_registered_model(tables[definition.component_id], feature_plans[definition.component_id])
+            table = tables[definition.component_id]
+            try:
+                model = build_registered_model(table, feature_plans[definition.component_id])
+            except ValueError as exc:
+                report = ValidationReport(
+                    family=table.family,
+                    checks=[ValidationCheck(
+                        id="component_geometry_precondition",
+                        description="Component parameters must satisfy geometry factory preconditions.",
+                        status="fail",
+                        severity="error",
+                        message=str(exc),
+                    )],
+                    summary=f"{table.family} geometry factory rejected the component parameters.",
+                    metadata={
+                        "valid": False,
+                        "build_rejected": True,
+                        "rejection_reason": str(exc),
+                    },
+                )
+                validations[definition.component_id] = [
+                    report for _ in range(quantities[definition.component_id])
+                ]
+                continue
             built_models[definition.component_id] = model
             validations[definition.component_id] = [
-                validate_registered_geometry(model, tables[definition.component_id])
+                validate_registered_geometry(model, table)
                 for _ in range(quantities[definition.component_id])
             ]
         return built_models, validations
@@ -70,9 +94,22 @@ def build_assembly_intent_workflow(
     models, child_validations = build_and_validate()
     evaluation = evaluate_assembly(manifest, tables, child_validations)
     initial_evaluation = evaluation
+    remediation_actions = []
+    if requested_auto_remediation and not evaluation.nested_validation_passed:
+        tables, child_actions = remediate_invalid_children(tables, child_validations)
+        remediation_actions.extend(child_actions)
+        if any(item.status == "applied" for item in child_actions):
+            models, child_validations = build_and_validate()
+        evaluation = evaluate_assembly(
+            manifest,
+            tables,
+            child_validations,
+            remediation_actions=remediation_actions,
+        )
     if requested_auto_remediation and evaluation.nested_validation_passed and not evaluation.passed:
-        tables, remediation_actions = remediate_assembly_constraints(manifest, tables, evaluation)
-        if any(item.status == "applied" for item in remediation_actions):
+        tables, assembly_actions = remediate_assembly_constraints(manifest, tables, evaluation)
+        remediation_actions.extend(assembly_actions)
+        if any(item.status == "applied" for item in assembly_actions):
             models, child_validations = build_and_validate()
         evaluation = evaluate_assembly(
             manifest,
