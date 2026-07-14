@@ -7,7 +7,11 @@ from pathlib import Path
 from typing import Any
 
 from intentforge.assemblies.audit import build_assembly_audit_package
-from intentforge.assemblies.evaluator import evaluate_assembly, resolve_component_quantities
+from intentforge.assemblies.evaluator import (
+    evaluate_assembly,
+    remediate_assembly_constraints,
+    resolve_component_quantities,
+)
 from intentforge.assemblies.factories import build_registered_assembly
 from intentforge.assemblies.registry import get_assembly_registry
 from intentforge.parser.registered_parser import parse_registered_intent
@@ -22,11 +26,15 @@ def build_assembly_intent_workflow(
     output_dir: str | Path,
     *,
     dry_run: bool = False,
+    auto_remediate: bool | None = None,
 ) -> dict[str, Any]:
     """Build one registered assembly without bypassing child validation."""
 
     assembly_family = str(payload.get("assembly_family") or "")
     manifest = get_assembly_registry().get(assembly_family)
+    requested_auto_remediation = payload.get("auto_remediate", False) if auto_remediate is None else auto_remediate
+    if not isinstance(requested_auto_remediation, bool):
+        raise ValueError("auto_remediate must be boolean")
     raw_components = payload.get("components")
     if not isinstance(raw_components, dict):
         raise ValueError("assembly payload requires a components mapping")
@@ -43,23 +51,47 @@ def build_assembly_intent_workflow(
         tables[definition.component_id] = parsed.parameter_table
         feature_plans[definition.component_id] = parsed.feature_plan
     quantities = resolve_component_quantities(manifest, tables)
-    models: dict[str, Any] = {}
-    child_validations: dict[str, list[ValidationReport]] = {}
-    for definition in manifest.components:
-        model = build_registered_model(tables[definition.component_id], feature_plans[definition.component_id])
-        models[definition.component_id] = model
-        child_validations[definition.component_id] = [
-            validate_registered_geometry(model, tables[definition.component_id])
-            for _ in range(quantities[definition.component_id])
-        ]
+    requested_tables = {
+        key: value.model_dump(mode="json") for key, value in sorted(tables.items())
+    }
+
+    def build_and_validate() -> tuple[dict[str, Any], dict[str, list[ValidationReport]]]:
+        built_models: dict[str, Any] = {}
+        validations: dict[str, list[ValidationReport]] = {}
+        for definition in manifest.components:
+            model = build_registered_model(tables[definition.component_id], feature_plans[definition.component_id])
+            built_models[definition.component_id] = model
+            validations[definition.component_id] = [
+                validate_registered_geometry(model, tables[definition.component_id])
+                for _ in range(quantities[definition.component_id])
+            ]
+        return built_models, validations
+
+    models, child_validations = build_and_validate()
     evaluation = evaluate_assembly(manifest, tables, child_validations)
+    initial_evaluation = evaluation
+    if requested_auto_remediation and evaluation.nested_validation_passed and not evaluation.passed:
+        tables, remediation_actions = remediate_assembly_constraints(manifest, tables, evaluation)
+        if any(item.status == "applied" for item in remediation_actions):
+            models, child_validations = build_and_validate()
+        evaluation = evaluate_assembly(
+            manifest,
+            tables,
+            child_validations,
+            remediation_actions=remediation_actions,
+        )
     result: dict[str, Any] = {
         "ok": evaluation.passed,
         "assembly_family": manifest.assembly_family,
         "manifest_version": manifest.manifest_version,
         "component_quantities": quantities,
+        "requested_component_parameters": requested_tables,
         "component_parameters": {key: value.model_dump(mode="json") for key, value in sorted(tables.items())},
+        "initial_evaluation": initial_evaluation.model_dump(mode="json"),
         "evaluation": evaluation.model_dump(mode="json"),
+        "auto_remediation_requested": requested_auto_remediation,
+        "remediation_applied": evaluation.remediation_applied,
+        "remediation_actions": [item.model_dump(mode="json") for item in evaluation.remediation_actions],
         "cad_exported": False,
         "dry_run": dry_run,
     }

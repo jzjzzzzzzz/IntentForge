@@ -26,6 +26,11 @@ spatial_constraints:
       flange_bolt_hole_diameter: flange.bolt_hole_diameter
       flange_bore_clearance: flange.bore_clearance
     blocking: true
+    remediation:
+      target_variable: flange_bolt_hole_diameter
+      direction: increase
+      boundary_margin: 0.1
+      rationale: Increase the flange bolt-hole diameter to preserve the selected fastener nominal diameter and provide positive diametral clearance.
   - constraint_id: bolt_body_length_through_flange
     title: Bolt body length through flange
     description: The combined shank and thread length must span the flange thickness.
@@ -37,6 +42,11 @@ spatial_constraints:
       bolt_thread_length: bolt.thread_length
       flange_thickness: flange.flange_thickness
     blocking: true
+    remediation:
+      target_variable: bolt_thread_length
+      direction: increase
+      boundary_margin: 0.5
+      rationale: Increase the bolt thread-region length so the bolt body extends beyond the flange thickness by the declared assembly margin.
 limitations:
   - This assembly represents one flange and its bolts; it does not include a mating flange, nut, washer, gasket, preload, torque, or thread engagement analysis.
   - Bolt threads use the registered simplified cylindrical macro-geometry.

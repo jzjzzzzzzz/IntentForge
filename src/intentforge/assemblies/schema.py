@@ -13,6 +13,8 @@ from intentforge.manufacturing.schema import ManufacturingRequirements
 AssemblyStatus = Literal["active", "deprecated"]
 ConstraintOperator = Literal["lt", "le", "eq", "ge", "gt"]
 ConstraintStatus = Literal["pass", "fail", "not_run"]
+RemediationDirection = Literal["increase", "decrease", "either"]
+RemediationStatus = Literal["applied", "impossible"]
 
 
 def canonical_sha256(payload: Any) -> str:
@@ -38,6 +40,15 @@ class AssemblyComponentDefinition(BaseModel):
         return self
 
 
+class AssemblyRemediationDefinition(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    target_variable: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
+    direction: RemediationDirection
+    boundary_margin: float = Field(default=0.0, ge=0.0)
+    rationale: str = Field(min_length=1)
+
+
 class SpatialConstraintDefinition(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -49,6 +60,15 @@ class SpatialConstraintDefinition(BaseModel):
     right_expression: str = Field(min_length=1)
     variable_bindings: dict[str, str] = Field(min_length=1)
     blocking: bool = True
+    remediation: AssemblyRemediationDefinition | None = None
+
+    @model_validator(mode="after")
+    def validate_remediation_target(self) -> "SpatialConstraintDefinition":
+        if self.remediation is not None and self.remediation.target_variable not in self.variable_bindings:
+            raise ValueError("remediation target_variable must reference a declared variable binding")
+        if self.operator in {"lt", "gt"} and self.remediation is not None and self.remediation.boundary_margin <= 0:
+            raise ValueError("strict inequalities require a positive remediation boundary_margin")
+        return self
 
 
 class AssemblyManifest(BaseModel):
@@ -112,6 +132,19 @@ class AssemblyConstraintObservation(BaseModel):
     description: str
 
 
+class AssemblyRemediationAction(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    constraint_id: str
+    status: RemediationStatus
+    component_id: str | None = None
+    parameter_name: str | None = None
+    previous_value: float | None = None
+    proposed_value: float | None = None
+    boundary_margin: float = Field(ge=0.0)
+    rationale: str
+
+
 class AssemblyEvaluationReport(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -119,6 +152,8 @@ class AssemblyEvaluationReport(BaseModel):
     manifest_version: str
     child_observations: list[AssemblyChildObservation]
     constraint_observations: list[AssemblyConstraintObservation]
+    remediation_actions: list[AssemblyRemediationAction] = Field(default_factory=list)
+    remediation_applied: bool = False
     nested_validation_passed: bool
     passed: bool
     limitations: list[str] = Field(default_factory=list)

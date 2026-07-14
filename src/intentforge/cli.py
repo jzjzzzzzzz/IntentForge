@@ -199,15 +199,31 @@ def _topology_command(args) -> int:
         return 0
     if args.topology_command == "build-json":
         payload = json.loads(Path(args.intent_path).read_text(encoding="utf-8"))
-        result = parse_build_intent_workflow(payload, args.output_root, dry_run=args.dry_run)
+        if "assembly_family" in payload:
+            from intentforge.assemblies import build_assembly_intent_workflow
+
+            assembly_output = args.output_root or (
+                _project_root() / "output" / "assemblies" / str(payload["assembly_family"])
+            )
+            result = build_assembly_intent_workflow(
+                payload,
+                assembly_output,
+                dry_run=args.dry_run,
+            )
+        else:
+            result = parse_build_intent_workflow(payload, args.output_root, dry_run=args.dry_run)
         if args.json:
             print(json.dumps(result, indent=2, sort_keys=True))
         else:
             print("IntentForge Registered Topology Build")
             print("PASS" if result.get("ok") else "FAIL")
-            print(f"Family: {result.get('object_type')}")
+            print(f"Family: {result.get('object_type') or result.get('assembly_family')}")
             print(f"CAD exported: {str(result.get('cad_exported', False)).lower()}")
-            print(f"Validation passed: {str(result.get('validation_valid', False)).lower()}")
+            validation_passed = result.get(
+                "validation_valid",
+                result.get("evaluation", {}).get("passed", False),
+            )
+            print(f"Validation passed: {str(validation_passed).lower()}")
             for artifact in result.get("artifacts", []):
                 if artifact.get("path"):
                     print(f"- {artifact.get('kind')}: {artifact['path']}")
