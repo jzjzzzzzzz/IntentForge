@@ -6,6 +6,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from intentforge.manufacturing.schema import ManufacturingRequirements
+
 
 ParameterType = Literal["float", "integer", "boolean", "string"]
 TopologyStatus = Literal["active", "deprecated"]
@@ -99,6 +101,7 @@ class TopologyManifest(BaseModel):
     controlled_parameters: list[ControlledParameter] = Field(min_length=1)
     supported_features: list[SupportedFeature] = Field(min_length=1)
     capability_evidence_binding: CapabilityEvidenceBinding
+    manufacturing_requirements: ManufacturingRequirements | None = None
     limitations: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -135,3 +138,9 @@ class TopologyManifest(BaseModel):
             if item.metric == metric:
                 return item
         raise KeyError(metric)
+
+    @property
+    def content_address(self) -> str:
+        from intentforge.manufacturing.schema import manufacturing_content_address
+
+        return manufacturing_content_address(self.model_dump(mode="json"))

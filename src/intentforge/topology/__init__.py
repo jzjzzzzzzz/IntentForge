@@ -23,15 +23,25 @@ from intentforge.topology.schema import (
     SupportedFeature,
     TopologyManifest,
 )
+from intentforge.manufacturing.schema import (
+    GeometricTolerance,
+    ManufacturingRequirements,
+    MaterialSpecification,
+    SurfaceRoughnessRequirement,
+)
 from intentforge.topology.validation import validate_registered_geometry, validate_registered_intent
 
 __all__ = [
     "CapabilityEvidenceBinding",
     "ControlledParameter",
+    "GeometricTolerance",
+    "ManufacturingRequirements",
+    "MaterialSpecification",
     "RegistryManager",
     "RuleVariableMapping",
     "SAFE_REJECTION_SCHEMA_VERSION",
     "SupportedFeature",
+    "SurfaceRoughnessRequirement",
     "TopologyManifest",
     "TopologyRegistryError",
     "build_registered_model",

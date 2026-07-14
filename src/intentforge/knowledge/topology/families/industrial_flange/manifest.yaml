@@ -102,6 +102,18 @@ capability_evidence_binding:
       remediation_parameter: flange_thickness
       rule_ids: [thin_section_warning_001]
   scope_note: The 65-item catalog is visible for audit mapping; bracket-specific evidence is not treated as flange verification. Only applicable_evidence_ids contribute engineering context.
+manufacturing_requirements:
+  material_specification:
+    material_grade: SS316L
+    hardness: HRB_95_Max
+    surface_treatment: Passivated
+  surface_roughness:
+    - controlled_feature: mating_face
+      requirement: Ra_3.2
+  geometric_tolerances:
+    - controlled_feature: mating_face
+      tolerance_type: flatness
+      maximum_allowable_deviation_mm: 0.1
 limitations:
   - This profile does not certify ASME B16.5 pressure class, material, facing, hub, gasket, or load compliance.
   - The profile generates a flat ring flange only and requires external engineering review for service use.

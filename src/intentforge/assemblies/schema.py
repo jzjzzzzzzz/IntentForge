@@ -8,6 +8,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from intentforge.manufacturing.schema import ManufacturingRequirements
+
 AssemblyStatus = Literal["active", "deprecated"]
 ConstraintOperator = Literal["lt", "le", "eq", "ge", "gt"]
 ConstraintStatus = Literal["pass", "fail", "not_run"]
@@ -61,6 +63,7 @@ class AssemblyManifest(BaseModel):
     assembly_factory_id: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     components: list[AssemblyComponentDefinition] = Field(min_length=1)
     spatial_constraints: list[SpatialConstraintDefinition] = Field(min_length=1)
+    manufacturing_requirements: ManufacturingRequirements | None = None
     limitations: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 

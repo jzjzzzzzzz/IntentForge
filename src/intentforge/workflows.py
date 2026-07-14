@@ -500,6 +500,51 @@ def parse_build_workflow(
         write_validation_report(validation_report, shared_validation_path)
     write_validation_report(validation_report, persistent_validation_path)
 
+    manufacturing_order = None
+    manufacturing_envelope = None
+    if validation_report.valid and not dry_run:
+        from intentforge.manufacturing.cas import build_component_manufacturing_envelope
+        from intentforge.manufacturing.orders import (
+            build_component_manufacturing_order,
+            write_manufacturing_order,
+        )
+        from intentforge.topology.registry import get_topology_registry
+
+        topology_manifest = get_topology_registry().get(parsed.parameter_table.family)
+        manufacturing_order = build_component_manufacturing_order(topology_manifest)
+        latest_order_path = write_manufacturing_order(
+            manufacturing_order, out_root / "manufacturing_order.json"
+        )
+        persistent_order_path = write_manufacturing_order(
+            manufacturing_order, run_context.run_dir / "manufacturing_order.json"
+        )
+        latest_envelope_path = out_root / "manufacturing_cas_envelope.json"
+        persistent_envelope_path = run_context.run_dir / "manufacturing_cas_envelope.json"
+        manufacturing_envelope = build_component_manufacturing_envelope(
+            manifest=topology_manifest,
+            order=manufacturing_order,
+            step_path=step_path,
+            stl_path=stl_path,
+            validation_path=validation_path,
+            output_path=latest_envelope_path,
+        )
+        build_component_manufacturing_envelope(
+            manifest=topology_manifest,
+            order=manufacturing_order,
+            step_path=persistent_step_path,
+            stl_path=persistent_stl_path,
+            validation_path=persistent_validation_path,
+            output_path=persistent_envelope_path,
+        )
+        latest_paths.update({
+            "manufacturing_order": latest_order_path,
+            "manufacturing_cas_envelope": latest_envelope_path,
+        })
+        persistent_paths.update({
+            "manufacturing_order": persistent_order_path,
+            "manufacturing_cas_envelope": persistent_envelope_path,
+        })
+
     metadata = build_run_metadata(
         run_context=run_context,
         command_type="parse-build",
@@ -540,6 +585,9 @@ def parse_build_workflow(
         "omitted_features": omitted_features,
         "run_metadata": metadata,
     }
+    if manufacturing_order is not None and manufacturing_envelope is not None:
+        result["manufacturing_order"] = manufacturing_order.model_dump(mode="json")
+        result["manufacturing_cas"] = manufacturing_envelope
     if not validation_report.valid:
         result["error_type"] = "ValidationFailedError"
         result["message"] = validation_report.summary

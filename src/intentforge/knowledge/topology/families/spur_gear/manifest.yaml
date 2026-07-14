@@ -34,6 +34,19 @@ capability_evidence_binding:
     - {metric: thickness, expression: "face_width", remediation_parameter: face_width, rule_ids: [thin_section_warning_001]}
     - {metric: tool_clearance, expression: "module", remediation_parameter: module, rule_ids: [tool_clearance_001]}
   scope_note: The full 65-item Phase 22 catalog is visible for audit mapping; bracket-specific evidence is not gear verification. Only applicable_evidence_ids provide inherited heuristic context.
+manufacturing_requirements:
+  material_specification:
+    material_grade: AISI_4140
+    hardness: HRC_30_35
+    surface_treatment: Black_Oxide
+  surface_roughness:
+    - controlled_feature: gear_teeth_flanks
+      requirement: Ra_1.6
+  geometric_tolerances:
+    - controlled_feature: bore_hole
+      tolerance_type: concentricity
+      reference_feature: pitch_circle
+      maximum_allowable_deviation_mm: 0.05
 limitations:
   - Tooth geometry is a deterministic involute approximation and does not include profile shift, backlash, tip relief, undercut correction, or gear-pair contact analysis; zero-shift gears below 17 teeth are rejected.
   - The profile is not a certification of ISO gear accuracy, strength, noise, wear, or service suitability.

@@ -14,6 +14,7 @@ from intentforge.parser.registered_parser import parse_registered_intent
 from intentforge.review.portability import canonical_json_bytes
 from intentforge.schemas import ParameterTable, ValidationReport
 from intentforge.topology import build_registered_model, validate_registered_geometry
+from intentforge.manufacturing.orders import build_assembly_manufacturing_order, write_manufacturing_order
 
 
 def build_assembly_intent_workflow(
@@ -80,6 +81,19 @@ def build_assembly_intent_workflow(
     root.mkdir(parents=True, exist_ok=True)
     assembly_step = root / "flange_bolted_joint.step"
     assembly.export(str(assembly_step), exportType="STEP")
+    from intentforge.topology.registry import get_topology_registry
+
+    topology_registry = get_topology_registry()
+    component_manifests = {
+        definition.component_id: topology_registry.get(definition.topology_family)
+        for definition in manifest.components
+    }
+    manufacturing_order = build_assembly_manufacturing_order(
+        manifest, component_manifests, quantities
+    )
+    manufacturing_order_path = write_manufacturing_order(
+        manufacturing_order, root / "manufacturing_order.json"
+    )
     child_artifacts: dict[str, Path] = {}
     for placement in placements:
         instance_id = placement["instance_id"]
@@ -97,12 +111,15 @@ def build_assembly_intent_workflow(
         placements,
         child_artifacts,
         assembly_step,
+        manufacturing_order_path,
         root / "audit_package",
     )
     result.update({
         "cad_exported": True,
         "assembly_step_path": str(assembly_step),
         "assembly_evaluation_path": str(report_path),
+        "manufacturing_order_path": str(manufacturing_order_path),
+        "manufacturing_order_content_address": manufacturing_order.content_address,
         "child_artifact_paths": {key: str(value) for key, value in sorted(child_artifacts.items())},
         "audit_package": package,
         "nested_merkle_root": package["child_merkle_root"],

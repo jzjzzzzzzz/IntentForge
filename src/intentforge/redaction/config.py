@@ -275,8 +275,9 @@ def default_redaction_config() -> RedactionConfig:
                 description="Redact material and finish specifications",
                 severity="medium",
                 selectors=[
-                    {"field_name_pattern": r"^(material|finish|coating|surface|treatment|alloy|grade)$"},
+                    {"field_name_pattern": r"^(material|material_grade|hardness|finish|coating|surface|surface_treatment|treatment|alloy|grade)$"},
                     {"path_pattern": r"parameters\[", "field_name_pattern": r"material"},
+                    {"path_pattern": r"manufacturing", "field_name_pattern": r"^(requirement|hardness|material_grade|surface_treatment)$"},
                 ],
                 token_type="redacted_material",
                 salt="intentforge-material-salt-v1",
@@ -288,6 +289,7 @@ def default_redaction_config() -> RedactionConfig:
                 selectors=[
                     {"path_pattern": r"parameters\[", "value_type": "numeric"},
                     {"path_pattern": r"constraints\[", "value_type": "numeric"},
+                    {"field_name_pattern": r"^maximum_allowable_deviation_mm$", "value_type": "numeric"},
                 ],
                 token_type="redacted_numeric",
                 salt="intentforge-numeric-salt-v1",
